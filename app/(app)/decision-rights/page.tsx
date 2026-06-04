@@ -1,3 +1,8 @@
+import { PageHeader } from '@/components/ui/page-header'
+import { Card, CardHeader } from '@/components/ui/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
+
 export default function DecisionRightsPage() {
   const DECISIONS = [
     {
@@ -24,46 +29,49 @@ export default function DecisionRightsPage() {
     },
   ]
 
-  const cellStyle = (val: string) => {
-    if (val === 'Decides') return 'text-blue-700 font-medium'
-    if (val === 'Approves' || val === 'Approves*') return 'text-green-700 font-medium'
-    if (val === 'Recommends') return 'text-yellow-700'
-    if (val === 'Informed') return 'text-gray-500'
-    return 'text-gray-300'
+  function roleBadge(val: string) {
+    if (val === '—') return <span className="text-text-muted">—</span>
+    if (val === 'Decides') return <Badge variant="accent">{val}</Badge>
+    if (val === 'Approves' || val === 'Approves*') return <Badge variant="accent">{val}</Badge>
+    if (val === 'Recommends') return <Badge variant="warn">{val}</Badge>
+    if (val === 'Informed') return <Badge variant="muted">{val}</Badge>
+    return <span className="text-text-muted">{val}</span>
   }
 
   return (
     <div>
-      <h1 className="text-xl font-semibold mb-2">Decision Rights</h1>
-      <p className="text-sm text-gray-400 mb-6">Myko ↔ Abigél ↔ Owner. * = threshold-based approval (see Settings).</p>
+      <PageHeader
+        title="Decision Rights"
+        description="Myko ↔ Abigél ↔ Owner. * = threshold-based approval (see Settings)."
+      />
 
       <div className="space-y-6">
         {DECISIONS.map(group => (
-          <div key={group.section} className="rounded-lg border border-gray-200 overflow-hidden">
-            <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
-              <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">{group.section}</p>
-            </div>
-            <table className="min-w-full text-sm divide-y divide-gray-100">
-              <thead className="bg-white">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Decision</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 w-28">Myko</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 w-28">Abigél</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 w-28">Owner</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 bg-white">
+          <Card key={group.section} className="overflow-hidden">
+            <CardHeader>
+              <p className="text-xs font-medium uppercase tracking-widest text-text-muted">{group.section}</p>
+            </CardHeader>
+            <Table className="border-0 rounded-none">
+              <TableHead>
+                <TableRow>
+                  <TableHeader>Decision</TableHeader>
+                  <TableHeader className="text-center w-28">Myko</TableHeader>
+                  <TableHeader className="text-center w-28">Abigél</TableHeader>
+                  <TableHeader className="text-center w-28">Owner</TableHeader>
+                </TableRow>
+              </TableHead>
+              <TableBody>
                 {group.items.map((item, i) => (
-                  <tr key={i} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-gray-700">{item.decision}</td>
-                    <td className={`px-4 py-3 text-center text-xs ${cellStyle(item.myko)}`}>{item.myko}</td>
-                    <td className={`px-4 py-3 text-center text-xs ${cellStyle(item.abigel)}`}>{item.abigel}</td>
-                    <td className={`px-4 py-3 text-center text-xs ${cellStyle(item.owner)}`}>{item.owner}</td>
-                  </tr>
+                  <TableRow key={i}>
+                    <TableCell className="text-foreground">{item.decision}</TableCell>
+                    <TableCell className="text-center">{roleBadge(item.myko)}</TableCell>
+                    <TableCell className="text-center">{roleBadge(item.abigel)}</TableCell>
+                    <TableCell className="text-center">{roleBadge(item.owner)}</TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </Card>
         ))}
       </div>
     </div>

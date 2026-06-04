@@ -5,6 +5,8 @@ import { api } from '@/lib/api'
 import { currentMonth } from '@/lib/utils'
 import type { Build, BuildType } from '@/lib/types'
 import { createClient } from '@/lib/supabase'
+import { PageHeader } from '@/components/ui/page-header'
+import { Input } from '@/components/ui/input'
 
 interface Props {
   type: BuildType
@@ -23,7 +25,6 @@ export function TrackerPage({ type, title }: Props) {
 
   useEffect(() => {
     loadBuilds()
-    // check role
     const supabase = createClient()
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session) return
@@ -34,15 +35,18 @@ export function TrackerPage({ type, title }: Props) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-semibold">{title}</h1>
-        <input
-          type="month"
-          value={month}
-          onChange={e => setMonth(e.target.value)}
-          className="rounded-md border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
-        />
-      </div>
+      <PageHeader
+        title={title}
+        actions={
+          <Input
+            type="month"
+            value={month}
+            onChange={e => setMonth(e.target.value)}
+            className="w-auto"
+            mono
+          />
+        }
+      />
       <BuildsTable builds={builds} type={type} onRefresh={loadBuilds} isAdmin={isAdmin} />
     </div>
   )

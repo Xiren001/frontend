@@ -5,6 +5,11 @@ import { PhaseBadge } from './PhaseBadge'
 import { formatDate, currentMonth } from '@/lib/utils'
 import type { Build, BuildType } from '@/lib/types'
 import Link from 'next/link'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card, CardBody, CardHeader } from '@/components/ui/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
 
 const DATE_FIELDS: { key: keyof Build; label: string }[] = [
   { key: 'approved_date',  label: 'Approved' },
@@ -56,83 +61,92 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       {weeks.map(w => {
         const wb = builds.filter(b => b.week_number === w)
         return (
           <div key={w}>
-            <h3 className="text-sm font-semibold text-gray-600 mb-2">Week {w} — {wb.length} build{wb.length !== 1 ? 's' : ''}</h3>
-            <div className="overflow-x-auto rounded-lg border border-gray-200">
-              <table className="min-w-full text-xs divide-y divide-gray-100">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-3 py-2 text-left font-medium text-gray-500">Product</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-500">Lang</th>
-                    {DATE_FIELDS.map(f => (
-                      <th key={f.key} className="px-3 py-2 text-left font-medium text-gray-500 whitespace-nowrap">{f.label}</th>
-                    ))}
-                    <th className="px-3 py-2 text-left font-medium text-gray-500">Outcome</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-500">Phase</th>
-                    <th className="px-3 py-2 text-right font-medium text-gray-500">Days</th>
-                    {isAdmin && <th className="px-3 py-2" />}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 bg-white">
-                  {wb.map(b => (
-                    <tr key={b.id} className="hover:bg-gray-50">
-                      {editId === b.id ? (
-                        <>
-                          <td className="px-3 py-1.5">
-                            <input className="border rounded px-1 py-0.5 w-44" value={editData.product_name ?? ''} onChange={e => setEditData(d => ({ ...d, product_name: e.target.value }))} />
-                          </td>
-                          <td className="px-3 py-1.5">
-                            <input className="border rounded px-1 py-0.5 w-20" value={editData.language ?? ''} onChange={e => setEditData(d => ({ ...d, language: e.target.value }))} />
-                          </td>
-                          {DATE_FIELDS.map(f => (
-                            <td key={f.key} className="px-3 py-1.5">
-                              <input type="date" className="border rounded px-1 py-0.5" value={(editData[f.key] as string) ?? ''} onChange={e => setEditData(d => ({ ...d, [f.key]: e.target.value || null }))} />
-                            </td>
-                          ))}
-                          <td className="px-3 py-1.5">
-                            <select className="border rounded px-1 py-0.5" value={editData.outcome ?? ''} onChange={e => setEditData(d => ({ ...d, outcome: (e.target.value as Build['outcome']) || null }))}>
-                              <option value="">—</option>
-                              <option value="winner">winner</option>
-                              <option value="killed">killed</option>
-                            </select>
-                          </td>
-                          <td colSpan={2} />
-                          <td className="px-3 py-1.5 text-right whitespace-nowrap">
-                            <button onClick={saveEdit} className="text-xs text-blue-600 hover:underline mr-2">Save</button>
-                            <button onClick={() => setEditId(null)} className="text-xs text-gray-400 hover:underline">Cancel</button>
-                          </td>
-                        </>
-                      ) : (
-                        <>
-                          <td className="px-3 py-2 font-medium max-w-xs truncate">{b.product_name}</td>
-                          <td className="px-3 py-2 text-gray-500">{b.language ?? '—'}</td>
-                          {DATE_FIELDS.map(f => (
-                            <td key={f.key} className="px-3 py-2 text-gray-500 whitespace-nowrap">{formatDate(b[f.key] as string)}</td>
-                          ))}
-                          <td className="px-3 py-2">{b.outcome ? <span className={b.outcome === 'winner' ? 'text-green-600 font-medium' : 'text-red-500'}>{b.outcome}</span> : '—'}</td>
-                          <td className="px-3 py-2"><PhaseBadge phase={b.phase} /></td>
-                          <td className="px-3 py-2 text-right text-gray-400">{b.total_days ?? '—'}</td>
-                          {isAdmin && (
-                            <td className="px-3 py-2 text-right whitespace-nowrap">
-                              <Link href={`/qa-checklist/${b.id}`} className="text-xs text-indigo-500 hover:underline mr-2">QA</Link>
-                              <button onClick={() => startEdit(b)} className="text-xs text-blue-600 hover:underline mr-2">Edit</button>
-                              <button onClick={() => handleDelete(b.id)} className="text-xs text-red-400 hover:underline">Del</button>
-                            </td>
-                          )}
-                        </>
-                      )}
-                    </tr>
-                  ))}
-                  {wb.length === 0 && (
-                    <tr><td colSpan={12} className="px-3 py-4 text-center text-gray-400">No builds in Week {w}</td></tr>
-                  )}
-                </tbody>
-              </table>
+            <div className="flex items-center gap-3 mb-3">
+              <h3 className="text-sm font-medium text-foreground">Week {w}</h3>
+              <Badge variant="muted">{wb.length} build{wb.length !== 1 ? 's' : ''}</Badge>
             </div>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableHeader>Product</TableHeader>
+                  <TableHeader>Lang</TableHeader>
+                  {DATE_FIELDS.map(f => (
+                    <TableHeader key={f.key} className="whitespace-nowrap">{f.label}</TableHeader>
+                  ))}
+                  <TableHeader>Outcome</TableHeader>
+                  <TableHeader>Phase</TableHeader>
+                  <TableHeader className="text-right">Days</TableHeader>
+                  {isAdmin && <TableHeader />}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {wb.map(b => (
+                  <TableRow key={b.id}>
+                    {editId === b.id ? (
+                      <>
+                        <TableCell>
+                          <Input className="w-44 py-1" value={editData.product_name ?? ''} onChange={e => setEditData(d => ({ ...d, product_name: e.target.value }))} />
+                        </TableCell>
+                        <TableCell>
+                          <Input className="w-20 py-1" value={editData.language ?? ''} onChange={e => setEditData(d => ({ ...d, language: e.target.value }))} />
+                        </TableCell>
+                        {DATE_FIELDS.map(f => (
+                          <TableCell key={f.key}>
+                            <Input type="date" className="py-1" value={(editData[f.key] as string) ?? ''} onChange={e => setEditData(d => ({ ...d, [f.key]: e.target.value || null }))} />
+                          </TableCell>
+                        ))}
+                        <TableCell>
+                          <select className="rounded-md border border-border bg-surface-elevated px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-accent/40" value={editData.outcome ?? ''} onChange={e => setEditData(d => ({ ...d, outcome: (e.target.value as Build['outcome']) || null }))}>
+                            <option value="">—</option>
+                            <option value="winner">winner</option>
+                            <option value="killed">killed</option>
+                          </select>
+                        </TableCell>
+                        <TableCell colSpan={2} />
+                        <TableCell className="text-right whitespace-nowrap">
+                          <Button size="sm" variant="primary" onClick={saveEdit} className="mr-2">Save</Button>
+                          <Button size="sm" variant="ghost" onClick={() => setEditId(null)}>Cancel</Button>
+                        </TableCell>
+                      </>
+                    ) : (
+                      <>
+                        <TableCell className="font-medium text-foreground max-w-xs truncate">{b.product_name}</TableCell>
+                        <TableCell mono>{b.language ?? '—'}</TableCell>
+                        {DATE_FIELDS.map(f => (
+                          <TableCell key={f.key} mono className="whitespace-nowrap">{formatDate(b[f.key] as string)}</TableCell>
+                        ))}
+                        <TableCell>
+                          {b.outcome
+                            ? <Badge variant={b.outcome === 'winner' ? 'accent' : 'danger'}>{b.outcome}</Badge>
+                            : <span className="text-text-muted">—</span>}
+                        </TableCell>
+                        <TableCell><PhaseBadge phase={b.phase} /></TableCell>
+                        <TableCell mono className="text-right text-text-muted">{b.total_days ?? '—'}</TableCell>
+                        {isAdmin && (
+                          <TableCell className="text-right whitespace-nowrap">
+                            <Link href={`/qa-checklist/${b.id}`} className="text-xs text-accent hover:text-accent-bright mr-3">QA</Link>
+                            <button onClick={() => startEdit(b)} className="text-xs text-text-secondary hover:text-foreground mr-3">Edit</button>
+                            <button onClick={() => handleDelete(b.id)} className="text-xs text-danger/70 hover:text-danger">Del</button>
+                          </TableCell>
+                        )}
+                      </>
+                    )}
+                  </TableRow>
+                ))}
+                {wb.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={12} className="text-center text-text-muted py-8">
+                      No builds in Week {w}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
           </div>
         )
       })}
@@ -140,30 +154,34 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
       {isAdmin && (
         <div>
           {!adding ? (
-            <button onClick={() => setAdding(true)} className="text-sm text-blue-600 hover:underline">+ Add build</button>
+            <Button variant="secondary" size="sm" onClick={() => setAdding(true)}>+ Add build</Button>
           ) : (
-            <div className="rounded-lg border border-gray-200 p-4 bg-white space-y-3">
-              <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">New build</p>
-              <div className="flex flex-wrap gap-3">
-                <input placeholder="Product name" className="border rounded px-2 py-1 text-sm flex-1 min-w-48" value={newBuild.product_name ?? ''} onChange={e => setNewBuild(d => ({ ...d, product_name: e.target.value }))} />
-                <input placeholder="Language" className="border rounded px-2 py-1 text-sm w-28" value={newBuild.language ?? ''} onChange={e => setNewBuild(d => ({ ...d, language: e.target.value }))} />
-                <select className="border rounded px-2 py-1 text-sm" value={newBuild.week_number} onChange={e => setNewBuild(d => ({ ...d, week_number: Number(e.target.value) }))}>
-                  {[1,2,3,4].map(w => <option key={w} value={w}>Week {w}</option>)}
-                </select>
-              </div>
-              <div className="flex flex-wrap gap-3 items-center">
-                {DATE_FIELDS.map(f => (
-                  <div key={f.key}>
-                    <label className="block text-xs text-gray-500 mb-0.5">{f.label}</label>
-                    <input type="date" className="border rounded px-2 py-1 text-sm" value={(newBuild[f.key] as string) ?? ''} onChange={e => setNewBuild(d => ({ ...d, [f.key]: e.target.value || null }))} />
-                  </div>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <button onClick={handleAdd} className="rounded-md bg-gray-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-gray-700">Add</button>
-                <button onClick={() => setAdding(false)} className="text-xs text-gray-400 hover:underline">Cancel</button>
-              </div>
-            </div>
+            <Card>
+              <CardHeader>
+                <p className="text-xs font-medium uppercase tracking-widest text-text-muted">New build</p>
+              </CardHeader>
+              <CardBody className="space-y-4">
+                <div className="flex flex-wrap gap-3">
+                  <Input placeholder="Product name" className="flex-1 min-w-48" value={newBuild.product_name ?? ''} onChange={e => setNewBuild(d => ({ ...d, product_name: e.target.value }))} />
+                  <Input placeholder="Language" className="w-28" value={newBuild.language ?? ''} onChange={e => setNewBuild(d => ({ ...d, language: e.target.value }))} />
+                  <select className="rounded-md border border-border bg-surface-elevated px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent/40" value={newBuild.week_number} onChange={e => setNewBuild(d => ({ ...d, week_number: Number(e.target.value) }))}>
+                    {[1,2,3,4].map(w => <option key={w} value={w}>Week {w}</option>)}
+                  </select>
+                </div>
+                <div className="flex flex-wrap gap-4">
+                  {DATE_FIELDS.map(f => (
+                    <div key={f.key}>
+                      <label className="block text-xs text-text-muted mb-1">{f.label}</label>
+                      <Input type="date" value={(newBuild[f.key] as string) ?? ''} onChange={e => setNewBuild(d => ({ ...d, [f.key]: e.target.value || null }))} />
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={handleAdd}>Add</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setAdding(false)}>Cancel</Button>
+                </div>
+              </CardBody>
+            </Card>
           )}
         </div>
       )}

@@ -3,6 +3,10 @@ import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import type { Settings } from '@/lib/types'
 import { createClient } from '@/lib/supabase'
+import { PageHeader } from '@/components/ui/page-header'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 
 const FIELDS: { key: keyof Settings; label: string; unit: string }[] = [
   { key: 'build_target_days', label: 'Build target (days)', unit: 'days' },
@@ -39,46 +43,49 @@ export default function SettingsPage() {
     setTimeout(() => setSaved(false), 2000)
   }
 
-  if (!settings) return <p className="text-sm text-gray-400">Loading…</p>
+  if (!settings) return <p className="text-sm text-text-muted font-mono">Loading…</p>
 
   return (
     <div>
-      <h1 className="text-xl font-semibold mb-2">Settings</h1>
-      <p className="text-sm text-gray-400 mb-6">Pipeline targets and approval thresholds. These drive KPI colours and the proofread flag.</p>
+      <PageHeader
+        title="Settings"
+        description="Pipeline targets and approval thresholds. These drive KPI colours and the proofread flag."
+      />
 
-      <div className="max-w-lg rounded-lg border border-gray-200 bg-white divide-y divide-gray-100">
+      <Card className="max-w-lg divide-y divide-border-subtle">
         {FIELDS.map(f => (
           <div key={f.key} className="px-5 py-4 flex items-center justify-between gap-4">
             <div>
-              <p className="text-sm text-gray-700">{f.label}</p>
-              <p className="text-xs text-gray-400">{f.unit}</p>
+              <p className="text-sm text-foreground">{f.label}</p>
+              <p className="text-xs text-text-muted font-mono">{f.unit}</p>
             </div>
             {isAdmin ? (
-              <input
+              <Input
                 type="number"
                 value={draft[f.key] as number ?? ''}
                 onChange={e => setDraft(d => ({ ...d, [f.key]: Number(e.target.value) }))}
-                className="w-24 rounded-md border border-gray-200 px-3 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-gray-300"
+                className="w-24 text-right"
+                mono
               />
             ) : (
-              <span className="text-sm font-medium text-gray-700">{settings[f.key]}</span>
+              <span className="text-sm font-mono font-medium text-foreground">{settings[f.key]}</span>
             )}
           </div>
         ))}
-      </div>
+      </Card>
 
       {isAdmin && (
-        <button
+        <Button
           onClick={handleSave}
           disabled={saving}
-          className="mt-5 rounded-md bg-gray-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50 transition-colors"
+          className="mt-6"
         >
           {saved ? 'Saved!' : saving ? 'Saving…' : 'Save settings'}
-        </button>
+        </Button>
       )}
 
       {!isAdmin && (
-        <p className="mt-4 text-xs text-gray-400">Admin access required to edit settings.</p>
+        <p className="mt-4 text-xs text-text-muted">Admin access required to edit settings.</p>
       )}
     </div>
   )

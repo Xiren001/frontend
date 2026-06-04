@@ -3,6 +3,11 @@ import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import { currentMonth } from '@/lib/utils'
 import type { WeekStats } from '@/lib/types'
+import { PageHeader } from '@/components/ui/page-header'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Card, CardBody } from '@/components/ui/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
 interface ReportNarrative { id: string; week_number: number; narrative_text: string }
 
@@ -57,48 +62,49 @@ export default function WeeklyReportPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-semibold">Weekly Report to Abigél</h1>
-        <input type="month" value={month} onChange={e => setMonth(e.target.value)}
-          className="rounded-md border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300" />
-      </div>
-      <p className="text-xs text-gray-400 mb-6">Auto counts from trackers. Fill narrative cells each Friday — send by 2pm.</p>
+      <PageHeader
+        title="Weekly Report"
+        description="Auto counts from trackers. Fill narrative cells each Friday — send by 2pm."
+        actions={
+          <Input type="month" value={month} onChange={e => setMonth(e.target.value)} className="w-auto" mono />
+        }
+      />
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200 mb-8">
-        <table className="min-w-full text-sm divide-y divide-gray-100">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Metric</th>
-              {[1,2,3,4].map(w => <th key={w} className="px-4 py-3 text-center text-xs font-medium text-gray-500">Week {w}</th>)}
-              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500">Month</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100 bg-white">
-            {METRICS.map(m => (
-              <tr key={m.key} className="hover:bg-gray-50">
-                <td className="px-4 py-3 text-gray-600">{m.label}</td>
-                {weekStats.map(w => (
-                  <td key={w.week} className="px-4 py-3 text-center text-gray-700">
-                    {w[m.key] ?? '—'}
-                  </td>
-                ))}
-                <td className="px-4 py-3 text-center font-medium">{monthTotal(m.key)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <Table className="mb-10">
+        <TableHead>
+          <TableRow>
+            <TableHeader>Metric</TableHeader>
+            {[1,2,3,4].map(w => <TableHeader key={w} className="text-center">Week {w}</TableHeader>)}
+            <TableHeader className="text-center">Month</TableHeader>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {METRICS.map(m => (
+            <TableRow key={m.key}>
+              <TableCell className="text-foreground">{m.label}</TableCell>
+              {weekStats.map(w => (
+                <TableCell key={w.week} mono className="text-center text-foreground">
+                  {w[m.key] ?? '—'}
+                </TableCell>
+              ))}
+              <TableCell mono className="text-center font-medium text-foreground">{monthTotal(m.key)}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {[1,2,3,4].map(w => (
-          <div key={w} className="rounded-lg border border-gray-200 bg-white p-4">
-            <p className="text-xs font-medium text-gray-500 mb-2">Week {w} — narrative</p>
-            <NarrativeField
-              value={getNarrative(w)}
-              onSave={text => saveNarrative(w, text)}
-              saving={saving === w}
-            />
-          </div>
+          <Card key={w}>
+            <CardBody>
+              <p className="text-xs font-medium uppercase tracking-widest text-text-muted mb-3">Week {w} — narrative</p>
+              <NarrativeField
+                value={getNarrative(w)}
+                onSave={text => saveNarrative(w, text)}
+                saving={saving === w}
+              />
+            </CardBody>
+          </Card>
         ))}
       </div>
     </div>
@@ -114,16 +120,18 @@ function NarrativeField({ value, onSave, saving }: { value: string; onSave: (t: 
         rows={4}
         value={text}
         onChange={e => setText(e.target.value)}
-        className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 resize-none"
+        className="w-full rounded-md border border-border bg-surface-elevated px-3 py-2 text-sm text-foreground placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/40 resize-none"
         placeholder="Notes for Abigél…"
       />
-      <button
+      <Button
+        size="sm"
+        variant="secondary"
         onClick={() => onSave(text)}
         disabled={saving}
-        className="mt-1 text-xs text-blue-600 hover:underline disabled:opacity-50"
+        className="mt-2"
       >
         {saving ? 'Saving…' : 'Save'}
-      </button>
+      </Button>
     </div>
   )
 }

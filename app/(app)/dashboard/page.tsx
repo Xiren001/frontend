@@ -4,6 +4,8 @@ import { api } from '@/lib/api'
 import { KPICard } from '@/components/KPICard'
 import type { KPI } from '@/lib/types'
 import { currentMonth } from '@/lib/utils'
+import { PageHeader, SectionHeading } from '@/components/ui/page-header'
+import { Input } from '@/components/ui/input'
 
 export default function DashboardPage() {
   const [kpi, setKpi] = useState<KPI | null>(null)
@@ -25,23 +27,27 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-semibold">KPI Dashboard</h1>
-        <input
-          type="month"
-          value={month}
-          onChange={e => setMonth(e.target.value)}
-          className="rounded-md border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
-        />
-      </div>
+      <PageHeader
+        title="KPI Dashboard"
+        description="Cycle times, quality metrics, and pipeline status at a glance."
+        actions={
+          <Input
+            type="month"
+            value={month}
+            onChange={e => setMonth(e.target.value)}
+            className="w-auto"
+            mono
+          />
+        }
+      />
 
       {!kpi ? (
-        <p className="text-sm text-gray-400">Loading…</p>
+        <p className="text-sm text-text-muted font-mono">Loading…</p>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-10">
           <section>
-            <h2 className="text-xs font-medium uppercase tracking-wide text-gray-400 mb-3">Cycle Times (avg days)</h2>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <SectionHeading>Cycle Times (avg days)</SectionHeading>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               <KPICard label="Build" value={kpi.buildCycleAvg} target={kpi.targets.build_target_days} unit="d"
                 status={kpiStatus(kpi.buildCycleAvg, kpi.targets.build_target_days)} />
               <KPICard label="Proofread" value={kpi.proofCycleAvg} target={kpi.targets.proof_target_days} unit="d"
@@ -56,8 +62,8 @@ export default function DashboardPage() {
           </section>
 
           <section>
-            <h2 className="text-xs font-medium uppercase tracking-wide text-gray-400 mb-3">Quality</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <SectionHeading>Quality</SectionHeading>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <KPICard label="Proofread Queue" value={kpi.proofreadQueueDepth} status={kpi.proofreadQueueDepth === 0 ? 'ok' : 'neutral'} />
               <KPICard label="Flagged Red" value={kpi.proofreadFlagged} status={kpi.proofreadFlagged === 0 ? 'ok' : 'bad'} />
               <KPICard label="Mistakes This Month" value={kpi.mistakesCount} status={kpi.mistakesCount === 0 ? 'ok' : kpi.mistakesCount < 3 ? 'warn' : 'bad'} />
@@ -66,8 +72,8 @@ export default function DashboardPage() {
           </section>
 
           <section>
-            <h2 className="text-xs font-medium uppercase tracking-wide text-gray-400 mb-3">Pipeline Now</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <SectionHeading>Pipeline Now</SectionHeading>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <KPICard label="Building" value={kpi.phaseBreakdown.building} />
               <KPICard label="Proofread" value={kpi.phaseBreakdown.proofread} />
               <KPICard label="Testing" value={kpi.phaseBreakdown.testing} />

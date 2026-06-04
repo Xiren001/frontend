@@ -4,6 +4,9 @@ import { api } from '@/lib/api'
 import { formatDate } from '@/lib/utils'
 import type { Build } from '@/lib/types'
 import Link from 'next/link'
+import { PageHeader } from '@/components/ui/page-header'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
 
 export default function ProofreadQueuePage() {
   const [builds, setBuilds] = useState<Build[]>([])
@@ -14,50 +17,52 @@ export default function ProofreadQueuePage() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold mb-6">Proofread Queue (Phase 2)</h1>
+      <PageHeader
+        title="Proofread Queue"
+        description="Phase 2 builds awaiting proofread. Items flagged red exceed the proofread target."
+      />
+
       {builds.length === 0 ? (
-        <p className="text-sm text-gray-400">Queue is empty — all clear.</p>
+        <p className="text-sm text-text-muted font-mono">Queue is empty — all clear.</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200">
-          <table className="min-w-full text-sm divide-y divide-gray-100">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Build</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Language</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Week</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Entered Proofread</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">Days in proofread</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Flag</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Proofreader</th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
-              {builds.map(b => {
-                const daysIn = b.proof_days ?? (b.into_proofread ? Math.round((Date.now() - new Date(b.into_proofread).getTime()) / 86400000) : null)
-                const flagged = daysIn !== null && daysIn > 3
-                return (
-                  <tr key={b.id} className={flagged ? 'bg-red-50' : ''}>
-                    <td className="px-4 py-3 font-medium">{b.product_name}</td>
-                    <td className="px-4 py-3 text-gray-500">{b.language ?? '—'}</td>
-                    <td className="px-4 py-3 text-gray-500">{b.week_number}</td>
-                    <td className="px-4 py-3 text-gray-500">{formatDate(b.into_proofread)}</td>
-                    <td className="px-4 py-3 text-right font-medium">{daysIn ?? '—'}</td>
-                    <td className="px-4 py-3">
-                      {flagged
-                        ? <span className="text-xs font-medium text-red-600 bg-red-100 rounded-full px-2 py-0.5">RED</span>
-                        : <span className="text-xs text-gray-400">—</span>}
-                    </td>
-                    <td className="px-4 py-3 text-gray-500">{b.proofreader ?? '—'}</td>
-                    <td className="px-4 py-3 text-right">
-                      <Link href={`/qa-checklist/${b.id}`} className="text-xs text-indigo-500 hover:underline">QA</Link>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableHeader>Build</TableHeader>
+              <TableHeader>Language</TableHeader>
+              <TableHeader>Week</TableHeader>
+              <TableHeader>Entered Proofread</TableHeader>
+              <TableHeader className="text-right">Days in proofread</TableHeader>
+              <TableHeader>Flag</TableHeader>
+              <TableHeader>Proofreader</TableHeader>
+              <TableHeader />
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {builds.map(b => {
+              const daysIn = b.proof_days ?? (b.into_proofread ? Math.round((Date.now() - new Date(b.into_proofread).getTime()) / 86400000) : null)
+              const flagged = daysIn !== null && daysIn > 3
+              return (
+                <TableRow key={b.id} className={flagged ? 'bg-danger-muted/30' : ''}>
+                  <TableCell className="font-medium text-foreground">{b.product_name}</TableCell>
+                  <TableCell mono>{b.language ?? '—'}</TableCell>
+                  <TableCell mono>{b.week_number}</TableCell>
+                  <TableCell mono>{formatDate(b.into_proofread)}</TableCell>
+                  <TableCell mono className="text-right font-medium text-foreground">{daysIn ?? '—'}</TableCell>
+                  <TableCell>
+                    {flagged
+                      ? <Badge variant="danger">RED</Badge>
+                      : <span className="text-text-muted">—</span>}
+                  </TableCell>
+                  <TableCell>{b.proofreader ?? '—'}</TableCell>
+                  <TableCell className="text-right">
+                    <Link href={`/qa-checklist/${b.id}`} className="text-xs text-accent hover:text-accent-bright">QA</Link>
+                  </TableCell>
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
       )}
     </div>
   )

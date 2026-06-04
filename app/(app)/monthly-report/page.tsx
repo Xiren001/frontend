@@ -2,6 +2,11 @@
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import { currentMonth } from '@/lib/utils'
+import { PageHeader } from '@/components/ui/page-header'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Card, CardBody } from '@/components/ui/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
 interface MonthlyReport {
   totalCompleted: number
@@ -55,50 +60,58 @@ export default function MonthlyReportPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-semibold">Monthly Report to Abigél</h1>
-        <input type="month" value={month} onChange={e => setMonth(e.target.value)}
-          className="rounded-md border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300" />
-      </div>
+      <PageHeader
+        title="Monthly Report"
+        description="End-of-month summary for Abigél. Metrics auto-populated from trackers."
+        actions={
+          <Input type="month" value={month} onChange={e => setMonth(e.target.value)} className="w-auto" mono />
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="rounded-lg border border-gray-200 overflow-hidden">
-          <table className="min-w-full text-sm divide-y divide-gray-100">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Metric</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">Value</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
-              {rows.map(([label, val], i) => (
-                <tr key={i} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-gray-600">{label}</td>
-                  <td className="px-4 py-3 text-right font-medium">{val}</td>
-                </tr>
-              ))}
-              {!report && <tr><td colSpan={2} className="px-4 py-6 text-center text-gray-400">Loading…</td></tr>}
-            </tbody>
-          </table>
-        </div>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableHeader>Metric</TableHeader>
+              <TableHeader className="text-right">Value</TableHeader>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {rows.map(([label, val], i) => (
+              <TableRow key={i}>
+                <TableCell className="text-foreground">{label}</TableCell>
+                <TableCell mono className="text-right font-medium text-foreground">{val}</TableCell>
+              </TableRow>
+            ))}
+            {!report && (
+              <TableRow>
+                <TableCell colSpan={2} className="text-center text-text-muted py-8">Loading…</TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
 
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <p className="text-xs font-medium text-gray-500 mb-2">Monthly narrative</p>
-          <textarea
-            rows={10}
-            value={narrativeText}
-            onChange={e => setNarrativeText(e.target.value)}
-            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 resize-none"
-            placeholder="End-of-month summary for Abigél…"
-          />
-          <button
-            onClick={saveNarrative}
-            disabled={saving}
-            className="mt-2 text-xs text-blue-600 hover:underline disabled:opacity-50"
-          >
-            {saving ? 'Saving…' : 'Save narrative'}
-          </button>
-        </div>
+        <Card>
+          <CardBody>
+            <p className="text-xs font-medium uppercase tracking-widest text-text-muted mb-3">Monthly narrative</p>
+            <textarea
+              rows={10}
+              value={narrativeText}
+              onChange={e => setNarrativeText(e.target.value)}
+              className="w-full rounded-md border border-border bg-surface-elevated px-3 py-2 text-sm text-foreground placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/40 resize-none"
+              placeholder="End-of-month summary for Abigél…"
+            />
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={saveNarrative}
+              disabled={saving}
+              className="mt-3"
+            >
+              {saving ? 'Saving…' : 'Save narrative'}
+            </Button>
+          </CardBody>
+        </Card>
       </div>
     </div>
   )

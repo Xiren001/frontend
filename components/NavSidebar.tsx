@@ -1,20 +1,34 @@
 'use client'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import {
+  LayoutDashboard,
+  Gem,
+  Filter,
+  ListChecks,
+  AlertTriangle,
+  CalendarDays,
+  BarChart3,
+  Calendar,
+  Scale,
+  Settings,
+  LogOut,
+  Terminal,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase'
 
 const NAV = [
-  { href: '/dashboard',         label: 'Dashboard' },
-  { href: '/jewelry-tracker',   label: 'Jewelry Tracker' },
-  { href: '/funnel-tracker',    label: 'Funnel Tracker' },
-  { href: '/proofread-queue',   label: 'Proofread Queue' },
-  { href: '/mistake-log',       label: 'Mistake Log' },
-  { href: '/weekly-report',     label: 'Weekly Report' },
-  { href: '/monthly-report',    label: 'Monthly Report' },
-  { href: '/monthly-planner',   label: 'Monthly Planner' },
-  { href: '/decision-rights',   label: 'Decision Rights' },
-  { href: '/settings',          label: 'Settings' },
+  { href: '/dashboard',       label: 'Dashboard',        icon: LayoutDashboard },
+  { href: '/jewelry-tracker', label: 'Jewelry Tracker',  icon: Gem },
+  { href: '/funnel-tracker',  label: 'Funnel Tracker',   icon: Filter },
+  { href: '/proofread-queue', label: 'Proofread Queue',  icon: ListChecks },
+  { href: '/mistake-log',     label: 'Mistake Log',      icon: AlertTriangle },
+  { href: '/weekly-report',   label: 'Weekly Report',  icon: CalendarDays },
+  { href: '/monthly-report',  label: 'Monthly Report', icon: BarChart3 },
+  { href: '/monthly-planner', label: 'Monthly Planner', icon: Calendar },
+  { href: '/decision-rights', label: 'Decision Rights',  icon: Scale },
+  { href: '/settings',        label: 'Settings',         icon: Settings },
 ]
 
 export function NavSidebar() {
@@ -28,31 +42,47 @@ export function NavSidebar() {
   }
 
   return (
-    <aside className="w-56 shrink-0 flex flex-col border-r border-gray-200 bg-white h-screen sticky top-0">
-      <div className="px-5 py-5 border-b border-gray-100">
-        <p className="text-sm font-semibold text-gray-900 tracking-tight">MYKO OPS HUB</p>
+    <aside className="w-60 shrink-0 flex flex-col border-r border-border-subtle bg-surface h-screen sticky top-0">
+      <div className="px-5 py-5 border-b border-border-subtle">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-accent-muted border border-accent-border">
+            <Terminal className="h-3.5 w-3.5 text-accent" />
+          </div>
+          <div>
+            <p className="text-xs font-mono font-medium text-foreground tracking-wide">myko</p>
+            <p className="text-[10px] font-mono text-text-muted uppercase tracking-widest">ops hub</p>
+          </div>
+        </div>
       </div>
-      <nav className="flex-1 overflow-y-auto py-3 px-2">
-        {NAV.map(item => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={cn(
-              'block rounded-md px-3 py-2 text-sm mb-0.5 transition-colors',
-              pathname === item.href
-                ? 'bg-gray-100 text-gray-900 font-medium'
-                : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
-            )}
-          >
-            {item.label}
-          </Link>
-        ))}
+
+      <nav className="flex-1 overflow-y-auto py-4 px-3">
+        {NAV.map(item => {
+          const active = pathname === item.href || pathname.startsWith(item.href + '/')
+          const Icon = item.icon
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                'flex items-center gap-2.5 rounded-md px-3 py-2 text-sm mb-0.5 transition-colors',
+                active
+                  ? 'bg-accent-muted text-accent-bright font-medium border border-accent-border/50'
+                  : 'text-text-secondary hover:bg-surface-hover hover:text-foreground border border-transparent',
+              )}
+            >
+              <Icon className={cn('h-4 w-4 shrink-0', active ? 'text-accent' : 'text-text-muted')} />
+              {item.label}
+            </Link>
+          )
+        })}
       </nav>
-      <div className="px-4 py-4 border-t border-gray-100">
+
+      <div className="px-3 py-4 border-t border-border-subtle">
         <button
           onClick={handleLogout}
-          className="w-full text-left text-xs text-gray-400 hover:text-gray-600"
+          className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm text-text-muted hover:bg-surface-hover hover:text-foreground transition-colors"
         >
+          <LogOut className="h-4 w-4" />
           Sign out
         </button>
       </div>

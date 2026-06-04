@@ -3,6 +3,10 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import type { QAItem } from '@/lib/types'
+import { Button } from '@/components/ui/button'
+import { Card, CardHeader } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { PageHeader } from '@/components/ui/page-header'
 
 const SECTION_LABELS: Record<string, string> = {
   shopify:      'Shopify Product & Checkout (Both Operations)',
@@ -41,58 +45,58 @@ export default function QAChecklistPage() {
 
   return (
     <div>
-      <div className="flex items-center gap-4 mb-6">
-        <button onClick={() => router.back()} className="text-sm text-gray-400 hover:underline">← Back</button>
-        <h1 className="text-xl font-semibold">Build QA Checklist</h1>
-        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${allDone ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-          {doneCount}/{items.length} done
-        </span>
-      </div>
-      <p className="text-xs text-gray-400 mb-6">Run on every build before it leaves Building. Nothing moves to Proofread with an open box.</p>
+      <PageHeader
+        title="Build QA Checklist"
+        description="Run on every build before it leaves Building. Nothing moves to Proofread with an open box."
+        actions={
+          <div className="flex items-center gap-3">
+            <Badge variant={allDone ? 'accent' : 'muted'}>
+              {doneCount}/{items.length} done
+            </Badge>
+            <Button variant="ghost" size="sm" onClick={() => router.back()}>← Back</Button>
+          </div>
+        }
+      />
 
       <div className="space-y-6">
         {sections.map(section => {
           const sectionItems = items.filter(i => i.section === section)
           return (
-            <div key={section} className="rounded-lg border border-gray-200 bg-white overflow-hidden">
-              <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
-                <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">{SECTION_LABELS[section]}</p>
-              </div>
-              <div className="divide-y divide-gray-100">
+            <Card key={section} className="overflow-hidden">
+              <CardHeader>
+                <p className="text-xs font-medium uppercase tracking-widest text-text-muted">{SECTION_LABELS[section]}</p>
+              </CardHeader>
+              <div className="divide-y divide-border-subtle">
                 {sectionItems.map(item => (
-                  <div key={item.key} className="px-4 py-3 flex items-start gap-3">
+                  <div key={item.key} className="px-4 py-3.5 flex items-start gap-3 hover:bg-surface-hover/50 transition-colors">
                     <input
                       type="checkbox"
                       checked={item.done}
                       onChange={() => toggle(item.key)}
-                      className="mt-0.5 cursor-pointer h-4 w-4 rounded border-gray-300"
+                      className="mt-0.5 cursor-pointer h-4 w-4 rounded border-border"
                     />
-                    <div className="flex-1">
-                      <p className={`text-sm ${item.done ? 'text-gray-400 line-through' : 'text-gray-700'}`}>{item.label}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm ${item.done ? 'text-text-muted line-through' : 'text-foreground'}`}>{item.label}</p>
                       <input
                         type="text"
                         value={item.notes ?? ''}
                         onChange={e => setNote(item.key, e.target.value)}
                         placeholder="Notes…"
-                        className="mt-1 w-full text-xs border-0 border-b border-gray-100 focus:border-gray-300 focus:outline-none py-0.5 text-gray-500 bg-transparent"
+                        className="mt-1.5 w-full text-xs font-mono border-0 border-b border-border-subtle focus:border-accent-border focus:outline-none py-1 text-text-secondary bg-transparent placeholder:text-text-muted"
                       />
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
+            </Card>
           )
         })}
       </div>
 
-      <div className="mt-6">
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="rounded-md bg-gray-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50 transition-colors"
-        >
+      <div className="mt-8">
+        <Button onClick={handleSave} disabled={saving}>
           {saving ? 'Saving…' : 'Save checklist'}
-        </button>
+        </Button>
       </div>
     </div>
   )
