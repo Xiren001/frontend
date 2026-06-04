@@ -1,10 +1,9 @@
 'use client'
 import { useState } from 'react'
 import { api } from '@/lib/api'
-import { PhaseBadge } from './PhaseBadge'
 import { BuildFormModal } from './BuildFormModal'
 import { formatDate } from '@/lib/utils'
-import type { Build, BuildType } from '@/lib/types'
+import type { Build, BuildOutcome, BuildType } from '@/lib/types'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -12,14 +11,25 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs } from '@/components/ui/tabs'
 import { ConfirmModal } from '@/components/ui/modal'
 
-const DATE_FIELDS: { key: keyof Build; label: string }[] = [
-  { key: 'approved_date',  label: 'Approved' },
-  { key: 'phase1_start',   label: 'Phase 1 Start' },
-  { key: 'into_proofread', label: 'Into Proofread' },
-  { key: 'into_testing',   label: 'Into Testing' },
-  { key: 'outcome_decided',label: 'Outcome Decided' },
-  { key: 'live_all_geos',  label: 'Live All Geos' },
+const PHASE_FIELDS: { key: keyof Build; label: string }[] = [
+  { key: 'phase1_start',    label: 'Phase 1' },
+  { key: 'into_proofread',  label: 'Proofread' },
+  { key: 'into_testing',    label: 'Testing' },
+  { key: 'outcome_decided', label: 'Decided' },
 ]
+
+const OUTCOME_VARIANT: Record<NonNullable<BuildOutcome>, 'accent' | 'warn' | 'danger'> = {
+  expanding: 'accent',
+  testing:   'warn',
+  stopped:   'danger',
+}
+
+function getNextPhaseKey(b: Build): keyof Build | null {
+  for (const { key } of PHASE_FIELDS) {
+    if (!b[key]) return key
+  }
+  return null
+}
 
 interface Props {
   builds: Build[]
@@ -36,6 +46,7 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [advancing, setAdvancing] = useState<string | null>(null)
 
   const weeks = [1, 2, 3, 4]
   const weekBuilds = builds.filter(b => b.week_number === activeWeek)
@@ -85,6 +96,34 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
     }
   }
 
+  async function handlePhaseSet(buildId: string, field: keyof Build) {
+    const advKey = buildId + String(field)
+    setAdvancing(advKey)
+    const today = new Date().toISOString().split('T')[0]
+    try {
+      await api.put(`/api/builds/${buildId}`, { [field]: today })
+      onRefresh()
+    } finally {
+      setAdvancing(null)
+    }
+  }
+
+  async function handlePhaseClear(buildId: string, field: keyof Build) {
+    const advKey = buildId + String(field)
+    setAdvancing(advKey)
+    const idx = PHASE_FIELDS.findIndex(f => f.key === field)
+    const update: Record<string, null> = {}
+    for (let i = idx; i < PHASE_FIELDS.length; i++) {
+      update[PHASE_FIELDS[i].key as string] = null
+    }
+    try {
+      await api.put(`/api/builds/${buildId}`, update)
+      onRefresh()
+    } finally {
+      setAdvancing(null)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
@@ -101,42 +140,84 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
           <TableRow>
             <TableHeader>Product</TableHeader>
             <TableHeader>Lang</TableHeader>
-            {DATE_FIELDS.map(f => (
-              <TableHeader key={f.key} className="whitespace-nowrap">{f.label}</TableHeader>
+            <TableHeader>Approved</TableHeader>
+            {PHASE_FIELDS.map(f => (
+              <TableHeader key={f.key as string} className="whitespace-nowrap">{f.label}</TableHeader>
             ))}
             <TableHeader>Outcome</TableHeader>
-            <TableHeader>Phase</TableHeader>
             <TableHeader className="text-right">Days</TableHeader>
             {isAdmin && <TableHeader />}
           </TableRow>
         </TableHead>
         <TableBody>
-          {weekBuilds.map(b => (
-            <TableRow key={b.id}>
-              <TableCell className="font-medium text-foreground max-w-xs truncate">{b.product_name}</TableCell>
-              <TableCell mono>{b.language ?? '—'}</TableCell>
-              {DATE_FIELDS.map(f => (
-                <TableCell key={f.key} mono className="whitespace-nowrap">{formatDate(b[f.key] as string)}</TableCell>
-              ))}
-              <TableCell>
-                {b.outcome
-                  ? <Badge variant={b.outcome === 'winner' ? 'accent' : 'danger'}>{b.outcome}</Badge>
-                  : <span className="text-text-muted">—</span>}
-              </TableCell>
-              <TableCell><PhaseBadge phase={b.phase} /></TableCell>
-              <TableCell mono className="text-right text-text-muted">{b.total_days ?? '—'}</TableCell>
-              {isAdmin && (
-                <TableCell className="text-right whitespace-nowrap">
-                  <Link href={`/qa-checklist/${b.id}`} className="text-xs text-accent hover:text-accent-bright mr-3">QA</Link>
-                  <button onClick={() => openEdit(b)} className="text-xs text-text-secondary hover:text-foreground mr-3">Edit</button>
-                  <button onClick={() => setDeleteId(b.id)} className="text-xs text-danger/70 hover:text-danger">Del</button>
+          {weekBuilds.map(b => {
+            const nextPhaseKey = getNextPhaseKey(b)
+            return (
+              <TableRow key={b.id}>
+                <TableCell className="font-medium text-foreground max-w-xs truncate">{b.product_name}</TableCell>
+                <TableCell mono>{b.language ?? '—'}</TableCell>
+                <TableCell mono className="whitespace-nowrap">{formatDate(b.approved_date)}</TableCell>
+
+                {PHASE_FIELDS.map(f => {
+                  const val = b[f.key] as string | null
+                  const advKey = b.id + String(f.key)
+                  const isBusy = advancing === advKey
+
+                  if (val) {
+                    return (
+                      <TableCell key={f.key as string} mono className="whitespace-nowrap">
+                        {formatDate(val)}
+                        {isAdmin && (
+                          <button
+                            onClick={() => handlePhaseClear(b.id, f.key)}
+                            disabled={isBusy}
+                            title="Return to previous phase"
+                            className="ml-1.5 text-text-muted hover:text-danger text-xs leading-none align-middle disabled:opacity-40"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </TableCell>
+                    )
+                  }
+
+                  if (isAdmin && nextPhaseKey === f.key) {
+                    return (
+                      <TableCell key={f.key as string}>
+                        <button
+                          onClick={() => handlePhaseSet(b.id, f.key)}
+                          disabled={isBusy}
+                          className="text-xs text-accent hover:text-accent-bright border border-accent/30 hover:border-accent/60 rounded px-2 py-0.5 transition-colors disabled:opacity-40"
+                        >
+                          {isBusy ? '…' : '→'}
+                        </button>
+                      </TableCell>
+                    )
+                  }
+
+                  return <TableCell key={f.key as string} className="text-text-muted">—</TableCell>
+                })}
+
+                <TableCell>
+                  {b.outcome
+                    ? <Badge variant={OUTCOME_VARIANT[b.outcome]}>{b.outcome}</Badge>
+                    : <span className="text-text-muted">—</span>}
                 </TableCell>
-              )}
-            </TableRow>
-          ))}
+                <TableCell mono className="text-right text-text-muted">{b.total_days ?? '—'}</TableCell>
+
+                {isAdmin && (
+                  <TableCell className="text-right whitespace-nowrap">
+                    <Link href={`/qa-checklist/${b.id}`} className="text-xs text-accent hover:text-accent-bright mr-3">QA</Link>
+                    <button onClick={() => openEdit(b)} className="text-xs text-text-secondary hover:text-foreground mr-3">Edit</button>
+                    <button onClick={() => setDeleteId(b.id)} className="text-xs text-danger/70 hover:text-danger">Del</button>
+                  </TableCell>
+                )}
+              </TableRow>
+            )
+          })}
           {weekBuilds.length === 0 && (
             <TableRow>
-              <TableCell colSpan={12} className="text-center text-text-muted py-12">
+              <TableCell colSpan={10} className="text-center text-text-muted py-12">
                 No builds in Week {activeWeek}
                 {isAdmin && (
                   <>

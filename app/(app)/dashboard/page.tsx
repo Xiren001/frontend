@@ -47,15 +47,13 @@ export default function DashboardPage() {
         <div className="space-y-10">
           <section>
             <SectionHeading>Cycle Times (avg days)</SectionHeading>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <KPICard label="Build" value={kpi.buildCycleAvg} target={kpi.targets.build_target_days} unit="d"
                 status={kpiStatus(kpi.buildCycleAvg, kpi.targets.build_target_days)} />
               <KPICard label="Proofread" value={kpi.proofCycleAvg} target={kpi.targets.proof_target_days} unit="d"
                 status={kpiStatus(kpi.proofCycleAvg, kpi.targets.proof_target_days)} />
               <KPICard label="Testing" value={kpi.testCycleAvg} target={kpi.targets.test_target_days} unit="d"
                 status={kpiStatus(kpi.testCycleAvg, kpi.targets.test_target_days)} />
-              <KPICard label="Expanding" value={kpi.expandCycleAvg} target={kpi.targets.expand_target_days} unit="d"
-                status={kpiStatus(kpi.expandCycleAvg, kpi.targets.expand_target_days)} />
               <KPICard label="Total Pipeline" value={kpi.totalCycleAvg} target={kpi.targets.total_target_days} unit="d"
                 status={kpiStatus(kpi.totalCycleAvg, kpi.targets.total_target_days)} />
             </div>
@@ -77,7 +75,7 @@ export default function DashboardPage() {
               <KPICard label="Building" value={kpi.phaseBreakdown.building} />
               <KPICard label="Proofread" value={kpi.phaseBreakdown.proofread} />
               <KPICard label="Testing" value={kpi.phaseBreakdown.testing} />
-              <KPICard label="Expanding" value={kpi.phaseBreakdown.expanding} />
+              <KPICard label="Decided" value={kpi.phaseBreakdown.decided} />
             </div>
           </section>
         </div>

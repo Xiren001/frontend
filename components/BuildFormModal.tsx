@@ -6,15 +6,6 @@ import { Button } from '@/components/ui/button'
 import { currentMonth } from '@/lib/utils'
 import type { Build, BuildType } from '@/lib/types'
 
-const DATE_FIELDS: { key: keyof Build; label: string }[] = [
-  { key: 'approved_date',   label: 'Approved' },
-  { key: 'phase1_start',    label: 'Phase 1 Start' },
-  { key: 'into_proofread',  label: 'Into Proofread' },
-  { key: 'into_testing',    label: 'Into Testing' },
-  { key: 'outcome_decided', label: 'Outcome Decided' },
-  { key: 'live_all_geos',   label: 'Live All Geos' },
-]
-
 interface BuildFormModalProps {
   open: boolean
   onClose: () => void
@@ -102,6 +93,14 @@ export function BuildFormModal({
               {[1, 2, 3, 4].map(w => <option key={w} value={w}>Week {w}</option>)}
             </select>
           </FormField>
+          <FormField label="Approved date">
+            <Input
+              type="date"
+              mono
+              value={(form.approved_date as string) ?? ''}
+              onChange={e => setField('approved_date', (e.target.value || null) as Build['approved_date'])}
+            />
+          </FormField>
           <FormField label="Outcome">
             <select
               className="w-full rounded-md border border-border bg-surface-elevated px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent/40"
@@ -109,30 +108,18 @@ export function BuildFormModal({
               onChange={e => setField('outcome', (e.target.value as Build['outcome']) || null)}
             >
               <option value="">—</option>
-              <option value="winner">winner</option>
-              <option value="killed">killed</option>
+              <option value="stopped">Stopped</option>
+              <option value="testing">Testing</option>
+              <option value="expanding">Expanding</option>
             </select>
           </FormField>
-          <FormField label="Proofreader" className="sm:col-span-2">
+          <FormField label="Proofreader">
             <Input
               value={form.proofreader ?? ''}
               onChange={e => setField('proofreader', e.target.value || null)}
-              placeholder="Proofreader name"
+              placeholder="Proofreader"
             />
           </FormField>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-          {DATE_FIELDS.map(f => (
-            <FormField key={f.key} label={f.label}>
-              <Input
-                type="date"
-                mono
-                value={(form[f.key] as string) ?? ''}
-                onChange={e => setField(f.key, (e.target.value || null) as Build[typeof f.key])}
-              />
-            </FormField>
-          ))}
         </div>
 
         <FormField label="Notes">

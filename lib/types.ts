@@ -1,6 +1,6 @@
 export type BuildType = 'jewelry' | 'funnel'
-export type BuildOutcome = 'winner' | 'killed' | null
-export type BuildPhase = 'pending' | 'building' | 'proofread' | 'testing' | 'expanding' | 'live' | 'killed'
+export type BuildOutcome = 'stopped' | 'testing' | 'expanding' | null
+export type BuildPhase = 'pending' | 'building' | 'proofread' | 'testing' | 'decided'
 export type UserRole = 'admin' | 'approver' | 'viewer'
 
 export interface Build {
@@ -16,7 +16,6 @@ export interface Build {
   into_testing: string | null
   outcome_decided: string | null
   outcome: BuildOutcome
-  live_all_geos: string | null
   notes: string | null
   proofreader: string | null
   // computed
@@ -24,7 +23,6 @@ export interface Build {
   build_days: number | null
   proof_days: number | null
   test_days: number | null
-  expand_days: number | null
   total_days: number | null
   created_at: string
   updated_at: string
@@ -68,7 +66,6 @@ export interface KPI {
   buildCycleAvg: number | null
   proofCycleAvg: number | null
   testCycleAvg: number | null
-  expandCycleAvg: number | null
   totalCycleAvg: number | null
   proofreadQueueDepth: number
   proofreadFlagged: number
@@ -76,7 +73,7 @@ export interface KPI {
   translationFlags: number
   funnelRedirectIssues: number
   targets: Settings
-  phaseBreakdown: { building: number; proofread: number; testing: number; expanding: number }
+  phaseBreakdown: { building: number; proofread: number; testing: number; decided: number }
 }
 
 export interface WeekStats {
