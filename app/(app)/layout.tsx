@@ -8,7 +8,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="flex h-full min-h-screen bg-background">
         <NavSidebar />
         <main className="flex-1 overflow-y-auto">
-          <div className="w-full px-1 py-8">
+          <div className="w-full px-5 py-8">
             <RouteGuard>{children}</RouteGuard>
           </div>
         </main>
