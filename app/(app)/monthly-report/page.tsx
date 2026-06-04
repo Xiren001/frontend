@@ -6,7 +6,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Card, CardBody } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { ResponsiveTable, type ResponsiveColumn } from '@/components/ui/responsive-table'
 import { Modal } from '@/components/ui/modal'
 
 interface MonthlyReport {
@@ -20,6 +20,11 @@ interface MonthlyReport {
   avgBuildDays: number | null
   avgTotalDays: number | null
   narrative: { narrative_text: string } | null
+}
+
+interface MetricRow {
+  label: string
+  value: string | number
 }
 
 export default function MonthlyReportPage() {
@@ -58,17 +63,32 @@ export default function MonthlyReportPage() {
     }
   }
 
-  const rows = report ? [
-    ['Builds completed (went live)', report.totalCompleted],
-    ['  · Jewelry (Shopify)', report.jewelryCompleted],
-    ['  · Funnel (Funnelish)', report.funnelCompleted],
-    ['Completed by week — W1/W2/W3/W4', report.byWeek.join(' / ')],
-    ['Winners decided', report.winners],
-    ['Killed', report.killed],
-    ['Win rate (decided)', report.winRate],
-    ['Build cycle avg (days)', report.avgBuildDays ?? '—'],
-    ['Total pipeline avg (days)', report.avgTotalDays ?? '—'],
+  const rows: MetricRow[] = report ? [
+    { label: 'Builds completed (went live)', value: report.totalCompleted },
+    { label: '  · Jewelry (Shopify)', value: report.jewelryCompleted },
+    { label: '  · Funnel (Funnelish)', value: report.funnelCompleted },
+    { label: 'Completed by week — W1/W2/W3/W4', value: report.byWeek.join(' / ') },
+    { label: 'Winners decided', value: report.winners },
+    { label: 'Killed', value: report.killed },
+    { label: 'Win rate (decided)', value: report.winRate },
+    { label: 'Build cycle avg (days)', value: report.avgBuildDays ?? '—' },
+    { label: 'Total pipeline avg (days)', value: report.avgTotalDays ?? '—' },
   ] : []
+
+  const columns: ResponsiveColumn<MetricRow>[] = [
+    {
+      key: 'metric',
+      header: 'Metric',
+      render: r => <span className="text-foreground">{r.label}</span>,
+    },
+    {
+      key: 'value',
+      header: 'Value',
+      align: 'right',
+      mono: true,
+      render: r => <span className="font-medium text-foreground">{r.value}</span>,
+    },
+  ]
 
   const narrative = report?.narrative?.narrative_text ?? ''
 
@@ -83,27 +103,15 @@ export default function MonthlyReportPage() {
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableHeader>Metric</TableHeader>
-              <TableHeader className="text-right">Value</TableHeader>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {rows.map(([label, val], i) => (
-              <TableRow key={i}>
-                <TableCell className="text-foreground">{label}</TableCell>
-                <TableCell mono className="text-right font-medium text-foreground">{val}</TableCell>
-              </TableRow>
-            ))}
-            {!report && (
-              <TableRow>
-                <TableCell colSpan={2} className="text-center text-text-muted py-8">Loading…</TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+        {!report ? (
+          <p className="text-sm text-text-muted font-mono py-8">Loading…</p>
+        ) : (
+          <ResponsiveTable
+            columns={columns}
+            data={rows}
+            rowKey={r => r.label}
+          />
+        )}
 
         <Card>
           <CardBody>

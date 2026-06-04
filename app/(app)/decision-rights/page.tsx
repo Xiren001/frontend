@@ -1,10 +1,59 @@
+'use client'
+
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardHeader } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { ResponsiveTable, type ResponsiveColumn } from '@/components/ui/responsive-table'
 import { Badge } from '@/components/ui/badge'
 
+interface DecisionItem {
+  decision: string
+  myko: string
+  abigel: string
+  owner: string
+}
+
+interface DecisionGroup {
+  section: string
+  items: DecisionItem[]
+}
+
+function roleBadge(val: string) {
+  if (val === '—') return <span className="text-text-muted">—</span>
+  if (val === 'Decides') return <Badge variant="accent">{val}</Badge>
+  if (val === 'Approves' || val === 'Approves*') return <Badge variant="accent">{val}</Badge>
+  if (val === 'Recommends') return <Badge variant="warn">{val}</Badge>
+  if (val === 'Informed') return <Badge variant="muted">{val}</Badge>
+  return <span className="text-text-muted">{val}</span>
+}
+
+const columns: ResponsiveColumn<DecisionItem>[] = [
+  {
+    key: 'decision',
+    header: 'Decision',
+    render: item => <span className="text-foreground">{item.decision}</span>,
+  },
+  {
+    key: 'myko',
+    header: 'Myko',
+    align: 'center',
+    render: item => roleBadge(item.myko),
+  },
+  {
+    key: 'abigel',
+    header: 'Abigél',
+    align: 'center',
+    render: item => roleBadge(item.abigel),
+  },
+  {
+    key: 'owner',
+    header: 'Owner',
+    align: 'center',
+    render: item => roleBadge(item.owner),
+  },
+]
+
 export default function DecisionRightsPage() {
-  const DECISIONS = [
+  const DECISIONS: DecisionGroup[] = [
     {
       section: 'Build / Process Decisions',
       items: [
@@ -29,15 +78,6 @@ export default function DecisionRightsPage() {
     },
   ]
 
-  function roleBadge(val: string) {
-    if (val === '—') return <span className="text-text-muted">—</span>
-    if (val === 'Decides') return <Badge variant="accent">{val}</Badge>
-    if (val === 'Approves' || val === 'Approves*') return <Badge variant="accent">{val}</Badge>
-    if (val === 'Recommends') return <Badge variant="warn">{val}</Badge>
-    if (val === 'Informed') return <Badge variant="muted">{val}</Badge>
-    return <span className="text-text-muted">{val}</span>
-  }
-
   return (
     <div>
       <PageHeader
@@ -51,26 +91,13 @@ export default function DecisionRightsPage() {
             <CardHeader>
               <p className="text-xs font-medium uppercase tracking-widest text-text-muted">{group.section}</p>
             </CardHeader>
-            <Table className="border-0 rounded-none">
-              <TableHead>
-                <TableRow>
-                  <TableHeader>Decision</TableHeader>
-                  <TableHeader className="text-center w-28">Myko</TableHeader>
-                  <TableHeader className="text-center w-28">Abigél</TableHeader>
-                  <TableHeader className="text-center w-28">Owner</TableHeader>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {group.items.map((item, i) => (
-                  <TableRow key={i}>
-                    <TableCell className="text-foreground">{item.decision}</TableCell>
-                    <TableCell className="text-center">{roleBadge(item.myko)}</TableCell>
-                    <TableCell className="text-center">{roleBadge(item.abigel)}</TableCell>
-                    <TableCell className="text-center">{roleBadge(item.owner)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <div className="p-4 pt-0 md:p-0">
+              <ResponsiveTable
+                columns={columns}
+                data={group.items}
+                rowKey={item => item.decision}
+              />
+            </div>
           </Card>
         ))}
       </div>

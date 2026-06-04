@@ -47,7 +47,7 @@ export function TrackerPage({ type, title }: Props) {
           />
         }
       />
-      <BuildsTable builds={builds} type={type} onRefresh={loadBuilds} isAdmin={isAdmin} />
+      <BuildsTable builds={builds} type={type} month={month} onRefresh={loadBuilds} isAdmin={isAdmin} />
     </div>
   )
 }

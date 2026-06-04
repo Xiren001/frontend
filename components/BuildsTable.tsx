@@ -11,7 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { Tabs } from '@/components/ui/tabs'
 import { ConfirmModal } from '@/components/ui/modal'
-import { ClipboardList, Pencil, Trash2 } from 'lucide-react'
+import { ClipboardList, Pencil, Trash2, Download, Upload, FileDown } from 'lucide-react'
+import * as XLSX from 'xlsx'
 
 // ── Phase config ─────────────────────────────────────────────────────────────
 
@@ -222,14 +223,49 @@ function BuildCard({ b, isAdmin, advancing, onOpenNotes, onOpenEdit, onDelete, o
 
 // ── Main component ────────────────────────────────────────────────────────────
 
+// ── xlsx column map ───────────────────────────────────────────────────────────
+
+const IMPORT_COLS = [
+  { label: 'Product Name',    key: 'product_name',    width: 22 },
+  { label: 'Language',        key: 'language',        width: 10 },
+  { label: 'Week',            key: 'week_number',     width: 6  },
+  { label: 'Approved Date',   key: 'approved_date',   width: 14 },
+  { label: 'Phase 1 Start',   key: 'phase1_start',    width: 14 },
+  { label: 'Into Proofread',  key: 'into_proofread',  width: 14 },
+  { label: 'Into Testing',    key: 'into_testing',    width: 14 },
+  { label: 'Outcome Decided', key: 'outcome_decided', width: 14 },
+  { label: 'Outcome',         key: 'outcome',         width: 12 },
+  { label: 'Proofreader',     key: 'proofreader',     width: 14 },
+  { label: 'Notes',           key: 'notes',           width: 30 },
+] as const
+
+const EXPORT_EXTRA = [
+  { label: 'Build Days',  key: 'build_days'  },
+  { label: 'Proof Days',  key: 'proof_days'  },
+  { label: 'Test Days',   key: 'test_days'   },
+  { label: 'Total Days',  key: 'total_days'  },
+] as const
+
+function toDateStr(val: unknown): string | null {
+  if (!val) return null
+  if (val instanceof Date) return val.toISOString().split('T')[0]
+  const s = String(val).trim()
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
+  const d = new Date(s)
+  return isNaN(d.getTime()) ? null : d.toISOString().split('T')[0]
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 interface Props {
   builds: Build[]
   type: BuildType
+  month: string   // e.g. "2026-06"
   onRefresh: () => void
   isAdmin: boolean
 }
 
-export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
+export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) {
   const [activeWeek, setActiveWeek] = useState(1)
   const [formOpen, setFormOpen] = useState(false)
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create')
@@ -240,6 +276,8 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
   const [deleting, setDeleting] = useState(false)
   const [advancing, setAdvancing] = useState<string | null>(null)
   const [settings, setSettings] = useState<Settings | null>(null)
+  const [importing, setImporting] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     api.get<Settings>('/api/settings').then(setSettings).catch(() => {})
@@ -306,15 +344,108 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
     onRefresh()
   }
 
+  // ── Export ────────────────────────────────────────────────────────────────
+
+  function handleExport() {
+    const allCols = [...IMPORT_COLS, ...EXPORT_EXTRA]
+    const headers = allCols.map(c => c.label)
+    const rows = builds.map(b =>
+      allCols.map(c => b[c.key as keyof Build] ?? '')
+    )
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows])
+    ws['!cols'] = allCols.map((c, i) => ({ wch: i < IMPORT_COLS.length ? (IMPORT_COLS[i] as { width: number }).width : 10 }))
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Builds')
+    XLSX.writeFile(wb, `${type}-builds-${month}.xlsx`)
+  }
+
+  // ── Template download ─────────────────────────────────────────────────────
+
+  function handleTemplateDownload() {
+    const headers = IMPORT_COLS.map(c => c.label)
+    const example = [
+      'Example Product', 'EN', 1, '2026-06-01', '2026-06-02',
+      '2026-06-05', '2026-06-07', '2026-06-14', 'expanding', 'Jane', 'Optional note here',
+    ]
+    const ws = XLSX.utils.aoa_to_sheet([headers, example])
+    ws['!cols'] = IMPORT_COLS.map(c => ({ wch: c.width }))
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Template')
+    XLSX.writeFile(wb, `${type}-import-template.xlsx`)
+  }
+
+  // ── Import ────────────────────────────────────────────────────────────────
+
+  async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImporting(true)
+    try {
+      const buffer = await file.arrayBuffer()
+      const wb = XLSX.read(buffer, { cellDates: true })
+      const ws = wb.Sheets[wb.SheetNames[0]]
+      const raw = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1 }) as unknown[][]
+      if (raw.length < 2) return
+
+      const hdrs = (raw[0] as string[]).map(h => h?.toString().trim().toLowerCase())
+      const colIdx = (label: string) => hdrs.indexOf(label.toLowerCase())
+
+      let ok = 0
+      let err = 0
+      for (const row of raw.slice(1)) {
+        const r = row as unknown[]
+        const productName = r[colIdx('product name')]?.toString().trim()
+        if (!productName) continue
+
+        const outcome = r[colIdx('outcome')]?.toString().trim() as Build['outcome'] | undefined
+        const build = {
+          type,
+          month_year: `${month}-01`,
+          product_name: productName,
+          language:        r[colIdx('language')]?.toString().trim() || null,
+          week_number:     Number(r[colIdx('week')]) || 1,
+          approved_date:   toDateStr(r[colIdx('approved date')]),
+          phase1_start:    toDateStr(r[colIdx('phase 1 start')]),
+          into_proofread:  toDateStr(r[colIdx('into proofread')]),
+          into_testing:    toDateStr(r[colIdx('into testing')]),
+          outcome_decided: toDateStr(r[colIdx('outcome decided')]),
+          outcome:         outcome || null,
+          proofreader:     r[colIdx('proofreader')]?.toString().trim() || null,
+          notes:           r[colIdx('notes')]?.toString().trim() || null,
+        }
+        try { await api.post('/api/builds', build); ok++ } catch { err++ }
+      }
+      onRefresh()
+      alert(`Import done: ${ok} added${err ? `, ${err} skipped` : ''}.`)
+    } catch {
+      alert('Failed to read file. Make sure it is a valid .xlsx file.')
+    } finally {
+      setImporting(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Week tabs + add button */}
       <div className="flex items-center justify-between gap-4">
         <Tabs tabs={tabs} active={activeWeek} onChange={id => setActiveWeek(Number(id))} className="flex-1" />
         {isAdmin && (
-          <Button variant="secondary" size="sm" onClick={openCreate} className="shrink-0">
-            + Add build
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button variant="ghost" size="sm" onClick={handleTemplateDownload} title="Download import template">
+              <FileDown className="h-3.5 w-3.5 mr-1.5" />Template
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()} disabled={importing} title="Import from .xlsx">
+              <Upload className="h-3.5 w-3.5 mr-1.5" />{importing ? 'Importing…' : 'Import'}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={handleExport} title="Export to .xlsx">
+              <Download className="h-3.5 w-3.5 mr-1.5" />Export
+            </Button>
+            <Button variant="secondary" size="sm" onClick={openCreate}>
+              + Add build
+            </Button>
+            <input ref={fileInputRef} type="file" accept=".xlsx" className="hidden" onChange={handleImport} />
+          </div>
         )}
       </div>
 

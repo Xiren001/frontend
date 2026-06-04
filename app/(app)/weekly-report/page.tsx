@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Card, CardBody } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { MobileDataCard, MobileDataRow, ResponsiveCardList, ResponsiveDesktopTable } from '@/components/ui/responsive-table'
 import { Modal } from '@/components/ui/modal'
 
 interface ReportNarrative { id: string; week_number: number; narrative_text: string }
@@ -83,31 +84,53 @@ export default function WeeklyReportPage() {
         }
       />
 
-      <Table className="mb-10">
-        <TableHead>
-          <TableRow>
-            <TableHeader>Metric</TableHeader>
-            {[1,2,3,4].map(w => <TableHeader key={w} className="text-center">Week {w}</TableHeader>)}
-            <TableHeader className="text-center">Month</TableHeader>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {METRICS.map(m => (
-            <TableRow key={m.key}>
-              <TableCell className="text-foreground">{m.label}</TableCell>
+      {/* Mobile: one card per metric */}
+      <ResponsiveCardList className="mb-10">
+        {METRICS.map(m => (
+          <MobileDataCard key={m.key}>
+            <p className="font-medium text-sm text-foreground mb-3">{m.label}</p>
+            <div className="space-y-2">
               {weekStats.map(w => (
-                <TableCell key={w.week} mono className="text-center text-foreground">
+                <MobileDataRow key={w.week} label={`Week ${w.week}`} mono>
                   {w[m.key] ?? '—'}
-                </TableCell>
+                </MobileDataRow>
               ))}
-              <TableCell mono className="text-center font-medium text-foreground">{monthTotal(m.key)}</TableCell>
+              <MobileDataRow label="Month" mono>
+                <span className="font-medium">{monthTotal(m.key)}</span>
+              </MobileDataRow>
+            </div>
+          </MobileDataCard>
+        ))}
+      </ResponsiveCardList>
+
+      {/* Desktop: matrix table */}
+      <ResponsiveDesktopTable className="mb-10">
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableHeader>Metric</TableHeader>
+              {[1, 2, 3, 4].map(w => <TableHeader key={w} className="text-center">Week {w}</TableHeader>)}
+              <TableHeader className="text-center">Month</TableHeader>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHead>
+          <TableBody>
+            {METRICS.map(m => (
+              <TableRow key={m.key}>
+                <TableCell className="text-foreground">{m.label}</TableCell>
+                {weekStats.map(w => (
+                  <TableCell key={w.week} mono className="text-center text-foreground">
+                    {w[m.key] ?? '—'}
+                  </TableCell>
+                ))}
+                <TableCell mono className="text-center font-medium text-foreground">{monthTotal(m.key)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </ResponsiveDesktopTable>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {[1,2,3,4].map(w => {
+        {[1, 2, 3, 4].map(w => {
           const text = getNarrative(w)
           return (
             <Card key={w}>

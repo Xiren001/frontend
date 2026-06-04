@@ -83,28 +83,30 @@ export function NavSidebar() {
       )}
     >
       {/* ── Header ── */}
-      <div className="flex items-center justify-between border-b border-border-subtle h-[60px] px-3 gap-2">
-        {/* Logo mark + wordmark */}
-        <div className={cn('flex items-center gap-2.5 min-w-0', collapsed && 'flex-1 justify-center')}>
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent-muted border border-accent-border">
-            <Terminal className="h-3.5 w-3.5 text-accent" />
-          </div>
-          {!collapsed && (
+      <div
+        className={cn(
+          'flex items-center border-b border-border-subtle h-[60px] px-3',
+          collapsed ? 'justify-center' : 'justify-between gap-2',
+        )}
+      >
+        {!collapsed && (
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent-muted border border-accent-border">
+              <Terminal className="h-3.5 w-3.5 text-accent" />
+            </div>
             <div className="min-w-0">
               <p className="text-xs font-mono font-medium text-foreground tracking-wide leading-none">myko</p>
               <p className="text-[10px] font-mono text-text-muted uppercase tracking-widest mt-0.5">ops hub</p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* Collapse toggle */}
         <button
           onClick={toggleCollapse}
           title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           className={cn(
             'shrink-0 flex items-center justify-center rounded-md w-7 h-7 text-text-muted',
             'hover:bg-surface-hover hover:text-foreground transition-colors',
-            collapsed && 'mx-auto',
           )}
         >
           {collapsed
