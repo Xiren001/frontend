@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef, KeyboardEvent } from 'react'
+import { useState, useEffect, useRef, KeyboardEvent } from 'react'
 import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -33,15 +33,16 @@ interface Props {
 }
 
 export function BuildNoteModal({ build, onClose, onSaved, isAdmin }: Props) {
-  const [items, setItems] = useState<Item[]>(() => parse(build?.notes ?? null))
+  const [items, setItems] = useState<Item[]>([])
   const [newText, setNewText] = useState('')
   const [saving, setSaving] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Reset when build changes
-  if (build && serialize(items) === '' && build.notes) {
-    setItems(parse(build.notes))
-  }
+  // Sync items whenever the build (or its notes) changes
+  useEffect(() => {
+    setItems(parse(build?.notes ?? null))
+    setNewText('')
+  }, [build?.id, build?.notes])
 
   function toggle(idx: number) {
     if (!isAdmin) return
@@ -68,7 +69,7 @@ export function BuildNoteModal({ build, onClose, onSaved, isAdmin }: Props) {
     if (!build) return
     setSaving(true)
     try {
-      await api.put(`/api/builds/${build.id}`, { notes: serialize(items) })
+      await api.put(`/api/builds/${build.id}`, { notes: serialize(items) || null })
       onSaved()
       onClose()
     } finally {
@@ -83,7 +84,7 @@ export function BuildNoteModal({ build, onClose, onSaved, isAdmin }: Props) {
       open={!!build}
       onClose={onClose}
       title={build ? `${build.product_name}${build.language ? ` · ${build.language}` : ''}` : ''}
-      description={`${done}/${items.length} done`}
+      description={items.length > 0 ? `${done} / ${items.length} done` : 'No notes yet'}
       size="md"
       footer={
         isAdmin ? (
@@ -100,7 +101,7 @@ export function BuildNoteModal({ build, onClose, onSaved, isAdmin }: Props) {
     >
       <div className="space-y-1 min-h-[80px]">
         {items.length === 0 && (
-          <p className="text-sm text-text-muted py-4 text-center">
+          <p className="text-sm text-text-muted py-6 text-center">
             {isAdmin ? 'No notes yet — add one below.' : 'No notes.'}
           </p>
         )}
@@ -117,13 +118,13 @@ export function BuildNoteModal({ build, onClose, onSaved, isAdmin }: Props) {
               disabled={!isAdmin}
               className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer"
             />
-            <span className={`flex-1 text-sm leading-snug ${item.done ? 'line-through text-text-muted' : 'text-foreground'}`}>
+            <span className={`flex-1 text-sm leading-snug select-none ${item.done ? 'line-through text-text-muted' : 'text-foreground'}`}>
               {item.text}
             </span>
             {isAdmin && (
               <button
                 onClick={() => remove(idx)}
-                className="opacity-0 group-hover:opacity-100 text-text-muted hover:text-danger transition-all p-0.5"
+                className="opacity-0 group-hover:opacity-100 text-text-muted hover:text-danger transition-all p-0.5 shrink-0"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
@@ -141,6 +142,7 @@ export function BuildNoteModal({ build, onClose, onSaved, isAdmin }: Props) {
             onKeyDown={onKey}
             placeholder="Add a note…"
             className="flex-1"
+            autoFocus={false}
           />
           <Button variant="secondary" size="sm" onClick={addItem} disabled={!newText.trim()}>
             <Plus className="h-4 w-4" />
