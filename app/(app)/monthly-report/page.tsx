@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
+import { useRealtimeRefresh } from '@/lib/use-realtime-refresh'
 import { currentMonth } from '@/lib/utils'
 import { PageHeader } from '@/components/ui/page-header'
 import { Input } from '@/components/ui/input'
@@ -44,6 +45,7 @@ export default function MonthlyReportPage() {
     setNarrativeText(data.narrative?.narrative_text ?? '')
   }
 
+  useRealtimeRefresh(['builds', 'mistakes', 'report_narratives'], load)
   useEffect(() => { load() }, [month])
 
   function openEdit() {

@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
+import { useRealtimeRefresh } from '@/lib/use-realtime-refresh'
 import type { QAItem } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader } from '@/components/ui/card'
@@ -26,9 +27,12 @@ export default function QAChecklistPage() {
   const [saveOpen, setSaveOpen] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => {
+  function loadItems() {
     api.get<QAItem[]>(`/api/qa/${buildId}`).then(setItems).catch(console.error)
-  }, [buildId])
+  }
+
+  useRealtimeRefresh('qa_items', loadItems)
+  useEffect(() => { loadItems() }, [buildId])
 
   function openEditItem(item: QAItem) {
     setEditItem(item)

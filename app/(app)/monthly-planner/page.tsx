@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
+import { useRealtimeRefresh } from '@/lib/use-realtime-refresh'
 import { currentMonth } from '@/lib/utils'
 import type { PlannerNote } from '@/lib/types'
 import { PageHeader } from '@/components/ui/page-header'
@@ -33,6 +34,7 @@ export default function MonthlyPlannerPage() {
     setNotes(data)
   }
 
+  useRealtimeRefresh('planner_notes', load)
   useEffect(() => { load() }, [month])
 
   function getNote(dateStr: string) {

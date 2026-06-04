@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import type { Settings, ApproverPermissions } from '@/lib/types'
 import { createClient } from '@/lib/supabase'
+import { useRealtimeRefresh } from '@/lib/use-realtime-refresh'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -38,6 +39,16 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [permDraft, setPermDraft] = useState<ApproverPermissions | null>(null)
   const [savingPerms, setSavingPerms] = useState(false)
+
+  function loadSettings() {
+    api.get<Settings>('/api/settings').then(s => {
+      setSettings(s)
+      setDraft(s)
+      if (s.approver_permissions) setPermDraft(s.approver_permissions)
+    }).catch(console.error)
+  }
+
+  useRealtimeRefresh('settings', loadSettings)
 
   useEffect(() => {
     api.get<Settings>('/api/settings').then(s => {

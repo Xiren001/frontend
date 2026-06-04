@@ -4,6 +4,7 @@ import { api } from '@/lib/api'
 import { formatDate, currentMonth, cn } from '@/lib/utils'
 import type { Mistake } from '@/lib/types'
 import { createClient } from '@/lib/supabase'
+import { useRealtimeRefresh } from '@/lib/use-realtime-refresh'
 import { PageHeader } from '@/components/ui/page-header'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -42,6 +43,8 @@ export default function MistakeLogPage() {
     setMistakes(data.mistakes)
     setCounts(data.categoryCounts)
   }
+
+  useRealtimeRefresh('mistakes', loadMistakes)
 
   useEffect(() => {
     loadMistakes()

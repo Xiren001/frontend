@@ -5,6 +5,7 @@ import { api } from '@/lib/api'
 import { currentMonth } from '@/lib/utils'
 import type { Build, BuildType } from '@/lib/types'
 import { createClient } from '@/lib/supabase'
+import { useRealtimeRefresh } from '@/lib/use-realtime-refresh'
 import { PageHeader } from '@/components/ui/page-header'
 import { Input } from '@/components/ui/input'
 
@@ -22,6 +23,8 @@ export function TrackerPage({ type, title }: Props) {
     const data = await api.get<Build[]>(`/api/builds?type=${type}&month=${month}`)
     setBuilds(data)
   }
+
+  useRealtimeRefresh('builds', loadBuilds)
 
   useEffect(() => {
     loadBuilds()

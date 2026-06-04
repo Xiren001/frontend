@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
 import { api } from '@/lib/api'
+import { useRealtimeRefresh } from '@/lib/use-realtime-refresh'
 import { formatDate } from '@/lib/utils'
 import type { Build } from '@/lib/types'
 import Link from 'next/link'
@@ -26,6 +27,8 @@ export default function ProofreadQueuePage() {
   const load = useCallback(() => {
     api.get<Build[]>('/api/builds/proofread-queue').then(setBuilds).catch(console.error)
   }, [])
+
+  useRealtimeRefresh('builds', load)
 
   useEffect(() => {
     load()

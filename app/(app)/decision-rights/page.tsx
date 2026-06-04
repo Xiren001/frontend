@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import { useRole } from '@/lib/role-context'
+import { useRealtimeRefresh } from '@/lib/use-realtime-refresh'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -54,6 +55,7 @@ export default function DecisionRightsPage() {
     api.get<DecisionRight[]>('/api/decision-rights').then(setItems).catch(console.error)
   }
 
+  useRealtimeRefresh('decision_rights', load)
   useEffect(() => { load() }, [])
 
   const sections = Array.from(new Set(items.map(i => i.section).filter(Boolean)))

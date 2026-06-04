@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
+import { useRealtimeRefresh } from '@/lib/use-realtime-refresh'
 import { currentMonth } from '@/lib/utils'
 import type { WeekStats } from '@/lib/types'
 import { PageHeader } from '@/components/ui/page-header'
@@ -27,6 +28,7 @@ export default function WeeklyReportPage() {
     setNarratives(data.narratives)
   }
 
+  useRealtimeRefresh(['builds', 'mistakes', 'report_narratives'], load)
   useEffect(() => { load() }, [month])
 
   function getNarrative(week: number) {

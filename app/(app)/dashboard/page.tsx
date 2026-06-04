@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
+import { useRealtimeRefresh } from '@/lib/use-realtime-refresh'
 import { KPICard } from '@/components/KPICard'
 import type { KPI } from '@/lib/types'
 import { currentMonth } from '@/lib/utils'
@@ -11,9 +12,12 @@ export default function DashboardPage() {
   const [kpi, setKpi] = useState<KPI | null>(null)
   const [month, setMonth] = useState(currentMonth())
 
-  useEffect(() => {
+  function loadKpi() {
     api.get<KPI>(`/api/kpi?month=${month}`).then(setKpi).catch(console.error)
-  }, [month])
+  }
+
+  useRealtimeRefresh(['builds', 'mistakes'], loadKpi)
+  useEffect(() => { loadKpi() }, [month])
 
   function kpiStatus(actual: number | null, target: number, lowerIsBetter = true): 'ok' | 'warn' | 'bad' | 'neutral' {
     if (actual === null) return 'neutral'
