@@ -11,16 +11,18 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs } from '@/components/ui/tabs'
 import { ConfirmModal } from '@/components/ui/modal'
 
+// showFrom: breakpoint at which the column becomes visible (undefined = always)
 const PHASE_FIELDS: {
   key: keyof Build
   label: string
   status: string
   variant: 'default' | 'warn' | 'accent' | 'muted'
+  showFrom?: 'md'
 }[] = [
   { key: 'phase1_start',    label: 'Phase 1',   status: 'Building',     variant: 'default' },
-  { key: 'into_proofread',  label: 'Proofread', status: 'Proofreading', variant: 'warn'    },
-  { key: 'into_testing',    label: 'Testing',   status: 'Testing',      variant: 'default' },
-  { key: 'outcome_decided', label: 'Decided',   status: 'Decided',      variant: 'accent'  },
+  { key: 'into_proofread',  label: 'Proofread', status: 'Proofreading', variant: 'warn',    showFrom: 'md' },
+  { key: 'into_testing',    label: 'Testing',   status: 'Testing',      variant: 'default', showFrom: 'md' },
+  { key: 'outcome_decided', label: 'Decided',   status: 'Decided',      variant: 'accent',  showFrom: 'md' },
 ]
 
 const OUTCOME_VARIANT: Record<NonNullable<BuildOutcome>, 'accent' | 'warn' | 'danger'> = {
@@ -55,6 +57,10 @@ function getNextPhaseKey(b: Build): keyof Build | null {
   }
   return null
 }
+
+// Tailwind class for responsive cell/header hiding
+const showClass = (from?: 'md' | 'lg') =>
+  from === 'md' ? 'hidden md:table-cell' : from === 'lg' ? 'hidden lg:table-cell' : ''
 
 interface Props {
   builds: Build[]
@@ -144,9 +150,6 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
     onRefresh()
   }
 
-  // total col count for empty-state colspan
-  const colCount = 3 + PHASE_FIELDS.length + 1 + 4 + (isAdmin ? 1 : 0)
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
@@ -160,20 +163,31 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
 
       <div className="flex flex-col xl:flex-row items-start gap-1">
         {/* ── Main tracker table ── */}
-        <div className="flex-1 overflow-x-auto min-w-0">
+        <div className="flex-1 overflow-x-auto min-w-0 w-full">
           <Table>
             <TableHead>
               <TableRow>
+                {/* Always visible */}
                 <TableHeader>Product</TableHeader>
-                <TableHeader>Lang</TableHeader>
-                <TableHeader>Approved</TableHeader>
+                {/* md+ */}
+                <TableHeader className={showClass('md')}>Lang</TableHeader>
+                <TableHeader className={`${showClass('md')} whitespace-nowrap`}>Approved</TableHeader>
+                {/* Phase columns */}
                 {PHASE_FIELDS.map(f => (
-                  <TableHeader key={f.key as string} className="whitespace-nowrap">{f.label}</TableHeader>
+                  <TableHeader
+                    key={f.key as string}
+                    className={`whitespace-nowrap ${showClass(f.showFrom)}`}
+                  >
+                    {f.label}
+                  </TableHeader>
                 ))}
+                {/* Always visible */}
                 <TableHeader>Outcome</TableHeader>
-                <TableHeader className="text-right whitespace-nowrap">Build d</TableHeader>
-                <TableHeader className="text-right whitespace-nowrap">Proof d</TableHeader>
-                <TableHeader className="text-right whitespace-nowrap">Test d</TableHeader>
+                {/* lg+ day columns */}
+                <TableHeader className={`${showClass('lg')} text-right whitespace-nowrap`}>Build d</TableHeader>
+                <TableHeader className={`${showClass('lg')} text-right whitespace-nowrap`}>Proof d</TableHeader>
+                <TableHeader className={`${showClass('lg')} text-right whitespace-nowrap`}>Test d</TableHeader>
+                {/* Always visible */}
                 <TableHeader className="text-right whitespace-nowrap">Total d</TableHeader>
                 {isAdmin && <TableHeader />}
               </TableRow>
@@ -183,18 +197,23 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
                 const nextPhaseKey = getNextPhaseKey(b)
                 return (
                   <TableRow key={b.id}>
-                    <TableCell className="font-medium text-foreground max-w-xs truncate">{b.product_name}</TableCell>
-                    <TableCell mono>{b.language ?? '—'}</TableCell>
-                    <TableCell mono className="whitespace-nowrap">{formatDate(b.approved_date)}</TableCell>
+                    <TableCell className="font-medium text-foreground max-w-[180px] truncate">
+                      {b.product_name}
+                    </TableCell>
+                    <TableCell mono className={showClass('md')}>{b.language ?? '—'}</TableCell>
+                    <TableCell mono className={`${showClass('md')} whitespace-nowrap`}>
+                      {formatDate(b.approved_date)}
+                    </TableCell>
 
                     {PHASE_FIELDS.map(f => {
                       const val = b[f.key] as string | null
                       const advKey = b.id + String(f.key)
                       const isBusy = advancing === advKey
+                      const hide = showClass(f.showFrom)
 
                       if (val) {
                         return (
-                          <TableCell key={f.key as string} className="whitespace-nowrap">
+                          <TableCell key={f.key as string} className={`whitespace-nowrap ${hide}`}>
                             {isAdmin && (
                               <button
                                 onClick={() => handlePhaseClear(b.id, f.key)}
@@ -212,7 +231,7 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
 
                       if (isAdmin && nextPhaseKey === f.key) {
                         return (
-                          <TableCell key={f.key as string}>
+                          <TableCell key={f.key as string} className={hide}>
                             <button
                               onClick={() => handlePhaseSet(b.id, f.key)}
                               disabled={isBusy}
@@ -224,10 +243,10 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
                         )
                       }
 
-                      return <TableCell key={f.key as string} className="text-text-muted">—</TableCell>
+                      return <TableCell key={f.key as string} className={`text-text-muted ${hide}`}>—</TableCell>
                     })}
 
-                    {/* Inline outcome */}
+                    {/* Inline outcome — always visible */}
                     <TableCell>
                       {isAdmin ? (
                         <select
@@ -247,10 +266,17 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
                       )}
                     </TableCell>
 
-                    {/* 4 days columns */}
-                    <TableCell mono className="text-right text-text-muted">{b.build_days ?? '—'}</TableCell>
-                    <TableCell mono className="text-right text-text-muted">{b.proof_days ?? '—'}</TableCell>
-                    <TableCell mono className="text-right text-text-muted">{b.test_days  ?? '—'}</TableCell>
+                    {/* Day columns: lg+ */}
+                    <TableCell mono className={`${showClass('lg')} text-right text-text-muted`}>
+                      {b.build_days ?? '—'}
+                    </TableCell>
+                    <TableCell mono className={`${showClass('lg')} text-right text-text-muted`}>
+                      {b.proof_days ?? '—'}
+                    </TableCell>
+                    <TableCell mono className={`${showClass('lg')} text-right text-text-muted`}>
+                      {b.test_days ?? '—'}
+                    </TableCell>
+                    {/* Total always visible */}
                     <TableCell mono className="text-right text-text-muted">{b.total_days ?? '—'}</TableCell>
 
                     {isAdmin && (
@@ -265,7 +291,7 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
               })}
               {weekBuilds.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={colCount} className="text-center text-text-muted py-12">
+                  <TableCell colSpan={99} className="text-center text-text-muted py-12">
                     No builds in Week {activeWeek}
                     {isAdmin && (
                       <> · <button onClick={openCreate} className="text-accent hover:text-accent-bright">Add one</button></>
@@ -311,7 +337,6 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
                   {totalAvg !== null ? `${totalAvg}d` : '—'}
                 </td>
               </tr>
-
               {settings && (
                 <>
                   <tr className="bg-surface-elevated">
