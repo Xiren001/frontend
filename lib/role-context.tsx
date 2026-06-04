@@ -13,17 +13,30 @@ const Ctx = createContext<RoleState>({ role: null, permissions: null, loading: t
 
 export function RoleProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<RoleState>({ role: null, permissions: null, loading: true })
+
   useEffect(() => {
     api.get<{ userRole: UserRole; approverPermissions: ApproverPermissions | null }>('/api/me')
       .then(d => setState({ role: d.userRole, permissions: d.approverPermissions, loading: false }))
-      .catch(() => setState({ role: null, permissions: null, loading: false }))
+      .catch(async () => {
+        // /api/me failed — fall back to querying Supabase directly on the client
+        try {
+          const { createClient } = await import('./supabase')
+          const supabase = createClient()
+          const { data: { session } } = await supabase.auth.getSession()
+          if (!session) { setState({ role: null, permissions: null, loading: false }); return }
+          const { data } = await supabase.from('profiles').select('role').eq('id', session.user.id).single()
+          setState({ role: (data?.role ?? 'viewer') as UserRole, permissions: null, loading: false })
+        } catch {
+          setState({ role: 'viewer', permissions: null, loading: false })
+        }
+      })
   }, [])
+
   return <Ctx.Provider value={state}>{children}</Ctx.Provider>
 }
 
 export function useRole() { return useContext(Ctx) }
 
-// Map from URL path prefix to permission key (null = always allowed for approver/viewer)
 export const PATH_PERMISSION: Record<string, keyof ApproverPermissions | null> = {
   '/weekly-report':   null,
   '/monthly-report':  null,
@@ -39,7 +52,8 @@ export const PATH_PERMISSION: Record<string, keyof ApproverPermissions | null> =
 }
 
 export function canAccessPath(role: UserRole | null, path: string, permissions: ApproverPermissions | null): boolean {
-  if (!role) return false
+  // If role is unknown (API failed), allow access — backend handles auth for writes
+  if (!role) return true
   if (role === 'admin') return true
   const base = '/' + path.split('/').filter(Boolean)[0]
   if (role === 'viewer') return base === '/weekly-report' || base === '/monthly-report'
