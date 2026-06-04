@@ -141,10 +141,12 @@ export function BuildFormModal({
               { label: 'Proofread',start: 'into_proofread', end: 'proof_end'       },
               { label: 'Testing',  start: 'into_testing',  end: 'outcome_decided'  },
             ] as { label: string; start: keyof Build; end: keyof Build }[]).map(row => (
-              <div key={row.label} className="grid grid-cols-[80px_1fr_1fr] items-center gap-3">
-                <span className="text-xs text-text-muted font-medium">{row.label}</span>
-                {dateField(row.start, 'Start')}
-                {dateField(row.end,   row.label === 'Testing' ? 'End / Decided' : 'End')}
+              <div key={row.label} className="space-y-2 sm:space-y-0 sm:grid sm:grid-cols-[80px_1fr_1fr] sm:items-center sm:gap-3">
+                <span className="block text-xs text-text-muted font-medium">{row.label}</span>
+                <div className="grid grid-cols-2 gap-3 sm:contents">
+                  {dateField(row.start, 'Start')}
+                  {dateField(row.end,   row.label === 'Testing' ? 'End / Decided' : 'End')}
+                </div>
               </div>
             ))}
           </div>

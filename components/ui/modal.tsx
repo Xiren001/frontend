@@ -38,18 +38,25 @@ export function Modal({ open, onClose, title, description, children, footer, siz
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div
         role="dialog"
         aria-modal="true"
         className={cn(
-          'relative w-full rounded-lg border border-border-subtle bg-surface shadow-xl',
+          'relative w-full flex flex-col bg-surface shadow-xl',
+          'rounded-t-2xl sm:rounded-lg border border-border-subtle',
+          'max-h-[92dvh] sm:max-h-[90vh]',
           sizes[size],
         )}
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-border-subtle px-5 py-4">
+        {/* Drag handle — mobile only */}
+        <div className="flex justify-center pt-3 pb-1 sm:hidden">
+          <div className="w-10 h-1 rounded-full bg-border" />
+        </div>
+
+        <div className="flex items-start justify-between gap-4 border-b border-border-subtle px-5 py-3 sm:py-4">
           <div>
             <h2 className="text-sm font-medium text-foreground">{title}</h2>
             {description && <p className="mt-1 text-xs text-text-muted">{description}</p>}
@@ -61,7 +68,9 @@ export function Modal({ open, onClose, title, description, children, footer, siz
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="px-5 py-4 max-h-[70vh] overflow-y-auto">{children}</div>
+
+        <div className="px-5 py-4 overflow-y-auto flex-1">{children}</div>
+
         {footer && (
           <div className="flex items-center justify-end gap-2 border-t border-border-subtle px-5 py-4">
             {footer}
