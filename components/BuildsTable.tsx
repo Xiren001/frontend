@@ -15,13 +15,12 @@ const PHASE_FIELDS: {
   key: keyof Build
   label: string
   status: string
-  dayKey: keyof Build | null
   variant: 'default' | 'warn' | 'accent' | 'muted'
 }[] = [
-  { key: 'phase1_start',    label: 'Phase 1',   status: 'Building',     dayKey: 'build_days',  variant: 'default' },
-  { key: 'into_proofread',  label: 'Proofread', status: 'Proofreading', dayKey: 'proof_days',  variant: 'warn'    },
-  { key: 'into_testing',    label: 'Testing',   status: 'Testing',      dayKey: 'test_days',   variant: 'default' },
-  { key: 'outcome_decided', label: 'Decided',   status: 'Decided',      dayKey: null,          variant: 'accent'  },
+  { key: 'phase1_start',    label: 'Phase 1',   status: 'Building',     variant: 'default' },
+  { key: 'into_proofread',  label: 'Proofread', status: 'Proofreading', variant: 'warn'    },
+  { key: 'into_testing',    label: 'Testing',   status: 'Testing',      variant: 'default' },
+  { key: 'outcome_decided', label: 'Decided',   status: 'Decided',      variant: 'accent'  },
 ]
 
 const OUTCOME_VARIANT: Record<NonNullable<BuildOutcome>, 'accent' | 'warn' | 'danger'> = {
@@ -30,7 +29,6 @@ const OUTCOME_VARIANT: Record<NonNullable<BuildOutcome>, 'accent' | 'warn' | 'da
   stopped:   'danger',
 }
 
-// Tailwind classes per badge variant for the phase advance button
 const PHASE_BTN: Record<string, string> = {
   default: 'text-text-secondary border-border hover:border-text-secondary bg-surface-elevated/60',
   warn:    'text-yellow-500 border-yellow-500/30 hover:border-yellow-500/60 bg-yellow-500/5',
@@ -83,10 +81,10 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
   const weeks = [1, 2, 3, 4]
   const weekBuilds = builds.filter(b => b.week_number === activeWeek)
 
-  const buildAvg  = avgNum(weekBuilds.map(b => b.build_days))
-  const proofAvg  = avgNum(weekBuilds.map(b => b.proof_days))
-  const testAvg   = avgNum(weekBuilds.map(b => b.test_days))
-  const totalAvg  = avgNum(weekBuilds.map(b => b.total_days))
+  const buildAvg = avgNum(weekBuilds.map(b => b.build_days))
+  const proofAvg = avgNum(weekBuilds.map(b => b.proof_days))
+  const testAvg  = avgNum(weekBuilds.map(b => b.test_days))
+  const totalAvg = avgNum(weekBuilds.map(b => b.total_days))
 
   const tabs = weeks.map(w => ({
     id: w,
@@ -146,6 +144,9 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
     onRefresh()
   }
 
+  // total col count for empty-state colspan
+  const colCount = 3 + PHASE_FIELDS.length + 1 + 4 + (isAdmin ? 1 : 0)
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
@@ -157,7 +158,7 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
         )}
       </div>
 
-      <div className="flex gap-5 items-start">
+      <div className="flex items-start" style={{ gap: '0.25rem' }}>
         {/* ── Main tracker table ── */}
         <div className="flex-1 overflow-x-auto min-w-0">
           <Table>
@@ -170,7 +171,10 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
                   <TableHeader key={f.key as string} className="whitespace-nowrap">{f.label}</TableHeader>
                 ))}
                 <TableHeader>Outcome</TableHeader>
-                <TableHeader className="text-right">Days</TableHeader>
+                <TableHeader className="text-right whitespace-nowrap">Build d</TableHeader>
+                <TableHeader className="text-right whitespace-nowrap">Proof d</TableHeader>
+                <TableHeader className="text-right whitespace-nowrap">Test d</TableHeader>
+                <TableHeader className="text-right whitespace-nowrap">Total d</TableHeader>
                 {isAdmin && <TableHeader />}
               </TableRow>
             </TableHead>
@@ -185,27 +189,23 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
 
                     {PHASE_FIELDS.map(f => {
                       const val = b[f.key] as string | null
-                      const days = f.dayKey ? b[f.dayKey] as number | null : null
                       const advKey = b.id + String(f.key)
                       const isBusy = advancing === advKey
 
                       if (val) {
                         return (
                           <TableCell key={f.key as string} className="whitespace-nowrap">
-                            <span className="font-mono text-xs text-foreground">{formatDate(val)}</span>
-                            {days !== null && (
-                              <span className="ml-1.5 text-[10px] text-text-muted font-mono">{days}d</span>
-                            )}
                             {isAdmin && (
                               <button
                                 onClick={() => handlePhaseClear(b.id, f.key)}
                                 disabled={isBusy}
                                 title="Return to previous phase"
-                                className="ml-2 text-danger hover:text-red-400 font-bold text-sm leading-none align-middle disabled:opacity-40 transition-colors"
+                                className="mr-1.5 text-danger hover:text-red-400 font-bold text-sm leading-none align-middle disabled:opacity-40 transition-colors"
                               >
                                 ←
                               </button>
                             )}
+                            <span className="font-mono text-xs text-foreground">{formatDate(val)}</span>
                           </TableCell>
                         )
                       }
@@ -247,6 +247,10 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
                       )}
                     </TableCell>
 
+                    {/* 4 days columns */}
+                    <TableCell mono className="text-right text-text-muted">{b.build_days ?? '—'}</TableCell>
+                    <TableCell mono className="text-right text-text-muted">{b.proof_days ?? '—'}</TableCell>
+                    <TableCell mono className="text-right text-text-muted">{b.test_days  ?? '—'}</TableCell>
                     <TableCell mono className="text-right text-text-muted">{b.total_days ?? '—'}</TableCell>
 
                     {isAdmin && (
@@ -261,7 +265,7 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
               })}
               {weekBuilds.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center text-text-muted py-12">
+                  <TableCell colSpan={colCount} className="text-center text-text-muted py-12">
                     No builds in Week {activeWeek}
                     {isAdmin && (
                       <> · <button onClick={openCreate} className="text-accent hover:text-accent-bright">Add one</button></>
