@@ -94,6 +94,7 @@ export interface WeekStats {
   completed: number
   winners: number
   killed: number
+  mistakes: number
   avgBuildDays: number | null
   avgTotalDays: number | null
 }

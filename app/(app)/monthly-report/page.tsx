@@ -19,6 +19,9 @@ interface MonthlyReport {
   winRate: string
   avgBuildDays: number | null
   avgTotalDays: number | null
+  mistakesTotal: number
+  mistakesByCategory: Record<string, number>
+  sopUpdated: number
   narrative: { narrative_text: string } | null
 }
 
@@ -63,6 +66,13 @@ export default function MonthlyReportPage() {
     }
   }
 
+  const categoryBreakdown = report
+    ? Object.entries(report.mistakesByCategory)
+        .sort((a, b) => b[1] - a[1])
+        .map(([cat, count]) => `${cat} (${count})`)
+        .join(', ') || '—'
+    : '—'
+
   const rows: MetricRow[] = report ? [
     { label: 'Builds completed (went live)', value: report.totalCompleted },
     { label: '  · Jewelry (Shopify)', value: report.jewelryCompleted },
@@ -73,6 +83,9 @@ export default function MonthlyReportPage() {
     { label: 'Win rate (decided)', value: report.winRate },
     { label: 'Build cycle avg (days)', value: report.avgBuildDays ?? '—' },
     { label: 'Total pipeline avg (days)', value: report.avgTotalDays ?? '—' },
+    { label: 'Mistakes logged', value: report.mistakesTotal },
+    { label: '  · By category', value: categoryBreakdown },
+    { label: '  · SOP updated', value: report.sopUpdated },
   ] : []
 
   const columns: ResponsiveColumn<MetricRow>[] = [
