@@ -1,7 +1,8 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, CSSProperties } from 'react'
 import { api } from '@/lib/api'
 import { BuildFormModal } from './BuildFormModal'
+import { BuildNoteModal } from './BuildNoteModal'
 import { formatDate } from '@/lib/utils'
 import type { Build, BuildOutcome, BuildType, Settings } from '@/lib/types'
 import Link from 'next/link'
@@ -10,17 +11,19 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { Tabs } from '@/components/ui/tabs'
 import { ConfirmModal } from '@/components/ui/modal'
+import { ClipboardList, Pencil, Trash2, StickyNote } from 'lucide-react'
 
-// showFrom: breakpoint at which the column becomes visible (undefined = always)
+// ── Phase config ─────────────────────────────────────────────────────────────
+
 const PHASE_FIELDS: {
   key: keyof Build
   label: string
   status: string
-  variant: 'default' | 'warn' | 'accent' | 'muted'
+  variant: 'default' | 'warn' | 'accent'
   showFrom?: 'md'
 }[] = [
   { key: 'phase1_start',    label: 'Phase 1',   status: 'Building',     variant: 'default' },
-  { key: 'into_proofread',  label: 'Proofread', status: 'Proofreading', variant: 'warn',    showFrom: 'md' },
+  { key: 'into_proofread',  label: 'Proofread', status: 'Proofreading', variant: 'warn',   showFrom: 'md' },
   { key: 'into_testing',    label: 'Testing',   status: 'Testing',      variant: 'default', showFrom: 'md' },
   { key: 'outcome_decided', label: 'Decided',   status: 'Decided',      variant: 'accent',  showFrom: 'md' },
 ]
@@ -35,8 +38,60 @@ const PHASE_BTN: Record<string, string> = {
   default: 'text-text-secondary border-border hover:border-text-secondary bg-surface-elevated/60',
   warn:    'text-yellow-500 border-yellow-500/30 hover:border-yellow-500/60 bg-yellow-500/5',
   accent:  'text-accent border-accent/30 hover:border-accent/60 bg-accent-muted/20',
-  muted:   'text-text-muted border-border-subtle',
 }
+
+const PHASE_BADGE_CLS: Record<string, string> = {
+  pending:  'text-text-muted bg-surface-elevated border-border-subtle',
+  building: 'text-text-secondary bg-surface-elevated border-border',
+  proofread:'text-yellow-500 bg-yellow-500/10 border-yellow-500/30',
+  testing:  'text-accent bg-accent-muted border-accent-border',
+  decided:  'text-accent bg-accent-muted border-accent-border',
+}
+
+function getNextPhaseKey(b: Build): keyof Build | null {
+  for (const { key } of PHASE_FIELDS) if (!b[key]) return key
+  return null
+}
+
+const showClass = (from?: 'md' | 'lg') =>
+  from === 'md' ? 'hidden md:table-cell' : from === 'lg' ? 'hidden lg:table-cell' : ''
+
+// ── Marquee name ─────────────────────────────────────────────────────────────
+
+function MarqueeName({ name, className = '' }: { name: string; className?: string }) {
+  const cRef = useRef<HTMLDivElement>(null)
+  const tRef = useRef<HTMLSpanElement>(null)
+  const [overflow, setOverflow] = useState(0)
+  const [active, setActive] = useState(false)
+
+  useEffect(() => {
+    if (!cRef.current || !tRef.current) return
+    setOverflow(Math.max(0, tRef.current.scrollWidth - cRef.current.offsetWidth))
+  }, [name])
+
+  return (
+    <div
+      ref={cRef}
+      className={`overflow-hidden ${className}`}
+      onMouseEnter={() => setActive(true)}
+      onMouseLeave={() => setActive(false)}
+    >
+      <span
+        ref={tRef}
+        className="block whitespace-nowrap"
+        style={
+          active && overflow > 0
+            ? ({ animation: 'marquee-bounce 3s ease-in-out infinite', '--marquee-offset': `-${overflow}px` } as CSSProperties)
+            : {}
+        }
+      >
+        {name}
+      </span>
+    </div>
+  )
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
 function avgNum(nums: (number | null)[]): number | null {
   const valid = nums.filter((n): n is number => n !== null)
@@ -51,16 +106,128 @@ function statColor(val: number | null, target: number): string {
   return 'text-danger'
 }
 
-function getNextPhaseKey(b: Build): keyof Build | null {
-  for (const { key } of PHASE_FIELDS) {
-    if (!b[key]) return key
-  }
-  return null
+// ── Mobile card ──────────────────────────────────────────────────────────────
+
+interface CardProps {
+  b: Build
+  isAdmin: boolean
+  advancing: string | null
+  onOpenNotes: (b: Build) => void
+  onOpenEdit: (b: Build) => void
+  onDelete: (id: string) => void
+  onPhaseSet: (id: string, field: keyof Build) => void
+  onPhaseClear: (id: string, field: keyof Build) => void
+  onOutcomeChange: (id: string, outcome: BuildOutcome) => void
 }
 
-// Tailwind class for responsive cell/header hiding
-const showClass = (from?: 'md' | 'lg') =>
-  from === 'md' ? 'hidden md:table-cell' : from === 'lg' ? 'hidden lg:table-cell' : ''
+function BuildCard({ b, isAdmin, advancing, onOpenNotes, onOpenEdit, onDelete, onPhaseSet, onPhaseClear, onOutcomeChange }: CardProps) {
+  const nextKey = getNextPhaseKey(b)
+  const nextField = PHASE_FIELDS.find(f => f.key === nextKey)
+
+  // Most recent set phase date for display
+  const phases = PHASE_FIELDS.filter(f => b[f.key])
+  const latest = phases[phases.length - 1]
+
+  return (
+    <div
+      className="bg-surface-elevated border border-border-subtle rounded-lg p-4 cursor-pointer hover:bg-surface-hover transition-colors active:scale-[0.995]"
+      onClick={() => onOpenNotes(b)}
+    >
+      {/* Header row */}
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <div className="min-w-0">
+          <p className="font-medium text-foreground text-sm truncate">{b.product_name}</p>
+          <p className="text-xs text-text-muted font-mono mt-0.5">
+            {[b.language, `Wk ${b.week_number}`].filter(Boolean).join(' · ')}
+          </p>
+        </div>
+        {/* Admin action icons — stop propagation so they don't open notes */}
+        {isAdmin && (
+          <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+            <Link
+              href={`/qa-checklist/${b.id}`}
+              className="p-1.5 rounded text-text-muted hover:text-accent hover:bg-accent-muted transition-colors"
+              title="QA checklist"
+            >
+              <ClipboardList className="h-3.5 w-3.5" />
+            </Link>
+            <button
+              onClick={() => onOpenEdit(b)}
+              className="p-1.5 rounded text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+              title="Edit"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => onOpenNotes(b)}
+              className="p-1.5 rounded text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+              title="Notes"
+            >
+              <StickyNote className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => onDelete(b.id)}
+              className="p-1.5 rounded text-text-muted hover:text-danger hover:bg-danger-muted transition-colors"
+              title="Delete"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Phase status + advance */}
+      <div className="flex items-center gap-2 mb-3" onClick={e => e.stopPropagation()}>
+        <span className={`text-xs px-2 py-0.5 rounded border font-medium ${PHASE_BADGE_CLS[b.phase] ?? PHASE_BADGE_CLS.pending}`}>
+          {b.phase.charAt(0).toUpperCase() + b.phase.slice(1)}
+        </span>
+        {isAdmin && nextField && (
+          <button
+            onClick={() => onPhaseSet(b.id, nextField.key)}
+            disabled={advancing === b.id + String(nextField.key)}
+            className={`text-xs font-medium px-2 py-0.5 rounded border transition-colors disabled:opacity-40 ${PHASE_BTN[nextField.variant]}`}
+          >
+            {advancing === b.id + String(nextField.key) ? '…' : `${nextField.status} →`}
+          </button>
+        )}
+        {isAdmin && latest && (
+          <button
+            onClick={() => onPhaseClear(b.id, latest.key)}
+            disabled={advancing === b.id + String(latest.key)}
+            className="text-danger hover:text-red-400 font-bold text-sm leading-none disabled:opacity-40"
+            title="Return to previous phase"
+          >
+            ←
+          </button>
+        )}
+      </div>
+
+      {/* Stats row */}
+      <div className="flex items-center justify-between text-xs text-text-muted" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-3">
+          {b.approved_date && <span>Approved {formatDate(b.approved_date)}</span>}
+          {b.total_days !== null && <span className="font-mono font-medium text-foreground">{b.total_days}d</span>}
+        </div>
+        {isAdmin ? (
+          <select
+            value={b.outcome ?? ''}
+            onChange={e => onOutcomeChange(b.id, (e.target.value as BuildOutcome) || null)}
+            className="text-xs bg-surface-elevated border border-border rounded px-1.5 py-0.5 text-foreground cursor-pointer focus:outline-none focus:ring-1 focus:ring-accent/40"
+          >
+            <option value="">—</option>
+            <option value="stopped">Stopped</option>
+            <option value="testing">Testing</option>
+            <option value="expanding">Expanding</option>
+          </select>
+        ) : b.outcome ? (
+          <Badge variant={OUTCOME_VARIANT[b.outcome]}>{b.outcome}</Badge>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 
 interface Props {
   builds: Build[]
@@ -75,6 +242,7 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create')
   const [editBuild, setEditBuild] = useState<Build | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [notesBuild, setNotesBuild] = useState<Build | null>(null)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [advancing, setAdvancing] = useState<string | null>(null)
@@ -122,23 +290,18 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
   }
 
   async function handlePhaseSet(buildId: string, field: keyof Build) {
-    const advKey = buildId + String(field)
-    setAdvancing(advKey)
-    const today = new Date().toISOString().split('T')[0]
+    setAdvancing(buildId + String(field))
     try {
-      await api.put(`/api/builds/${buildId}`, { [field]: today })
+      await api.put(`/api/builds/${buildId}`, { [field]: new Date().toISOString().split('T')[0] })
       onRefresh()
     } finally { setAdvancing(null) }
   }
 
   async function handlePhaseClear(buildId: string, field: keyof Build) {
-    const advKey = buildId + String(field)
-    setAdvancing(advKey)
+    setAdvancing(buildId + String(field))
     const idx = PHASE_FIELDS.findIndex(f => f.key === field)
     const update: Record<string, null> = {}
-    for (let i = idx; i < PHASE_FIELDS.length; i++) {
-      update[PHASE_FIELDS[i].key as string] = null
-    }
+    for (let i = idx; i < PHASE_FIELDS.length; i++) update[PHASE_FIELDS[i].key as string] = null
     try {
       await api.put(`/api/builds/${buildId}`, update)
       onRefresh()
@@ -152,6 +315,7 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
 
   return (
     <div className="space-y-6">
+      {/* Week tabs + add button */}
       <div className="flex items-center justify-between gap-4">
         <Tabs tabs={tabs} active={activeWeek} onChange={id => setActiveWeek(Number(id))} className="flex-1" />
         {isAdmin && (
@@ -161,33 +325,48 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
         )}
       </div>
 
-      <div className="flex flex-col xl:flex-row items-start gap-1">
-        {/* ── Main tracker table ── */}
-        <div className="flex-1 overflow-x-auto min-w-0 w-full">
+      {/* ── Mobile card layout (< md) ── */}
+      <div className="block md:hidden space-y-3">
+        {weekBuilds.length === 0 && (
+          <p className="text-sm text-text-muted text-center py-10">
+            No builds in Week {activeWeek}
+            {isAdmin && <> · <button onClick={openCreate} className="text-accent hover:text-accent-bright">Add one</button></>}
+          </p>
+        )}
+        {weekBuilds.map(b => (
+          <BuildCard
+            key={b.id}
+            b={b}
+            isAdmin={isAdmin}
+            advancing={advancing}
+            onOpenNotes={setNotesBuild}
+            onOpenEdit={openEdit}
+            onDelete={setDeleteId}
+            onPhaseSet={handlePhaseSet}
+            onPhaseClear={handlePhaseClear}
+            onOutcomeChange={handleOutcomeChange}
+          />
+        ))}
+      </div>
+
+      {/* ── Desktop table layout (md+) ── */}
+      <div className="hidden md:flex items-start gap-1">
+        <div className="flex-1 overflow-x-auto min-w-0">
           <Table>
             <TableHead>
               <TableRow>
-                {/* Always visible */}
                 <TableHeader>Product</TableHeader>
-                {/* md+ */}
                 <TableHeader className={showClass('md')}>Lang</TableHeader>
                 <TableHeader className={`${showClass('md')} whitespace-nowrap`}>Approved</TableHeader>
-                {/* Phase columns */}
                 {PHASE_FIELDS.map(f => (
-                  <TableHeader
-                    key={f.key as string}
-                    className={`whitespace-nowrap ${showClass(f.showFrom)}`}
-                  >
+                  <TableHeader key={f.key as string} className={`whitespace-nowrap ${showClass(f.showFrom)}`}>
                     {f.label}
                   </TableHeader>
                 ))}
-                {/* Always visible */}
                 <TableHeader>Outcome</TableHeader>
-                {/* lg+ day columns */}
                 <TableHeader className={`${showClass('lg')} text-right whitespace-nowrap`}>Build d</TableHeader>
                 <TableHeader className={`${showClass('lg')} text-right whitespace-nowrap`}>Proof d</TableHeader>
                 <TableHeader className={`${showClass('lg')} text-right whitespace-nowrap`}>Test d</TableHeader>
-                {/* Always visible */}
                 <TableHeader className="text-right whitespace-nowrap">Total d</TableHeader>
                 {isAdmin && <TableHeader />}
               </TableRow>
@@ -196,9 +375,13 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
               {weekBuilds.map(b => {
                 const nextPhaseKey = getNextPhaseKey(b)
                 return (
-                  <TableRow key={b.id}>
-                    <TableCell className="font-medium text-foreground max-w-[180px] truncate">
-                      {b.product_name}
+                  <TableRow
+                    key={b.id}
+                    className="cursor-pointer"
+                    onClick={() => setNotesBuild(b)}
+                  >
+                    <TableCell className="font-medium text-foreground" onClick={e => e.stopPropagation()}>
+                      <MarqueeName name={b.product_name} className="max-w-[180px]" />
                     </TableCell>
                     <TableCell mono className={showClass('md')}>{b.language ?? '—'}</TableCell>
                     <TableCell mono className={`${showClass('md')} whitespace-nowrap`}>
@@ -213,7 +396,7 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
 
                       if (val) {
                         return (
-                          <TableCell key={f.key as string} className={`whitespace-nowrap ${hide}`}>
+                          <TableCell key={f.key as string} className={`whitespace-nowrap ${hide}`} onClick={e => e.stopPropagation()}>
                             {isAdmin && (
                               <button
                                 onClick={() => handlePhaseClear(b.id, f.key)}
@@ -231,7 +414,7 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
 
                       if (isAdmin && nextPhaseKey === f.key) {
                         return (
-                          <TableCell key={f.key as string} className={hide}>
+                          <TableCell key={f.key as string} className={hide} onClick={e => e.stopPropagation()}>
                             <button
                               onClick={() => handlePhaseSet(b.id, f.key)}
                               disabled={isBusy}
@@ -246,8 +429,8 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
                       return <TableCell key={f.key as string} className={`text-text-muted ${hide}`}>—</TableCell>
                     })}
 
-                    {/* Inline outcome — always visible */}
-                    <TableCell>
+                    {/* Inline outcome */}
+                    <TableCell onClick={e => e.stopPropagation()}>
                       {isAdmin ? (
                         <select
                           value={b.outcome ?? ''}
@@ -266,24 +449,43 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
                       )}
                     </TableCell>
 
-                    {/* Day columns: lg+ */}
-                    <TableCell mono className={`${showClass('lg')} text-right text-text-muted`}>
-                      {b.build_days ?? '—'}
-                    </TableCell>
-                    <TableCell mono className={`${showClass('lg')} text-right text-text-muted`}>
-                      {b.proof_days ?? '—'}
-                    </TableCell>
-                    <TableCell mono className={`${showClass('lg')} text-right text-text-muted`}>
-                      {b.test_days ?? '—'}
-                    </TableCell>
-                    {/* Total always visible */}
+                    <TableCell mono className={`${showClass('lg')} text-right text-text-muted`}>{b.build_days ?? '—'}</TableCell>
+                    <TableCell mono className={`${showClass('lg')} text-right text-text-muted`}>{b.proof_days ?? '—'}</TableCell>
+                    <TableCell mono className={`${showClass('lg')} text-right text-text-muted`}>{b.test_days ?? '—'}</TableCell>
                     <TableCell mono className="text-right text-text-muted">{b.total_days ?? '—'}</TableCell>
 
                     {isAdmin && (
-                      <TableCell className="text-right whitespace-nowrap">
-                        <Link href={`/qa-checklist/${b.id}`} className="text-xs text-accent hover:text-accent-bright mr-3">QA</Link>
-                        <button onClick={() => openEdit(b)} className="text-xs text-text-secondary hover:text-foreground mr-3">Edit</button>
-                        <button onClick={() => setDeleteId(b.id)} className="text-xs text-danger/70 hover:text-danger">Del</button>
+                      <TableCell className="text-right whitespace-nowrap" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-0.5">
+                          <Link
+                            href={`/qa-checklist/${b.id}`}
+                            className="p-1.5 rounded text-text-muted hover:text-accent hover:bg-accent-muted transition-colors"
+                            title="QA checklist"
+                          >
+                            <ClipboardList className="h-3.5 w-3.5" />
+                          </Link>
+                          <button
+                            onClick={() => openEdit(b)}
+                            className="p-1.5 rounded text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                            title="Edit"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setNotesBuild(b)}
+                            className="p-1.5 rounded text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                            title="Notes"
+                          >
+                            <StickyNote className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setDeleteId(b.id)}
+                            className="p-1.5 rounded text-text-muted hover:text-danger hover:bg-danger-muted transition-colors"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </TableCell>
                     )}
                   </TableRow>
@@ -293,9 +495,7 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
                 <TableRow>
                   <TableCell colSpan={99} className="text-center text-text-muted py-12">
                     No builds in Week {activeWeek}
-                    {isAdmin && (
-                      <> · <button onClick={openCreate} className="text-accent hover:text-accent-bright">Add one</button></>
-                    )}
+                    {isAdmin && <> · <button onClick={openCreate} className="text-accent hover:text-accent-bright">Add one</button></>}
                   </TableCell>
                 </TableRow>
               )}
@@ -304,7 +504,7 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
         </div>
 
         {/* ── Stats table ── */}
-        <div className="w-full xl:w-44 xl:shrink-0 text-xs border border-border-subtle rounded-md overflow-hidden">
+        <div className="shrink-0 w-44 text-xs border border-border-subtle rounded-md overflow-hidden">
           <table className="w-full">
             <thead>
               <tr className="bg-surface border-b border-border-subtle">
@@ -313,24 +513,18 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
               </tr>
             </thead>
             <tbody className="divide-y divide-border-subtle">
-              <tr>
-                <td className="px-3 py-2 text-text-secondary">Building</td>
-                <td className={`px-3 py-2 text-right font-mono font-medium ${settings ? statColor(buildAvg, settings.build_target_days) : 'text-foreground'}`}>
-                  {buildAvg !== null ? `${buildAvg}d` : '—'}
-                </td>
-              </tr>
-              <tr>
-                <td className="px-3 py-2 text-text-secondary">Proofread</td>
-                <td className={`px-3 py-2 text-right font-mono font-medium ${settings ? statColor(proofAvg, settings.proof_target_days) : 'text-foreground'}`}>
-                  {proofAvg !== null ? `${proofAvg}d` : '—'}
-                </td>
-              </tr>
-              <tr>
-                <td className="px-3 py-2 text-text-secondary">Testing</td>
-                <td className={`px-3 py-2 text-right font-mono font-medium ${settings ? statColor(testAvg, settings.test_target_days) : 'text-foreground'}`}>
-                  {testAvg !== null ? `${testAvg}d` : '—'}
-                </td>
-              </tr>
+              {([
+                ['Building',  buildAvg, settings?.build_target_days],
+                ['Proofread', proofAvg, settings?.proof_target_days],
+                ['Testing',   testAvg,  settings?.test_target_days],
+              ] as [string, number | null, number | undefined][]).map(([label, val, tgt]) => (
+                <tr key={label}>
+                  <td className="px-3 py-2 text-text-secondary">{label}</td>
+                  <td className={`px-3 py-2 text-right font-mono font-medium ${tgt !== undefined ? statColor(val, tgt) : 'text-foreground'}`}>
+                    {val !== null ? `${val}d` : '—'}
+                  </td>
+                </tr>
+              ))}
               <tr className="border-t-2 border-border">
                 <td className="px-3 py-2 text-text-secondary font-medium">Total</td>
                 <td className={`px-3 py-2 text-right font-mono font-medium ${settings ? statColor(totalAvg, settings.total_target_days) : 'text-foreground'}`}>
@@ -340,32 +534,33 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
               {settings && (
                 <>
                   <tr className="bg-surface-elevated">
-                    <td colSpan={2} className="px-3 py-1.5 text-text-muted text-[10px] uppercase tracking-wider font-medium">
-                      Target
-                    </td>
+                    <td colSpan={2} className="px-3 py-1.5 text-text-muted text-[10px] uppercase tracking-wider font-medium">Target</td>
                   </tr>
-                  <tr>
-                    <td className="px-3 py-2 text-text-muted">Building</td>
-                    <td className="px-3 py-2 text-right font-mono text-text-muted">{settings.build_target_days}d</td>
-                  </tr>
-                  <tr>
-                    <td className="px-3 py-2 text-text-muted">Proofread</td>
-                    <td className="px-3 py-2 text-right font-mono text-text-muted">{settings.proof_target_days}d</td>
-                  </tr>
-                  <tr>
-                    <td className="px-3 py-2 text-text-muted">Testing</td>
-                    <td className="px-3 py-2 text-right font-mono text-text-muted">{settings.test_target_days}d</td>
-                  </tr>
-                  <tr>
-                    <td className="px-3 py-2 text-text-muted">Total</td>
-                    <td className="px-3 py-2 text-right font-mono text-text-muted">{settings.total_target_days}d</td>
-                  </tr>
+                  {([
+                    ['Building',  settings.build_target_days],
+                    ['Proofread', settings.proof_target_days],
+                    ['Testing',   settings.test_target_days],
+                    ['Total',     settings.total_target_days],
+                  ] as [string, number][]).map(([label, val]) => (
+                    <tr key={label}>
+                      <td className="px-3 py-2 text-text-muted">{label}</td>
+                      <td className="px-3 py-2 text-right font-mono text-text-muted">{val}d</td>
+                    </tr>
+                  ))}
                 </>
               )}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* ── Modals ── */}
+      <BuildNoteModal
+        build={notesBuild}
+        onClose={() => setNotesBuild(null)}
+        onSaved={onRefresh}
+        isAdmin={isAdmin}
+      />
 
       <BuildFormModal
         open={formOpen}
