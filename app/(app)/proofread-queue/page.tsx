@@ -11,16 +11,17 @@ import { createClient } from '@/lib/supabase'
 
 type TypeFilter = 'all' | 'jewelry' | 'funnel'
 
-function daysSince(dateStr: string | null): number | null {
-  if (!dateStr) return null
-  return Math.round((Date.now() - new Date(dateStr).getTime()) / 86_400_000)
+function daysInProofread(b: Build): number | null {
+  if (!b.into_proofread) return null
+  if (b.proof_days !== null) return b.proof_days
+  return Math.round((Date.now() - new Date(b.into_proofread).getTime()) / 86_400_000)
 }
 
 export default function ProofreadQueuePage() {
   const [builds, setBuilds] = useState<Build[]>([])
   const [filter, setFilter] = useState<TypeFilter>('all')
   const [isAdmin, setIsAdmin] = useState(false)
-  const [marking, setMarking] = useState<string | null>(null)
+  const [advancing, setAdvancing] = useState<string | null>(null)
 
   const load = useCallback(() => {
     api.get<Build[]>('/api/builds/proofread-queue').then(setBuilds).catch(console.error)
@@ -36,16 +37,15 @@ export default function ProofreadQueuePage() {
     })
   }, [load])
 
-  async function markProofread(b: Build) {
-    setMarking(b.id)
+  async function advanceToTesting(b: Build) {
+    setAdvancing(b.id)
     try {
       await api.put(`/api/builds/${b.id}`, {
-        into_proofread: new Date().toISOString().split('T')[0],
+        into_testing: new Date().toISOString().split('T')[0],
       })
       load()
     } finally {
-      setMarking(null)
-    }
+      setAdvancing(null) }
   }
 
   const visible = builds.filter(b => filter === 'all' || b.type === filter)
@@ -62,10 +62,9 @@ export default function ProofreadQueuePage() {
     <div>
       <PageHeader
         title="Proofread Queue"
-        description="Builds in Phase 1 waiting to be proofread. Items flagged red have been waiting over 3 days."
+        description="Builds currently in the Proofread phase. Items flagged red exceed the 3-day target."
       />
 
-      {/* Type filter */}
       <div className="flex items-center gap-1 mb-6">
         {FILTERS.map(f => (
           <button
@@ -93,8 +92,8 @@ export default function ProofreadQueuePage() {
               <TableHeader>Type</TableHeader>
               <TableHeader>Lang</TableHeader>
               <TableHeader>Wk</TableHeader>
-              <TableHeader>Phase 1 Start</TableHeader>
-              <TableHeader className="text-right">Days in Queue</TableHeader>
+              <TableHeader>In Proofread Since</TableHeader>
+              <TableHeader className="text-right">Days</TableHeader>
               <TableHeader>Flag</TableHeader>
               <TableHeader>Proofreader</TableHeader>
               {isAdmin && <TableHeader />}
@@ -109,18 +108,15 @@ export default function ProofreadQueuePage() {
               </TableRow>
             )}
             {visible.map(b => {
-              const days = daysSince(b.phase1_start)
+              const days = daysInProofread(b)
               const flagged = days !== null && days > 3
               const trackerHref = b.type === 'jewelry' ? '/jewelry-tracker' : '/funnel-tracker'
 
               return (
                 <TableRow key={b.id} className={flagged ? 'bg-danger-muted/20' : undefined}>
                   <TableCell className="font-medium text-foreground">
-                    <Link
-                      href={trackerHref}
-                      className="hover:text-accent transition-colors"
-                      title={`View in ${b.type === 'jewelry' ? 'Jewelry' : 'Funnel'} Tracker`}
-                    >
+                    <Link href={trackerHref} className="hover:text-accent transition-colors"
+                      title={`View in ${b.type === 'jewelry' ? 'Jewelry' : 'Funnel'} Tracker`}>
                       {b.product_name}
                     </Link>
                   </TableCell>
@@ -133,7 +129,7 @@ export default function ProofreadQueuePage() {
 
                   <TableCell mono>{b.language ?? '—'}</TableCell>
                   <TableCell mono>{b.week_number}</TableCell>
-                  <TableCell mono className="whitespace-nowrap">{formatDate(b.phase1_start)}</TableCell>
+                  <TableCell mono className="whitespace-nowrap">{formatDate(b.into_proofread)}</TableCell>
 
                   <TableCell mono className="text-right">
                     <span className={flagged ? 'text-danger font-medium' : 'text-foreground'}>
@@ -152,18 +148,15 @@ export default function ProofreadQueuePage() {
                   {isAdmin && (
                     <TableCell className="text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-3">
-                        <Link
-                          href={`/qa-checklist/${b.id}`}
-                          className="text-xs text-accent hover:text-accent-bright"
-                        >
+                        <Link href={`/qa-checklist/${b.id}`} className="text-xs text-accent hover:text-accent-bright">
                           QA
                         </Link>
                         <button
-                          onClick={() => markProofread(b)}
-                          disabled={marking === b.id}
-                          className="text-xs font-medium px-2 py-0.5 rounded border text-yellow-500 border-yellow-500/30 hover:border-yellow-500/60 bg-yellow-500/5 transition-colors disabled:opacity-40"
+                          onClick={() => advanceToTesting(b)}
+                          disabled={advancing === b.id}
+                          className="text-xs font-medium px-2 py-0.5 rounded border text-text-secondary border-border hover:border-text-secondary transition-colors disabled:opacity-40"
                         >
-                          {marking === b.id ? '…' : 'Proofread ✓'}
+                          {advancing === b.id ? '…' : 'Testing →'}
                         </button>
                       </div>
                     </TableCell>
