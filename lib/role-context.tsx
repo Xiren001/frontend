@@ -44,6 +44,7 @@ export const PATH_PERMISSION: Record<string, keyof ApproverPermissions | null> =
   '/jewelry-tracker': 'jewelry_tracker',
   '/funnel-tracker':  'funnel_tracker',
   '/proofread-queue': 'proofread_queue',
+  '/copy-review':     null,
   '/mistake-log':     'mistake_log',
   '/monthly-planner': 'monthly_planner',
   '/decision-rights': 'decision_rights',
