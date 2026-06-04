@@ -41,9 +41,14 @@ export function NavSidebar() {
   const { role, permissions } = useRole()
   const [collapsed, setCollapsed] = useState(false)
 
-  // Load from localStorage after mount (SSR-safe)
   useEffect(() => {
-    setCollapsed(localStorage.getItem('sidebar-collapsed') === 'true')
+    const saved = localStorage.getItem('sidebar-collapsed')
+    if (saved !== null) {
+      setCollapsed(saved === 'true')
+    } else {
+      // Default: collapsed on mobile
+      setCollapsed(window.innerWidth < 768)
+    }
   }, [])
 
   function toggleCollapse() {
@@ -78,20 +83,33 @@ export function NavSidebar() {
         collapsed ? 'w-14' : 'w-60',
       )}
     >
-      {/* Logo */}
-      <div className={cn('flex items-center border-b border-border-subtle py-5', collapsed ? 'justify-center px-0' : 'px-5 gap-2.5')}>
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent-muted border border-accent-border">
-          <Terminal className="h-3.5 w-3.5 text-accent" />
-        </div>
-        {!collapsed && (
-          <div>
-            <p className="text-xs font-mono font-medium text-foreground tracking-wide">myko</p>
-            <p className="text-[10px] font-mono text-text-muted uppercase tracking-widest">ops hub</p>
+      {/* Logo + collapse toggle */}
+      <div className="relative flex items-center border-b border-border-subtle py-5 px-3 min-h-[60px]">
+        <div className={cn('flex items-center gap-2.5', collapsed && 'w-full justify-center')}>
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent-muted border border-accent-border">
+            <Terminal className="h-3.5 w-3.5 text-accent" />
           </div>
-        )}
+          {!collapsed && (
+            <div>
+              <p className="text-xs font-mono font-medium text-foreground tracking-wide">myko</p>
+              <p className="text-[10px] font-mono text-text-muted uppercase tracking-widest">ops hub</p>
+            </div>
+          )}
+        </div>
+
+        {/* Collapse toggle — top-right corner, icon only */}
+        <button
+          onClick={toggleCollapse}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className="absolute top-2 right-2 p-1.5 rounded-md text-text-muted hover:bg-surface-hover hover:text-foreground transition-colors"
+        >
+          {collapsed
+            ? <ChevronRight className="h-3.5 w-3.5" />
+            : <ChevronLeft className="h-3.5 w-3.5" />}
+        </button>
       </div>
 
-      {/* Nav */}
+      {/* Nav items */}
       <nav className="flex-1 overflow-y-auto py-4 px-2">
         {visibleNav.map(item => {
           const active = pathname === item.href || pathname.startsWith(item.href + '/')
@@ -116,19 +134,8 @@ export function NavSidebar() {
         })}
       </nav>
 
-      {/* Bottom: collapse toggle + sign out */}
-      <div className="px-2 py-3 border-t border-border-subtle space-y-0.5">
-        <button
-          onClick={toggleCollapse}
-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          className={cn(
-            'flex w-full items-center rounded-md py-2 text-sm text-text-muted hover:bg-surface-hover hover:text-foreground transition-colors',
-            collapsed ? 'justify-center px-2' : 'gap-2.5 px-3',
-          )}
-        >
-          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-          {!collapsed && 'Collapse'}
-        </button>
+      {/* Sign out */}
+      <div className="px-2 py-3 border-t border-border-subtle">
         <button
           onClick={handleLogout}
           title={collapsed ? 'Sign out' : undefined}

@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { Tabs } from '@/components/ui/tabs'
 import { ConfirmModal } from '@/components/ui/modal'
-import { ClipboardList, Pencil, Trash2, StickyNote } from 'lucide-react'
+import { ClipboardList, Pencil, Trash2 } from 'lucide-react'
 
 // ── Phase config ─────────────────────────────────────────────────────────────
 
@@ -157,13 +157,6 @@ function BuildCard({ b, isAdmin, advancing, onOpenNotes, onOpenEdit, onDelete, o
               title="Edit"
             >
               <Pencil className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={() => onOpenNotes(b)}
-              className="p-1.5 rounded text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
-              title="Notes"
-            >
-              <StickyNote className="h-3.5 w-3.5" />
             </button>
             <button
               onClick={() => onDelete(b.id)}
@@ -470,13 +463,6 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
                             title="Edit"
                           >
                             <Pencil className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            onClick={() => setNotesBuild(b)}
-                            className="p-1.5 rounded text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
-                            title="Notes"
-                          >
-                            <StickyNote className="h-3.5 w-3.5" />
                           </button>
                           <button
                             onClick={() => setDeleteId(b.id)}
