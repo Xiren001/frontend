@@ -14,8 +14,8 @@ import {
   Settings,
   LogOut,
   Terminal,
-  ChevronLeft,
-  ChevronRight,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase'
@@ -46,7 +46,6 @@ export function NavSidebar() {
     if (saved !== null) {
       setCollapsed(saved === 'true')
     } else {
-      // Default: collapsed on mobile
       setCollapsed(window.innerWidth < 768)
     }
   }, [])
@@ -83,34 +82,39 @@ export function NavSidebar() {
         collapsed ? 'w-14' : 'w-60',
       )}
     >
-      {/* Logo + collapse toggle */}
-      <div className="relative flex items-center border-b border-border-subtle py-5 px-3 min-h-[60px]">
-        <div className={cn('flex items-center gap-2.5', collapsed && 'w-full justify-center')}>
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between border-b border-border-subtle h-[60px] px-3 gap-2">
+        {/* Logo mark + wordmark */}
+        <div className={cn('flex items-center gap-2.5 min-w-0', collapsed && 'flex-1 justify-center')}>
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent-muted border border-accent-border">
             <Terminal className="h-3.5 w-3.5 text-accent" />
           </div>
           {!collapsed && (
-            <div>
-              <p className="text-xs font-mono font-medium text-foreground tracking-wide">myko</p>
-              <p className="text-[10px] font-mono text-text-muted uppercase tracking-widest">ops hub</p>
+            <div className="min-w-0">
+              <p className="text-xs font-mono font-medium text-foreground tracking-wide leading-none">myko</p>
+              <p className="text-[10px] font-mono text-text-muted uppercase tracking-widest mt-0.5">ops hub</p>
             </div>
           )}
         </div>
 
-        {/* Collapse toggle — top-right corner, icon only */}
+        {/* Collapse toggle */}
         <button
           onClick={toggleCollapse}
           title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          className="absolute top-2 right-2 p-1.5 rounded-md text-text-muted hover:bg-surface-hover hover:text-foreground transition-colors"
+          className={cn(
+            'shrink-0 flex items-center justify-center rounded-md w-7 h-7 text-text-muted',
+            'hover:bg-surface-hover hover:text-foreground transition-colors',
+            collapsed && 'mx-auto',
+          )}
         >
           {collapsed
-            ? <ChevronRight className="h-3.5 w-3.5" />
-            : <ChevronLeft className="h-3.5 w-3.5" />}
+            ? <PanelLeftOpen className="h-4 w-4" />
+            : <PanelLeftClose className="h-4 w-4" />}
         </button>
       </div>
 
-      {/* Nav items */}
-      <nav className="flex-1 overflow-y-auto py-4 px-2">
+      {/* ── Nav ── */}
+      <nav className="flex-1 overflow-y-auto py-3 px-2">
         {visibleNav.map(item => {
           const active = pathname === item.href || pathname.startsWith(item.href + '/')
           const Icon = item.icon
@@ -134,17 +138,18 @@ export function NavSidebar() {
         })}
       </nav>
 
-      {/* Sign out */}
+      {/* ── Sign out ── */}
       <div className="px-2 py-3 border-t border-border-subtle">
         <button
           onClick={handleLogout}
           title={collapsed ? 'Sign out' : undefined}
           className={cn(
-            'flex w-full items-center rounded-md py-2 text-sm text-text-muted hover:bg-surface-hover hover:text-foreground transition-colors',
+            'flex w-full items-center rounded-md py-2 text-sm text-text-muted',
+            'hover:bg-surface-hover hover:text-foreground transition-colors',
             collapsed ? 'justify-center px-2' : 'gap-2.5 px-3',
           )}
         >
-          <LogOut className="h-4 w-4" />
+          <LogOut className="h-4 w-4 shrink-0" />
           {!collapsed && 'Sign out'}
         </button>
       </div>
