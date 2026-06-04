@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase'
+import { useRole, PATH_PERMISSION } from '@/lib/role-context'
 
 const NAV = [
   { href: '/dashboard',       label: 'Dashboard',        icon: LayoutDashboard },
@@ -34,6 +35,20 @@ const NAV = [
 export function NavSidebar() {
   const pathname = usePathname()
   const router = useRouter()
+  const { role, permissions } = useRole()
+
+  // filter visible nav items
+  const visibleNav = NAV.filter(item => {
+    if (role === 'admin') return true
+    const key = PATH_PERMISSION[item.href]
+    if (role === 'viewer') return key === null  // null = always (weekly/monthly)
+    if (role === 'approver') {
+      if (key === null) return true
+      if (key === undefined) return false
+      return permissions?.[key] === true
+    }
+    return false
+  })
 
   async function handleLogout() {
     const supabase = createClient()
@@ -56,7 +71,7 @@ export function NavSidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto py-4 px-3">
-        {NAV.map(item => {
+        {visibleNav.map(item => {
           const active = pathname === item.href || pathname.startsWith(item.href + '/')
           const Icon = item.icon
           return (
