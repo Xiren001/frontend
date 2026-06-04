@@ -58,8 +58,8 @@ export default function WeeklyReportPage() {
   const METRICS: { key: keyof WeekStats; label: string }[] = [
     { key: 'logged', label: 'Builds logged' },
     { key: 'completed', label: 'Completed (live)' },
-    { key: 'winners', label: 'Winners' },
-    { key: 'killed', label: 'Killed' },
+    { key: 'winners', label: 'Expanding' },
+    { key: 'killed', label: 'Stopped' },
     { key: 'avgBuildDays', label: 'Avg build (days)' },
     { key: 'avgTotalDays', label: 'Avg total: approved → live (days)' },
   ]
