@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Modal, FormField } from '@/components/ui/modal'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-import { Pencil, Trash2, Plus, ExternalLink } from 'lucide-react'
+import { Pencil, Trash2, Plus, ExternalLink, Languages } from 'lucide-react'
 import { Tabs } from '@/components/ui/tabs'
 
 interface ProofProduct {
@@ -100,6 +100,13 @@ export default function CopyReviewPage() {
   const [deleteCorrectionId, setDeleteCorrectionId] = useState<string | null>(null)
   const [deletingCorrection, setDeletingCorrection] = useState(false)
   const [sourceTab, setSourceTab] = useState<CorrectionSource>('website')
+
+  // Translation — volatile: not persisted, resets on reload
+  const [isTranslated, setIsTranslated] = useState(false)
+  const [translating, setTranslating] = useState(false)
+  const [translationCache, setTranslationCache] = useState<
+    Record<string, Record<string, { location: string | null; original_text: string | null; corrected_text: string | null; issue_type: string | null; notes: string | null }>>
+  >({})
 
   const loadProducts = useCallback(() => {
     api.get<ProofProduct[]>('/api/proof-corrections/products').then(setProducts).catch(console.error)
@@ -212,6 +219,39 @@ export default function CopyReviewPage() {
       if (productId) loadCorrections(productId)
       loadProducts()
     } finally { setDeletingCorrection(false) }
+  }
+
+  async function handleTranslate() {
+    if (!selectedProduct) return
+    const pid = selectedProduct.id
+    if (isTranslated) { setIsTranslated(false); return }
+
+    // Use cache if already translated
+    if (translationCache[pid]) { setIsTranslated(true); return }
+
+    setTranslating(true)
+    try {
+      const snippets = selectedCorrections.map(c => ({
+        id: c.id,
+        location: c.location,
+        original_text: c.original_text,
+        corrected_text: c.corrected_text,
+        issue_type: c.issue_type,
+        notes: c.notes,
+      }))
+      const { translations } = await api.post<{ translations: typeof snippets }>(
+        '/api/translate',
+        { corrections: snippets, language: selectedProduct.language ?? 'ES' }
+      )
+      const map: Record<string, typeof snippets[number]> = {}
+      for (const t of translations) map[t.id] = t
+      setTranslationCache(prev => ({ ...prev, [pid]: map }))
+      setIsTranslated(true)
+    } catch (e) {
+      console.error('Translation failed', e)
+    } finally {
+      setTranslating(false)
+    }
   }
 
   const esCnt = products.filter(p => p.language === 'ES').length
@@ -364,33 +404,46 @@ export default function CopyReviewPage() {
                     )}
                   </div>
 
-                  {(selectedProduct.pdp_url || selectedProduct.drive_folder) && (
-                    <div className="flex gap-3 mt-3">
-                      {selectedProduct.pdp_url && (
-                        <a
-                          href={selectedProduct.pdp_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1 text-xs text-accent hover:text-accent-bright transition-colors"
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                          PDP
-                        </a>
+                  <div className="flex items-center gap-3 mt-3">
+                    <button
+                      onClick={handleTranslate}
+                      disabled={translating}
+                      className={cn(
+                        'flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md border transition-colors',
+                        isTranslated
+                          ? 'bg-accent-muted text-accent-bright border-accent-border/50'
+                          : 'text-text-muted border-border-subtle hover:text-foreground hover:border-border',
+                        translating && 'opacity-50 cursor-not-allowed',
                       )}
-                      {selectedProduct.drive_folder && (
-                        <a
-                          href={selectedProduct.drive_folder}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1 text-xs text-accent hover:text-accent-bright transition-colors"
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                          Drive folder
-                        </a>
-                      )}
-                    </div>
-                  )}
-                </div>
+                    >
+                      <Languages className="h-3.5 w-3.5" />
+                      {translating ? 'Translating…' : isTranslated ? 'EN' : 'Translate to EN'}
+                    </button>
+
+                    {selectedProduct.pdp_url && (
+                      <a
+                        href={selectedProduct.pdp_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-xs text-accent hover:text-accent-bright transition-colors"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        PDP
+                      </a>
+                    )}
+                    {selectedProduct.drive_folder && (
+                      <a
+                        href={selectedProduct.drive_folder}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-xs text-accent hover:text-accent-bright transition-colors"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        Drive folder
+                      </a>
+                    )}
+                  </div>
+                </div>{/* end shrink-0 product header */}
 
                 {/* Source tabs */}
                 {(() => {
@@ -431,7 +484,14 @@ export default function CopyReviewPage() {
                           </div>
                         ) : (
                           <div className="divide-y divide-border-subtle">
-                            {tabCorrections.map((c, i) => (
+                            {tabCorrections.map((c, i) => {
+                              const t = isTranslated ? translationCache[selectedProduct.id]?.[c.id] : null
+                              const loc      = t?.location      ?? c.location
+                              const origText = t?.original_text  ?? c.original_text
+                              const corrText = t?.corrected_text ?? c.corrected_text
+                              const issueTyp = t?.issue_type     ?? c.issue_type
+                              const notesTxt = t?.notes          ?? c.notes
+                              return (
                               <div
                                 key={c.id}
                                 className={cn(
@@ -446,40 +506,40 @@ export default function CopyReviewPage() {
                                       <span className="text-[10px] font-mono text-text-muted bg-surface-elevated border border-border-subtle rounded px-1.5 py-0.5">
                                         #{i + 1}
                                       </span>
-                                      {c.location && (
+                                      {loc && (
                                         <span className="text-xs font-medium text-text-muted uppercase tracking-wide">
-                                          {c.location}
+                                          {loc}
                                         </span>
                                       )}
                                     </div>
 
-                                    {c.original_text && (
+                                    {origText && (
                                       <div className="space-y-0.5">
                                         <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Before</p>
                                         <p className="text-sm text-text-secondary leading-relaxed line-through decoration-text-muted/50">
-                                          {c.original_text}
+                                          {origText}
                                         </p>
                                       </div>
                                     )}
 
-                                    {c.corrected_text && (
+                                    {corrText && (
                                       <div className="space-y-0.5">
                                         <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">After</p>
                                         <p className="text-sm text-foreground font-medium leading-relaxed">
-                                          {c.corrected_text}
+                                          {corrText}
                                         </p>
                                       </div>
                                     )}
 
                                     <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-                                      {c.issue_type && <Badge variant="default">{c.issue_type}</Badge>}
+                                      {issueTyp && <Badge variant="default">{issueTyp}</Badge>}
                                       <SeverityBadge severity={c.severity} />
                                       {c.done && <Badge variant="muted">Resolved</Badge>}
                                     </div>
 
-                                    {c.notes && (
+                                    {notesTxt && (
                                       <p className="text-xs text-text-muted italic border-l-2 border-border-subtle pl-2">
-                                        {c.notes}
+                                        {notesTxt}
                                       </p>
                                     )}
                                   </div>
@@ -509,7 +569,7 @@ export default function CopyReviewPage() {
                                   )}
                                 </div>
                               </div>
-                            ))}
+                            )})}
                           </div>
                         )}
                       </div>
