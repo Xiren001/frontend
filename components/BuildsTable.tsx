@@ -16,18 +16,34 @@ import * as XLSX from 'xlsx'
 
 // ── Phase config ─────────────────────────────────────────────────────────────
 
-const PHASE_FIELDS: {
-  key: keyof Build
-  label: string
-  status: string
-  variant: 'default' | 'warn' | 'accent'
-  showFrom?: 'md'
-}[] = [
-  { key: 'phase1_start',    label: 'Phase 1',   status: 'Building',     variant: 'default' },
-  { key: 'into_proofread',  label: 'Proofread', status: 'Proofreading', variant: 'warn',   showFrom: 'md' },
-  { key: 'into_testing',    label: 'Testing',   status: 'Testing',      variant: 'default', showFrom: 'md' },
-  { key: 'outcome_decided', label: 'Decided',   status: 'Decided',      variant: 'accent',  showFrom: 'md' },
+// Ordered sequence of date keys — used for advance/clear logic
+const PHASE_SEQUENCE: (keyof Build)[] = [
+  'phase1_start', 'into_proofread', 'into_testing', 'outcome_decided',
 ]
+
+// Column rendering config: each phase column shows a stacked start+end date pair.
+// Decided is a single-date column (endKey = null).
+const PHASE_COLS: {
+  label:       string
+  startKey:    keyof Build
+  endKey:      keyof Build | null
+  endBtnLabel: string | null
+  variant:     'default' | 'warn' | 'accent'
+  showFrom?:   'md'
+}[] = [
+  { label: 'Phase 1',  startKey: 'phase1_start',   endKey: 'into_proofread',  endBtnLabel: 'Proofread', variant: 'default' },
+  { label: 'Proofread',startKey: 'into_proofread',  endKey: 'into_testing',    endBtnLabel: 'Testing',   variant: 'warn',   showFrom: 'md' },
+  { label: 'Testing',  startKey: 'into_testing',    endKey: 'outcome_decided', endBtnLabel: 'Decided',   variant: 'default', showFrom: 'md' },
+  { label: 'Decided',  startKey: 'outcome_decided', endKey: null,              endBtnLabel: null,         variant: 'accent', showFrom: 'md' },
+]
+
+// Per-key label + variant used for advance buttons in mobile card
+const PHASE_KEY_INFO: Record<string, { label: string; variant: 'default' | 'warn' | 'accent' }> = {
+  phase1_start:    { label: 'Building',  variant: 'default' },
+  into_proofread:  { label: 'Proofread', variant: 'warn'    },
+  into_testing:    { label: 'Testing',   variant: 'default' },
+  outcome_decided: { label: 'Decided',   variant: 'accent'  },
+}
 
 const OUTCOME_VARIANT: Record<NonNullable<BuildOutcome>, 'accent' | 'warn' | 'danger'> = {
   expanding: 'accent',
@@ -50,7 +66,7 @@ const PHASE_BADGE_CLS: Record<string, string> = {
 }
 
 function getNextPhaseKey(b: Build): keyof Build | null {
-  for (const { key } of PHASE_FIELDS) if (!b[key]) return key
+  for (const key of PHASE_SEQUENCE) if (!b[key]) return key
   return null
 }
 
@@ -126,11 +142,11 @@ interface CardProps {
 
 function BuildCard({ b, isAdmin, advancing, onOpenNotes, onOpenEdit, onDelete, onPhaseSet, onPhaseClear, onOutcomeChange }: CardProps) {
   const nextKey = getNextPhaseKey(b)
-  const nextField = PHASE_FIELDS.find(f => f.key === nextKey)
+  const nextInfo = nextKey ? PHASE_KEY_INFO[String(nextKey)] : null
 
-  // Most recent set phase date for display
-  const phases = PHASE_FIELDS.filter(f => b[f.key])
-  const latest = phases[phases.length - 1]
+  // Most recent set phase key (for the ← clear button)
+  const setKeys = PHASE_SEQUENCE.filter(k => b[k])
+  const latestKey = setKeys[setKeys.length - 1] ?? null
 
   return (
     <div
@@ -178,19 +194,19 @@ function BuildCard({ b, isAdmin, advancing, onOpenNotes, onOpenEdit, onDelete, o
         <span className={`text-xs px-2 py-0.5 rounded border font-medium ${PHASE_BADGE_CLS[b.phase] ?? PHASE_BADGE_CLS.pending}`}>
           {b.phase.charAt(0).toUpperCase() + b.phase.slice(1)}
         </span>
-        {isAdmin && nextField && (
+        {isAdmin && nextKey && nextInfo && (
           <button
-            onClick={() => onPhaseSet(b.id, nextField.key)}
-            disabled={advancing === b.id + String(nextField.key)}
-            className={`text-xs font-medium px-2 py-0.5 rounded border transition-colors disabled:opacity-40 ${PHASE_BTN[nextField.variant]}`}
+            onClick={() => onPhaseSet(b.id, nextKey)}
+            disabled={advancing === b.id + String(nextKey)}
+            className={`text-xs font-medium px-2 py-0.5 rounded border transition-colors disabled:opacity-40 ${PHASE_BTN[nextInfo.variant]}`}
           >
-            {advancing === b.id + String(nextField.key) ? '…' : `${nextField.status} →`}
+            {advancing === b.id + String(nextKey) ? '…' : `${nextInfo.label} →`}
           </button>
         )}
-        {isAdmin && latest && (
+        {isAdmin && latestKey && (
           <button
-            onClick={() => onPhaseClear(b.id, latest.key)}
-            disabled={advancing === b.id + String(latest.key)}
+            onClick={() => onPhaseClear(b.id, latestKey)}
+            disabled={advancing === b.id + String(latestKey)}
             className="text-danger hover:text-red-400 font-bold text-sm leading-none disabled:opacity-40"
             title="Return to previous phase"
           >
@@ -333,9 +349,9 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
 
   async function handlePhaseClear(buildId: string, field: keyof Build) {
     setAdvancing(buildId + String(field))
-    const idx = PHASE_FIELDS.findIndex(f => f.key === field)
+    const idx = PHASE_SEQUENCE.indexOf(field)
     const update: Record<string, null> = {}
-    for (let i = idx; i < PHASE_FIELDS.length; i++) update[PHASE_FIELDS[i].key as string] = null
+    for (let i = idx; i < PHASE_SEQUENCE.length; i++) update[PHASE_SEQUENCE[i] as string] = null
     try {
       await api.put(`/api/builds/${buildId}`, update)
       onRefresh()
@@ -545,11 +561,10 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
             <TableHead>
               <TableRow>
                 <TableHeader>Product</TableHeader>
-                <TableHeader className={showClass('md')}>Lang</TableHeader>
                 <TableHeader className={`${showClass('md')} whitespace-nowrap`}>Approved</TableHeader>
-                {PHASE_FIELDS.map(f => (
-                  <TableHeader key={f.key as string} className={`whitespace-nowrap ${showClass(f.showFrom)}`}>
-                    {f.label}
+                {PHASE_COLS.map(col => (
+                  <TableHeader key={col.label} className={`whitespace-nowrap ${showClass(col.showFrom)}`}>
+                    {col.label}
                   </TableHeader>
                 ))}
                 <TableHeader>Outcome</TableHeader>
@@ -570,52 +585,100 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
                     onClick={() => setNotesBuild(b)}
                   >
                     <TableCell className="font-medium text-foreground" onClick={e => e.stopPropagation()}>
-                      <MarqueeName name={b.product_name} className="max-w-[180px]" />
+                      <div className="flex flex-col gap-0.5">
+                        <MarqueeName name={b.product_name} className="max-w-[180px]" />
+                        {b.language && (
+                          <span className="text-[11px] font-mono text-text-muted">{b.language}</span>
+                        )}
+                      </div>
                     </TableCell>
-                    <TableCell mono className={showClass('md')}>{b.language ?? '—'}</TableCell>
                     <TableCell mono className={`${showClass('md')} whitespace-nowrap`}>
                       {formatDate(b.approved_date)}
                     </TableCell>
 
-                    {PHASE_FIELDS.map(f => {
-                      const val = b[f.key] as string | null
-                      const advKey = b.id + String(f.key)
-                      const isBusy = advancing === advKey
-                      const hide = showClass(f.showFrom)
+                    {PHASE_COLS.map(col => {
+                      const hide = showClass(col.showFrom)
+                      const startVal = b[col.startKey] as string | null
+                      const endVal = col.endKey ? b[col.endKey] as string | null : null
+                      const isPhase1 = col.startKey === 'phase1_start'
+                      const isUnlocked = isPhase1 || !!startVal
 
-                      if (val) {
+                      if (!isUnlocked) {
+                        return <TableCell key={col.label} className={`${hide} text-text-muted whitespace-nowrap`}>—</TableCell>
+                      }
+
+                      if (!col.endKey) {
+                        // Decided: single-date column
                         return (
-                          <TableCell key={f.key as string} className={`whitespace-nowrap ${hide}`} onClick={e => e.stopPropagation()}>
-                            {isAdmin && (
-                              <button
-                                onClick={() => handlePhaseClear(b.id, f.key)}
-                                disabled={isBusy}
-                                title="Return to previous phase"
-                                className="mr-1.5 text-danger hover:text-red-400 font-bold text-sm leading-none align-middle disabled:opacity-40 transition-colors"
-                              >
-                                ←
-                              </button>
+                          <TableCell key={col.label} className={`${hide} whitespace-nowrap`} onClick={e => e.stopPropagation()}>
+                            {startVal ? (
+                              <div className="flex items-center gap-1">
+                                {isAdmin && (
+                                  <button
+                                    onClick={() => handlePhaseClear(b.id, col.startKey)}
+                                    disabled={advancing === b.id + String(col.startKey)}
+                                    title="Clear"
+                                    className="text-danger hover:text-red-400 font-bold text-sm leading-none disabled:opacity-40 transition-colors"
+                                  >←</button>
+                                )}
+                                <span className="font-mono text-xs text-foreground">{formatDate(startVal)}</span>
+                              </div>
+                            ) : (
+                              <span className="text-text-muted">—</span>
                             )}
-                            <span className="font-mono text-xs text-foreground">{formatDate(val)}</span>
                           </TableCell>
                         )
                       }
 
-                      if (isAdmin && nextPhaseKey === f.key) {
-                        return (
-                          <TableCell key={f.key as string} className={hide} onClick={e => e.stopPropagation()}>
-                            <button
-                              onClick={() => handlePhaseSet(b.id, f.key)}
-                              disabled={isBusy}
-                              className={`text-xs font-medium px-2.5 py-1 rounded border transition-colors disabled:opacity-40 whitespace-nowrap ${PHASE_BTN[f.variant]}`}
-                            >
-                              {isBusy ? '…' : `${f.status} →`}
-                            </button>
-                          </TableCell>
-                        )
-                      }
-
-                      return <TableCell key={f.key as string} className={`text-text-muted ${hide}`}>—</TableCell>
+                      // Stacked phase column: top = start date, bottom = end date
+                      return (
+                        <TableCell key={col.label} className={`${hide} whitespace-nowrap`} onClick={e => e.stopPropagation()}>
+                          <div className="flex flex-col gap-0.5 min-w-[88px]">
+                            {/* Top: start date */}
+                            <div className="flex items-center gap-1">
+                              {isAdmin && startVal && (
+                                <button
+                                  onClick={() => handlePhaseClear(b.id, col.startKey)}
+                                  disabled={advancing === b.id + String(col.startKey)}
+                                  title="Clear phase"
+                                  className="text-danger hover:text-red-400 font-bold text-sm leading-none disabled:opacity-40 transition-colors"
+                                >←</button>
+                              )}
+                              {startVal ? (
+                                <span className="font-mono text-xs text-foreground">{formatDate(startVal)}</span>
+                              ) : isAdmin && nextPhaseKey === col.startKey ? (
+                                <button
+                                  onClick={() => handlePhaseSet(b.id, col.startKey)}
+                                  disabled={advancing === b.id + String(col.startKey)}
+                                  className={`text-xs font-medium px-2.5 py-1 rounded border transition-colors disabled:opacity-40 whitespace-nowrap ${PHASE_BTN[col.variant]}`}
+                                >
+                                  {advancing === b.id + String(col.startKey) ? '…' : `${col.label} →`}
+                                </button>
+                              ) : (
+                                <span className="font-mono text-xs text-text-muted">—</span>
+                              )}
+                            </div>
+                            {/* Bottom: end date (only when start is set) */}
+                            {startVal && (
+                              <div>
+                                {endVal ? (
+                                  <span className="font-mono text-xs text-text-muted">{formatDate(endVal)}</span>
+                                ) : isAdmin && nextPhaseKey === col.endKey ? (
+                                  <button
+                                    onClick={() => handlePhaseSet(b.id, col.endKey!)}
+                                    disabled={advancing === b.id + String(col.endKey)}
+                                    className={`text-xs font-medium px-2.5 py-1 rounded border transition-colors disabled:opacity-40 whitespace-nowrap ${PHASE_BTN[col.variant]}`}
+                                  >
+                                    {advancing === b.id + String(col.endKey) ? '…' : `${col.endBtnLabel} →`}
+                                  </button>
+                                ) : (
+                                  <span className="font-mono text-xs text-text-muted">—</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                      )
                     })}
 
                     {/* Inline outcome */}
