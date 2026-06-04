@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button'
 import { currentMonth } from '@/lib/utils'
 import type { Build, BuildType } from '@/lib/types'
 
+const SELECT_CLS = 'w-full rounded-md border border-border bg-surface-elevated px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent/40'
+
 interface BuildFormModalProps {
   open: boolean
   onClose: () => void
@@ -43,6 +45,19 @@ export function BuildFormModal({
     setForm(prev => ({ ...prev, [key]: value }))
   }
 
+  function dateField(key: keyof Build, label: string) {
+    return (
+      <FormField label={label}>
+        <Input
+          type="date"
+          mono
+          value={(form[key] as string) ?? ''}
+          onChange={e => setField(key, (e.target.value || null) as Build[typeof key])}
+        />
+      </FormField>
+    )
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     await onSave(form)
@@ -65,6 +80,7 @@ export function BuildFormModal({
       }
     >
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Product + Language */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <FormField label="Product name" className="sm:col-span-2">
             <Input
@@ -83,27 +99,21 @@ export function BuildFormModal({
           </FormField>
         </div>
 
+        {/* Week + Approved + Outcome + Proofreader */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <FormField label="Week">
             <select
-              className="w-full rounded-md border border-border bg-surface-elevated px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent/40"
+              className={SELECT_CLS}
               value={form.week_number ?? 1}
               onChange={e => setField('week_number', Number(e.target.value))}
             >
               {[1, 2, 3, 4].map(w => <option key={w} value={w}>Week {w}</option>)}
             </select>
           </FormField>
-          <FormField label="Approved date">
-            <Input
-              type="date"
-              mono
-              value={(form.approved_date as string) ?? ''}
-              onChange={e => setField('approved_date', (e.target.value || null) as Build['approved_date'])}
-            />
-          </FormField>
+          {dateField('approved_date', 'Approved date')}
           <FormField label="Outcome">
             <select
-              className="w-full rounded-md border border-border bg-surface-elevated px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent/40"
+              className={SELECT_CLS}
               value={form.outcome ?? ''}
               onChange={e => setField('outcome', (e.target.value as Build['outcome']) || null)}
             >
@@ -122,6 +132,20 @@ export function BuildFormModal({
           </FormField>
         </div>
 
+        {/* Phase dates — edit mode only */}
+        {mode === 'edit' && (
+          <div>
+            <p className="text-xs text-text-muted mb-3 uppercase tracking-wide font-medium">Phase dates</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {dateField('phase1_start',    'Phase 1 Start')}
+              {dateField('into_proofread',  'Into Proofread')}
+              {dateField('into_testing',    'Into Testing')}
+              {dateField('outcome_decided', 'Outcome Decided')}
+            </div>
+          </div>
+        )}
+
+        {/* Notes */}
         <FormField label="Notes">
           <textarea
             rows={2}
