@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, CSSProperties } from 'react'
 import { api } from '@/lib/api'
 import { BuildFormModal } from './BuildFormModal'
 import { BuildNoteModal } from './BuildNoteModal'
-import { formatDate } from '@/lib/utils'
+import { cn, formatDate } from '@/lib/utils'
 import type { Build, BuildOutcome, BuildType, Settings } from '@/lib/types'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { Tabs } from '@/components/ui/tabs'
 import { ConfirmModal } from '@/components/ui/modal'
-import { ClipboardList, Pencil, Trash2, Download, Upload, FileDown } from 'lucide-react'
+import { ClipboardList, Pencil, Trash2, Download, Upload, FileDown, ChevronDown } from 'lucide-react'
 import * as XLSX from 'xlsx'
 
 // ── Phase config ─────────────────────────────────────────────────────────────
@@ -56,6 +56,9 @@ function getNextPhaseKey(b: Build): keyof Build | null {
 
 const showClass = (from?: 'md' | 'lg') =>
   from === 'md' ? 'hidden md:table-cell' : from === 'lg' ? 'hidden lg:table-cell' : ''
+
+const SELECT_CLS =
+  'rounded-md border border-border bg-surface-elevated px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent/40'
 
 // ── Marquee name ─────────────────────────────────────────────────────────────
 
@@ -425,10 +428,70 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
     }
   }
 
+  function closeActionsMenu(e: React.MouseEvent<HTMLElement>) {
+    const details = e.currentTarget.closest('details')
+    if (details) details.open = false
+  }
+
   return (
     <div className="space-y-6">
-      {/* Week tabs + add button */}
-      <div className="flex items-center justify-between gap-4">
+      {/* Mobile: week select + actions menu */}
+      <div className="flex items-center gap-2 md:hidden">
+        <select
+          value={activeWeek}
+          onChange={e => setActiveWeek(Number(e.target.value))}
+          className={cn(SELECT_CLS, 'flex-1 min-w-0')}
+          aria-label="Select week"
+        >
+          {tabs.map(tab => (
+            <option key={tab.id} value={tab.id}>
+              {tab.label}{tab.count !== undefined ? ` (${tab.count})` : ''}
+            </option>
+          ))}
+        </select>
+        {isAdmin && (
+          <details className="relative shrink-0">
+            <summary className="flex items-center gap-1 rounded-md border border-border bg-surface-elevated px-3 py-2 text-sm text-foreground cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+              Actions
+              <ChevronDown className="h-3.5 w-3.5 text-text-muted" />
+            </summary>
+            <div className="absolute right-0 top-full z-20 mt-1 min-w-44 rounded-md border border-border bg-surface-elevated py-1 shadow-lg">
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-surface-hover"
+                onClick={e => { closeActionsMenu(e); handleTemplateDownload() }}
+              >
+                <FileDown className="h-3.5 w-3.5 text-text-muted" />Template
+              </button>
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-surface-hover disabled:opacity-50"
+                disabled={importing}
+                onClick={e => { closeActionsMenu(e); fileInputRef.current?.click() }}
+              >
+                <Upload className="h-3.5 w-3.5 text-text-muted" />{importing ? 'Importing…' : 'Import'}
+              </button>
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-surface-hover"
+                onClick={e => { closeActionsMenu(e); handleExport() }}
+              >
+                <Download className="h-3.5 w-3.5 text-text-muted" />Export
+              </button>
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-surface-hover border-t border-border-subtle mt-1 pt-2"
+                onClick={e => { closeActionsMenu(e); openCreate() }}
+              >
+                + Add build
+              </button>
+            </div>
+          </details>
+        )}
+      </div>
+
+      {/* Desktop: week tabs + toolbar */}
+      <div className="hidden md:flex items-center justify-between gap-4">
         <Tabs tabs={tabs} active={activeWeek} onChange={id => setActiveWeek(Number(id))} className="flex-1" />
         {isAdmin && (
           <div className="flex items-center gap-2 shrink-0">
@@ -444,10 +507,12 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
             <Button variant="secondary" size="sm" onClick={openCreate}>
               + Add build
             </Button>
-            <input ref={fileInputRef} type="file" accept=".xlsx" className="hidden" onChange={handleImport} />
           </div>
         )}
       </div>
+      {isAdmin && (
+        <input ref={fileInputRef} type="file" accept=".xlsx" className="hidden" onChange={handleImport} />
+      )}
 
       {/* ── Mobile card layout (< md) ── */}
       <div className="block md:hidden space-y-3">
