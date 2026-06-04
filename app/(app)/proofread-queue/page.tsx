@@ -37,11 +37,11 @@ export default function ProofreadQueuePage() {
     })
   }, [load])
 
-  async function advanceToTesting(b: Build) {
+  async function endProofread(b: Build) {
     setAdvancing(b.id)
     try {
       await api.put(`/api/builds/${b.id}`, {
-        into_testing: new Date().toISOString().split('T')[0],
+        proof_end: new Date().toISOString().split('T')[0],
       })
       load()
     } finally {
@@ -152,11 +152,11 @@ export default function ProofreadQueuePage() {
                           QA
                         </Link>
                         <button
-                          onClick={() => advanceToTesting(b)}
+                          onClick={() => endProofread(b)}
                           disabled={advancing === b.id}
                           className="text-xs font-medium px-2 py-0.5 rounded border text-text-secondary border-border hover:border-text-secondary transition-colors disabled:opacity-40"
                         >
-                          {advancing === b.id ? '…' : 'Testing →'}
+                          {advancing === b.id ? '…' : 'Done →'}
                         </button>
                       </div>
                     </TableCell>

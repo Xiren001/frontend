@@ -23,18 +23,20 @@ const PHASE_SEQUENCE: (keyof Build)[] = [
 
 // Column rendering config: each phase column shows a stacked start+end date pair.
 // Decided is a single-date column (endKey = null).
+// prereq: the start button is only shown when this field is set on the build.
 const PHASE_COLS: {
   label:       string
   startKey:    keyof Build
   endKey:      keyof Build | null
   endBtnLabel: string | null
+  prereq:      keyof Build | null
   variant:     'default' | 'warn' | 'accent'
   showFrom?:   'md'
 }[] = [
-  { label: 'Phase 1',  startKey: 'phase1_start',   endKey: 'phase1_end',      endBtnLabel: 'End Build',  variant: 'default' },
-  { label: 'Proofread',startKey: 'into_proofread',  endKey: 'proof_end',       endBtnLabel: 'End Proof',  variant: 'warn',   showFrom: 'md' },
-  { label: 'Testing',  startKey: 'into_testing',    endKey: 'outcome_decided', endBtnLabel: 'Decided',    variant: 'default', showFrom: 'md' },
-  { label: 'Decided',  startKey: 'outcome_decided', endKey: null,              endBtnLabel: null,          variant: 'accent', showFrom: 'md' },
+  { label: 'Phase 1',  startKey: 'phase1_start',   endKey: 'phase1_end',      endBtnLabel: 'End Build', prereq: null,           variant: 'default' },
+  { label: 'Proofread',startKey: 'into_proofread',  endKey: 'proof_end',       endBtnLabel: 'End Proof', prereq: 'phase1_end',   variant: 'warn',   showFrom: 'md' },
+  { label: 'Testing',  startKey: 'into_testing',    endKey: 'outcome_decided', endBtnLabel: 'Decided',   prereq: 'proof_end',    variant: 'default', showFrom: 'md' },
+  { label: 'Decided',  startKey: 'outcome_decided', endKey: null,              endBtnLabel: null,         prereq: 'into_testing', variant: 'accent', showFrom: 'md' },
 ]
 
 // Per-key label + variant used for advance buttons in mobile card
@@ -586,7 +588,7 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
                           <TableCell key={col.label} className={`${hide} whitespace-nowrap`} onClick={e => e.stopPropagation()}>
                             {startVal ? (
                               <span className="font-mono text-xs text-foreground">{formatDate(startVal)}</span>
-                            ) : isAdmin ? (
+                            ) : isAdmin && (!col.prereq || !!b[col.prereq]) ? (
                               <button
                                 onClick={() => handlePhaseSet(b.id, col.startKey)}
                                 disabled={advancing === b.id + String(col.startKey)}
@@ -605,11 +607,11 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
                       return (
                         <TableCell key={col.label} className={`${hide} whitespace-nowrap`} onClick={e => e.stopPropagation()}>
                           <div className="flex flex-col gap-0.5 min-w-[88px]">
-                            {/* Top: start date */}
+                            {/* Top: start date — button only when prereq is met */}
                             <div>
                               {startVal ? (
                                 <span className="font-mono text-xs text-foreground">{formatDate(startVal)}</span>
-                              ) : isAdmin ? (
+                              ) : isAdmin && (!col.prereq || !!b[col.prereq]) ? (
                                 <button
                                   onClick={() => handlePhaseSet(b.id, col.startKey)}
                                   disabled={advancing === b.id + String(col.startKey)}

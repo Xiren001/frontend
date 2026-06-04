@@ -134,18 +134,19 @@ export function BuildFormModal({
 
         {/* Phase dates — edit mode only */}
         {mode === 'edit' && (
-          <div>
-            <p className="text-xs text-text-muted mb-3 uppercase tracking-wide font-medium">Phase dates</p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              {dateField('phase1_start',    'Phase 1 Start')}
-              {dateField('phase1_end',      'Phase 1 End')}
-              <div className="hidden sm:block" />
-              {dateField('into_proofread',  'Proof Start')}
-              {dateField('proof_end',       'Proof End')}
-              <div className="hidden sm:block" />
-              {dateField('into_testing',    'Test Start')}
-              {dateField('outcome_decided', 'Test End / Decided')}
-            </div>
+          <div className="space-y-3">
+            <p className="text-xs text-text-muted uppercase tracking-wide font-medium">Phase dates</p>
+            {([
+              { label: 'Phase 1',  start: 'phase1_start',  end: 'phase1_end'      },
+              { label: 'Proofread',start: 'into_proofread', end: 'proof_end'       },
+              { label: 'Testing',  start: 'into_testing',  end: 'outcome_decided'  },
+            ] as { label: string; start: keyof Build; end: keyof Build }[]).map(row => (
+              <div key={row.label} className="grid grid-cols-[80px_1fr_1fr] items-center gap-3">
+                <span className="text-xs text-text-muted font-medium">{row.label}</span>
+                {dateField(row.start, 'Start')}
+                {dateField(row.end,   row.label === 'Testing' ? 'End / Decided' : 'End')}
+              </div>
+            ))}
           </div>
         )}
 
