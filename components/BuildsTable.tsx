@@ -431,18 +431,22 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
       <div className="flex items-center justify-between gap-4">
         <Tabs tabs={tabs} active={activeWeek} onChange={id => setActiveWeek(Number(id))} className="flex-1" />
         {isAdmin && (
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0">
             <Button variant="ghost" size="sm" onClick={handleTemplateDownload} title="Download import template">
-              <FileDown className="h-3.5 w-3.5 mr-1.5" />Template
+              <FileDown className="h-3.5 w-3.5" />
+              <span className="hidden lg:inline ml-1.5">Template</span>
             </Button>
             <Button variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()} disabled={importing} title="Import from .xlsx">
-              <Upload className="h-3.5 w-3.5 mr-1.5" />{importing ? 'Importing…' : 'Import'}
+              <Upload className="h-3.5 w-3.5" />
+              <span className="hidden lg:inline ml-1.5">{importing ? 'Importing…' : 'Import'}</span>
             </Button>
             <Button variant="ghost" size="sm" onClick={handleExport} title="Export to .xlsx">
-              <Download className="h-3.5 w-3.5 mr-1.5" />Export
+              <Download className="h-3.5 w-3.5" />
+              <span className="hidden lg:inline ml-1.5">Export</span>
             </Button>
             <Button variant="secondary" size="sm" onClick={openCreate}>
-              + Add build
+              <span className="hidden sm:inline">+ Add build</span>
+              <span className="sm:hidden">+</span>
             </Button>
             <input ref={fileInputRef} type="file" accept=".xlsx" className="hidden" onChange={handleImport} />
           </div>
