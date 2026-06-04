@@ -6,7 +6,7 @@ import type { PlannerNote } from '@/lib/types'
 import { PageHeader } from '@/components/ui/page-header'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Card, CardBody } from '@/components/ui/card'
+import { Modal } from '@/components/ui/modal'
 
 function getDaysInMonth(year: number, month: number) {
   return new Date(year, month, 0).getDate()
@@ -47,10 +47,13 @@ export default function MonthlyPlannerPage() {
   async function saveNote() {
     if (!editDate) return
     setSaving(true)
-    await api.put(`/api/planner/${editDate}`, { notes: editText })
-    setSaving(false)
-    setEditDate(null)
-    load()
+    try {
+      await api.put(`/api/planner/${editDate}`, { notes: editText })
+      setEditDate(null)
+      load()
+    } finally {
+      setSaving(false)
+    }
   }
 
   const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -102,29 +105,29 @@ export default function MonthlyPlannerPage() {
         })}
       </div>
 
-      {editDate && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setEditDate(null)}>
-          <Card className="w-full max-w-md" onClick={e => e.stopPropagation()}>
-            <CardBody>
-              <p className="text-sm font-mono font-medium text-foreground mb-4">{editDate}</p>
-              <textarea
-                rows={6}
-                value={editText}
-                onChange={e => setEditText(e.target.value)}
-                autoFocus
-                className="w-full rounded-md border border-border bg-surface-elevated px-3 py-2 text-sm text-foreground placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/40 resize-none"
-                placeholder="Notes for this day…"
-              />
-              <div className="flex gap-2 mt-4">
-                <Button onClick={saveNote} disabled={saving}>
-                  {saving ? 'Saving…' : 'Save'}
-                </Button>
-                <Button variant="ghost" onClick={() => setEditDate(null)}>Cancel</Button>
-              </div>
-            </CardBody>
-          </Card>
-        </div>
-      )}
+      <Modal
+        open={editDate !== null}
+        onClose={() => setEditDate(null)}
+        title="Day notes"
+        description={editDate ?? undefined}
+        footer={
+          <>
+            <Button variant="ghost" size="sm" onClick={() => setEditDate(null)} disabled={saving}>Cancel</Button>
+            <Button size="sm" onClick={saveNote} disabled={saving}>
+              {saving ? 'Saving…' : 'Save'}
+            </Button>
+          </>
+        }
+      >
+        <textarea
+          rows={6}
+          value={editText}
+          onChange={e => setEditText(e.target.value)}
+          autoFocus
+          className="w-full rounded-md border border-border bg-surface-elevated px-3 py-2 text-sm text-foreground placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/40 resize-none"
+          placeholder="Notes for this day…"
+        />
+      </Modal>
     </div>
   )
 }

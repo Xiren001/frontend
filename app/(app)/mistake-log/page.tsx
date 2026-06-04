@@ -10,22 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardBody, CardHeader } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-
-const CATEGORIES = [
-  'Translation / proofreading',
-  'Pricing / currency / tax (per market)',
-  'Payment method missing or broken (Shopify checkout)',
-  'Funnelish → Shopify checkout redirect (wrong/empty cart · lost variant)',
-  'Variant / SKU / inventory mapping (size · metal · length)',
-  'Product imagery / sizing chart',
-  'Shopify page issue (jewelry)',
-  'Funnelish page issue (advertorial / sales)',
-  'Speed / performance',
-  'Page / funnel break (CTA → checkout)',
-  'Product',
-]
-
-const CAUGHT_WHERE = ['Phase 1 (Build QA)', 'Phase 2 (Proofread)', 'Phase 3 (Testing)', 'Phase 4 (Expanding)', 'Live']
+import { MistakeFormModal, CATEGORIES, ConfirmModal } from '@/components/MistakeFormModal'
 
 const SOP_THRESHOLD = 3
 
@@ -34,8 +19,12 @@ export default function MistakeLogPage() {
   const [mistakes, setMistakes] = useState<Mistake[]>([])
   const [counts, setCounts] = useState<Record<string, number>>({})
   const [isAdmin, setIsAdmin] = useState(false)
-  const [adding, setAdding] = useState(false)
-  const [newM, setNewM] = useState<Partial<Mistake>>({ date: new Date().toISOString().slice(0,10) })
+  const [formOpen, setFormOpen] = useState(false)
+  const [formMode, setFormMode] = useState<'create' | 'edit'>('create')
+  const [editMistake, setEditMistake] = useState<Mistake | null>(null)
+  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   async function loadMistakes() {
     const data = await api.get<{ mistakes: Mistake[]; categoryCounts: Record<string, number> }>(`/api/mistakes?month=${month}`)
@@ -53,22 +42,43 @@ export default function MistakeLogPage() {
     })
   }, [month])
 
-  async function handleAdd() {
-    await api.post('/api/mistakes', newM)
-    setAdding(false)
-    setNewM({ date: new Date().toISOString().slice(0,10) })
-    loadMistakes()
+  function openCreate() {
+    setFormMode('create')
+    setEditMistake(null)
+    setFormOpen(true)
   }
 
-  async function handleToggleSOP(m: Mistake) {
-    await api.put(`/api/mistakes/${m.id}`, { ...m, sop_updated: !m.sop_updated })
-    loadMistakes()
+  function openEdit(m: Mistake) {
+    setFormMode('edit')
+    setEditMistake(m)
+    setFormOpen(true)
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm('Delete this mistake entry?')) return
-    await api.delete(`/api/mistakes/${id}`)
-    loadMistakes()
+  async function handleSave(data: Partial<Mistake>) {
+    setSaving(true)
+    try {
+      if (formMode === 'create') {
+        await api.post('/api/mistakes', data)
+      } else if (editMistake) {
+        await api.put(`/api/mistakes/${editMistake.id}`, { ...editMistake, ...data })
+      }
+      setFormOpen(false)
+      loadMistakes()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleteId) return
+    setDeleting(true)
+    try {
+      await api.delete(`/api/mistakes/${deleteId}`)
+      setDeleteId(null)
+      loadMistakes()
+    } finally {
+      setDeleting(false)
+    }
   }
 
   return (
@@ -77,7 +87,12 @@ export default function MistakeLogPage() {
         title="Mistake Log"
         description="Track errors by category. Pattern watch flags categories with 3+ occurrences."
         actions={
-          <Input type="month" value={month} onChange={e => setMonth(e.target.value)} className="w-auto" mono />
+          <div className="flex items-center gap-3">
+            <Input type="month" value={month} onChange={e => setMonth(e.target.value)} className="w-auto" mono />
+            {isAdmin && (
+              <Button variant="secondary" size="sm" onClick={openCreate}>+ Log mistake</Button>
+            )}
+          </div>
         }
       />
 
@@ -104,15 +119,12 @@ export default function MistakeLogPage() {
                   <TableCell className="whitespace-nowrap">{m.caught_where ?? '—'}</TableCell>
                   <TableCell className="max-w-sm truncate">{m.description ?? '—'}</TableCell>
                   <TableCell>
-                    {isAdmin ? (
-                      <input type="checkbox" checked={m.sop_updated} onChange={() => handleToggleSOP(m)} className="cursor-pointer" />
-                    ) : (
-                      m.sop_updated ? <Badge variant="accent">✓</Badge> : <span className="text-text-muted">—</span>
-                    )}
+                    {m.sop_updated ? <Badge variant="accent">✓</Badge> : <span className="text-text-muted">—</span>}
                   </TableCell>
                   {isAdmin && (
-                    <TableCell className="text-right">
-                      <button onClick={() => handleDelete(m.id)} className="text-xs text-danger/70 hover:text-danger">Del</button>
+                    <TableCell className="text-right whitespace-nowrap">
+                      <button onClick={() => openEdit(m)} className="text-xs text-text-secondary hover:text-foreground mr-3">Edit</button>
+                      <button onClick={() => setDeleteId(m.id)} className="text-xs text-danger/70 hover:text-danger">Del</button>
                     </TableCell>
                   )}
                 </TableRow>
@@ -163,53 +175,24 @@ export default function MistakeLogPage() {
         </Card>
       </div>
 
-      {isAdmin && (
-        <div>
-          {!adding ? (
-            <Button variant="secondary" size="sm" onClick={() => setAdding(true)}>+ Log a mistake</Button>
-          ) : (
-            <Card>
-              <CardHeader>
-                <p className="text-xs font-medium uppercase tracking-widest text-text-muted">New mistake</p>
-              </CardHeader>
-              <CardBody className="space-y-4">
-                <div className="flex flex-wrap gap-3">
-                  <div>
-                    <label className="block text-xs text-text-muted mb-1">Date</label>
-                    <Input type="date" value={newM.date ?? ''} onChange={e => setNewM(d => ({ ...d, date: e.target.value }))} />
-                  </div>
-                  <div className="flex-1 min-w-48">
-                    <label className="block text-xs text-text-muted mb-1">Product</label>
-                    <Input value={newM.product_name ?? ''} onChange={e => setNewM(d => ({ ...d, product_name: e.target.value }))} />
-                  </div>
-                  <div className="flex-1 min-w-48">
-                    <label className="block text-xs text-text-muted mb-1">Category</label>
-                    <select className="w-full rounded-md border border-border bg-surface-elevated px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent/40" value={newM.category ?? ''} onChange={e => setNewM(d => ({ ...d, category: e.target.value }))}>
-                      <option value="">Select…</option>
-                      {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs text-text-muted mb-1">Caught where</label>
-                    <select className="rounded-md border border-border bg-surface-elevated px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent/40" value={newM.caught_where ?? ''} onChange={e => setNewM(d => ({ ...d, caught_where: e.target.value }))}>
-                      <option value="">Select…</option>
-                      {CAUGHT_WHERE.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs text-text-muted mb-1">Description</label>
-                  <Input value={newM.description ?? ''} onChange={e => setNewM(d => ({ ...d, description: e.target.value }))} />
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={handleAdd}>Add</Button>
-                  <Button size="sm" variant="ghost" onClick={() => setAdding(false)}>Cancel</Button>
-                </div>
-              </CardBody>
-            </Card>
-          )}
-        </div>
-      )}
+      <MistakeFormModal
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        onSave={handleSave}
+        mode={formMode}
+        initial={editMistake ?? undefined}
+        saving={saving}
+      />
+
+      <ConfirmModal
+        open={deleteId !== null}
+        onClose={() => setDeleteId(null)}
+        onConfirm={handleDelete}
+        title="Delete mistake"
+        message="This mistake entry will be permanently removed."
+        confirmLabel="Delete"
+        loading={deleting}
+      />
     </div>
   )
 }

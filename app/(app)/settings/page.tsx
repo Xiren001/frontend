@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { Modal, FormField } from '@/components/ui/modal'
 import { Input } from '@/components/ui/input'
 
 const FIELDS: { key: keyof Settings; label: string; unit: string }[] = [
@@ -22,8 +23,8 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings | null>(null)
   const [draft, setDraft] = useState<Partial<Settings>>({})
   const [isAdmin, setIsAdmin] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
 
   useEffect(() => {
     api.get<Settings>('/api/settings').then(s => { setSettings(s); setDraft(s) }).catch(console.error)
@@ -35,12 +36,21 @@ export default function SettingsPage() {
     })
   }, [])
 
+  function openEdit() {
+    if (settings) setDraft({ ...settings })
+    setEditOpen(true)
+  }
+
   async function handleSave() {
     setSaving(true)
-    await api.put('/api/settings', draft)
-    setSaving(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+    try {
+      const updated = await api.put<Settings>('/api/settings', draft)
+      setSettings(updated)
+      setDraft(updated)
+      setEditOpen(false)
+    } finally {
+      setSaving(false)
+    }
   }
 
   if (!settings) return <p className="text-sm text-text-muted font-mono">Loading…</p>
@@ -50,6 +60,11 @@ export default function SettingsPage() {
       <PageHeader
         title="Settings"
         description="Pipeline targets and approval thresholds. These drive KPI colours and the proofread flag."
+        actions={
+          isAdmin ? (
+            <Button variant="secondary" size="sm" onClick={openEdit}>Edit settings</Button>
+          ) : undefined
+        }
       />
 
       <Card className="max-w-lg divide-y divide-border-subtle">
@@ -59,34 +74,43 @@ export default function SettingsPage() {
               <p className="text-sm text-foreground">{f.label}</p>
               <p className="text-xs text-text-muted font-mono">{f.unit}</p>
             </div>
-            {isAdmin ? (
-              <Input
-                type="number"
-                value={draft[f.key] as number ?? ''}
-                onChange={e => setDraft(d => ({ ...d, [f.key]: Number(e.target.value) }))}
-                className="w-24 text-right"
-                mono
-              />
-            ) : (
-              <span className="text-sm font-mono font-medium text-foreground">{settings[f.key]}</span>
-            )}
+            <span className="text-sm font-mono font-medium text-foreground">{settings[f.key]}</span>
           </div>
         ))}
       </Card>
 
-      {isAdmin && (
-        <Button
-          onClick={handleSave}
-          disabled={saving}
-          className="mt-6"
-        >
-          {saved ? 'Saved!' : saving ? 'Saving…' : 'Save settings'}
-        </Button>
-      )}
-
       {!isAdmin && (
         <p className="mt-4 text-xs text-text-muted">Admin access required to edit settings.</p>
       )}
+
+      <Modal
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        title="Edit settings"
+        description="Update pipeline targets and approval thresholds."
+        size="md"
+        footer={
+          <>
+            <Button variant="ghost" size="sm" onClick={() => setEditOpen(false)} disabled={saving}>Cancel</Button>
+            <Button size="sm" onClick={handleSave} disabled={saving}>
+              {saving ? 'Saving…' : 'Save settings'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          {FIELDS.map(f => (
+            <FormField key={f.key} label={`${f.label} (${f.unit})`}>
+              <Input
+                type="number"
+                mono
+                value={draft[f.key] as number ?? ''}
+                onChange={e => setDraft(d => ({ ...d, [f.key]: Number(e.target.value) }))}
+              />
+            </FormField>
+          ))}
+        </div>
+      </Modal>
     </div>
   )
 }

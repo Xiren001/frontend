@@ -1,0 +1,54 @@
+'use client'
+import { cn } from '@/lib/utils'
+
+export interface TabItem {
+  id: string | number
+  label: string
+  count?: number
+}
+
+interface TabsProps {
+  tabs: TabItem[]
+  active: string | number
+  onChange: (id: string | number) => void
+  className?: string
+}
+
+export function Tabs({ tabs, active, onChange, className }: TabsProps) {
+  return (
+    <div className={cn('flex gap-1 border-b border-border-subtle', className)}>
+      {tabs.map(tab => {
+        const isActive = tab.id === active
+        return (
+          <button
+            key={tab.id}
+            onClick={() => onChange(tab.id)}
+            className={cn(
+              'relative px-4 py-2.5 text-sm transition-colors -mb-px',
+              isActive
+                ? 'text-accent-bright font-medium'
+                : 'text-text-muted hover:text-foreground',
+            )}
+          >
+            <span className="flex items-center gap-2">
+              {tab.label}
+              {tab.count !== undefined && (
+                <span className={cn(
+                  'font-mono text-xs px-1.5 py-0.5 rounded-md',
+                  isActive
+                    ? 'bg-accent-muted text-accent border border-accent-border/50'
+                    : 'bg-surface-elevated text-text-muted border border-border-subtle',
+                )}>
+                  {tab.count}
+                </span>
+              )}
+            </span>
+            {isActive && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent rounded-full" />
+            )}
+          </button>
+        )
+      })}
+    </div>
+  )
+}

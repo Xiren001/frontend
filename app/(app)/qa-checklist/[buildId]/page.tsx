@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { PageHeader } from '@/components/ui/page-header'
+import { Modal, FormField } from '@/components/ui/modal'
 
 const SECTION_LABELS: Record<string, string> = {
   shopify:      'Shopify Product & Checkout (Both Operations)',
@@ -19,24 +20,38 @@ export default function QAChecklistPage() {
   const { buildId } = useParams<{ buildId: string }>()
   const router = useRouter()
   const [items, setItems] = useState<QAItem[]>([])
+  const [editItem, setEditItem] = useState<QAItem | null>(null)
+  const [editDone, setEditDone] = useState(false)
+  const [editNotes, setEditNotes] = useState('')
+  const [saveOpen, setSaveOpen] = useState(false)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     api.get<QAItem[]>(`/api/qa/${buildId}`).then(setItems).catch(console.error)
   }, [buildId])
 
-  function toggle(key: string) {
-    setItems(prev => prev.map(item => item.key === key ? { ...item, done: !item.done } : item))
+  function openEditItem(item: QAItem) {
+    setEditItem(item)
+    setEditDone(item.done)
+    setEditNotes(item.notes ?? '')
   }
 
-  function setNote(key: string, notes: string) {
-    setItems(prev => prev.map(item => item.key === key ? { ...item, notes } : item))
+  function applyEdit() {
+    if (!editItem) return
+    setItems(prev => prev.map(i =>
+      i.key === editItem.key ? { ...i, done: editDone, notes: editNotes || null } : i
+    ))
+    setEditItem(null)
   }
 
   async function handleSave() {
     setSaving(true)
-    await api.put(`/api/qa/${buildId}`, items.map(i => ({ key: i.key, done: i.done, notes: i.notes ?? '' })))
-    setSaving(false)
+    try {
+      await api.put(`/api/qa/${buildId}`, items.map(i => ({ key: i.key, done: i.done, notes: i.notes ?? '' })))
+      setSaveOpen(false)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const sections = ['shopify', 'jewelry', 'funnel', 'localization'] as const
@@ -53,6 +68,7 @@ export default function QAChecklistPage() {
             <Badge variant={allDone ? 'accent' : 'muted'}>
               {doneCount}/{items.length} done
             </Badge>
+            <Button variant="secondary" size="sm" onClick={() => setSaveOpen(true)}>Save checklist</Button>
             <Button variant="ghost" size="sm" onClick={() => router.back()}>← Back</Button>
           </div>
         }
@@ -68,24 +84,26 @@ export default function QAChecklistPage() {
               </CardHeader>
               <div className="divide-y divide-border-subtle">
                 {sectionItems.map(item => (
-                  <div key={item.key} className="px-4 py-3.5 flex items-start gap-3 hover:bg-surface-hover/50 transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={item.done}
-                      onChange={() => toggle(item.key)}
-                      className="mt-0.5 cursor-pointer h-4 w-4 rounded border-border"
-                    />
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => openEditItem(item)}
+                    className="w-full px-4 py-3.5 flex items-start gap-3 hover:bg-surface-hover/50 transition-colors text-left"
+                  >
+                    <span className={`mt-0.5 h-4 w-4 shrink-0 rounded border flex items-center justify-center text-[10px] ${
+                      item.done
+                        ? 'bg-accent-muted border-accent-border text-accent'
+                        : 'border-border bg-surface-elevated'
+                    }`}>
+                      {item.done ? '✓' : ''}
+                    </span>
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm ${item.done ? 'text-text-muted line-through' : 'text-foreground'}`}>{item.label}</p>
-                      <input
-                        type="text"
-                        value={item.notes ?? ''}
-                        onChange={e => setNote(item.key, e.target.value)}
-                        placeholder="Notes…"
-                        className="mt-1.5 w-full text-xs font-mono border-0 border-b border-border-subtle focus:border-accent-border focus:outline-none py-1 text-text-secondary bg-transparent placeholder:text-text-muted"
-                      />
+                      {item.notes && (
+                        <p className="mt-1 text-xs font-mono text-text-muted truncate">{item.notes}</p>
+                      )}
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </Card>
@@ -93,11 +111,62 @@ export default function QAChecklistPage() {
         })}
       </div>
 
-      <div className="mt-8">
-        <Button onClick={handleSave} disabled={saving}>
-          {saving ? 'Saving…' : 'Save checklist'}
-        </Button>
-      </div>
+      <Modal
+        open={editItem !== null}
+        onClose={() => setEditItem(null)}
+        title="Checklist item"
+        description={editItem?.label}
+        size="md"
+        footer={
+          <>
+            <Button variant="ghost" size="sm" onClick={() => setEditItem(null)}>Cancel</Button>
+            <Button size="sm" onClick={applyEdit}>Apply</Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <label className="flex items-center gap-3 text-sm text-foreground cursor-pointer">
+            <input
+              type="checkbox"
+              checked={editDone}
+              onChange={e => setEditDone(e.target.checked)}
+              className="h-4 w-4"
+            />
+            Mark as done
+          </label>
+          <FormField label="Notes">
+            <textarea
+              rows={3}
+              value={editNotes}
+              onChange={e => setEditNotes(e.target.value)}
+              className="w-full rounded-md border border-border bg-surface-elevated px-3 py-2 text-sm font-mono text-foreground placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/40 resize-none"
+              placeholder="Notes…"
+            />
+          </FormField>
+        </div>
+      </Modal>
+
+      <Modal
+        open={saveOpen}
+        onClose={() => setSaveOpen(false)}
+        title="Save checklist"
+        description={`${doneCount} of ${items.length} items marked done.`}
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" size="sm" onClick={() => setSaveOpen(false)} disabled={saving}>Cancel</Button>
+            <Button size="sm" onClick={handleSave} disabled={saving}>
+              {saving ? 'Saving…' : 'Confirm save'}
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-text-secondary">
+          {allDone
+            ? 'All items complete — this build is ready to move to Proofread.'
+            : `${items.length - doneCount} item(s) still open. Save anyway?`}
+        </p>
+      </Modal>
     </div>
   )
 }

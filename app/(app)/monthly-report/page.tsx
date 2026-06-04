@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Card, CardBody } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Modal } from '@/components/ui/modal'
 
 interface MonthlyReport {
   totalCompleted: number
@@ -24,6 +25,7 @@ interface MonthlyReport {
 export default function MonthlyReportPage() {
   const [month, setMonth] = useState(currentMonth())
   const [report, setReport] = useState<MonthlyReport | null>(null)
+  const [editOpen, setEditOpen] = useState(false)
   const [narrativeText, setNarrativeText] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -35,15 +37,25 @@ export default function MonthlyReportPage() {
 
   useEffect(() => { load() }, [month])
 
+  function openEdit() {
+    setNarrativeText(report?.narrative?.narrative_text ?? '')
+    setEditOpen(true)
+  }
+
   async function saveNarrative() {
     setSaving(true)
-    await api.put('/api/reports/narrative', {
-      type: 'monthly',
-      week_number: null,
-      month_year: `${month}-01`,
-      narrative_text: narrativeText,
-    })
-    setSaving(false)
+    try {
+      await api.put('/api/reports/narrative', {
+        type: 'monthly',
+        week_number: null,
+        month_year: `${month}-01`,
+        narrative_text: narrativeText,
+      })
+      setEditOpen(false)
+      load()
+    } finally {
+      setSaving(false)
+    }
   }
 
   const rows = report ? [
@@ -57,6 +69,8 @@ export default function MonthlyReportPage() {
     ['Build cycle avg (days)', report.avgBuildDays ?? '—'],
     ['Total pipeline avg (days)', report.avgTotalDays ?? '—'],
   ] : []
+
+  const narrative = report?.narrative?.narrative_text ?? ''
 
   return (
     <div>
@@ -93,26 +107,45 @@ export default function MonthlyReportPage() {
 
         <Card>
           <CardBody>
-            <p className="text-xs font-medium uppercase tracking-widest text-text-muted mb-3">Monthly narrative</p>
-            <textarea
-              rows={10}
-              value={narrativeText}
-              onChange={e => setNarrativeText(e.target.value)}
-              className="w-full rounded-md border border-border bg-surface-elevated px-3 py-2 text-sm text-foreground placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/40 resize-none"
-              placeholder="End-of-month summary for Abigél…"
-            />
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={saveNarrative}
-              disabled={saving}
-              className="mt-3"
-            >
-              {saving ? 'Saving…' : 'Save narrative'}
-            </Button>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-medium uppercase tracking-widest text-text-muted">Monthly narrative</p>
+              <Button variant="ghost" size="sm" onClick={openEdit}>
+                {narrative ? 'Edit' : 'Add'}
+              </Button>
+            </div>
+            {narrative ? (
+              <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap">{narrative}</p>
+            ) : (
+              <p className="text-sm text-text-muted italic">No narrative yet.</p>
+            )}
           </CardBody>
         </Card>
       </div>
+
+      <Modal
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        title="Monthly narrative"
+        description="End-of-month summary for Abigél."
+        size="lg"
+        footer={
+          <>
+            <Button variant="ghost" size="sm" onClick={() => setEditOpen(false)} disabled={saving}>Cancel</Button>
+            <Button size="sm" onClick={saveNarrative} disabled={saving}>
+              {saving ? 'Saving…' : 'Save narrative'}
+            </Button>
+          </>
+        }
+      >
+        <textarea
+          rows={10}
+          value={narrativeText}
+          onChange={e => setNarrativeText(e.target.value)}
+          autoFocus
+          className="w-full rounded-md border border-border bg-surface-elevated px-3 py-2 text-sm text-foreground placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/40 resize-none"
+          placeholder="End-of-month summary for Abigél…"
+        />
+      </Modal>
     </div>
   )
 }

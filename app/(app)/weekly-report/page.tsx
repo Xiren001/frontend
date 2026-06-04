@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Card, CardBody } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Modal } from '@/components/ui/modal'
 
 interface ReportNarrative { id: string; week_number: number; narrative_text: string }
 
@@ -15,7 +16,9 @@ export default function WeeklyReportPage() {
   const [month, setMonth] = useState(currentMonth())
   const [weekStats, setWeekStats] = useState<WeekStats[]>([])
   const [narratives, setNarratives] = useState<ReportNarrative[]>([])
-  const [saving, setSaving] = useState<number | null>(null)
+  const [editWeek, setEditWeek] = useState<number | null>(null)
+  const [editText, setEditText] = useState('')
+  const [saving, setSaving] = useState(false)
 
   async function load() {
     const data = await api.get<{ weekStats: WeekStats[]; narratives: ReportNarrative[] }>(`/api/reports/weekly?month=${month}`)
@@ -29,16 +32,26 @@ export default function WeeklyReportPage() {
     return narratives.find(n => n.week_number === week)?.narrative_text ?? ''
   }
 
-  async function saveNarrative(week: number, text: string) {
-    setSaving(week)
-    await api.put('/api/reports/narrative', {
-      type: 'weekly',
-      week_number: week,
-      month_year: `${month}-01`,
-      narrative_text: text,
-    })
-    setSaving(null)
-    load()
+  function openEdit(week: number) {
+    setEditWeek(week)
+    setEditText(getNarrative(week))
+  }
+
+  async function saveNarrative() {
+    if (editWeek === null) return
+    setSaving(true)
+    try {
+      await api.put('/api/reports/narrative', {
+        type: 'weekly',
+        week_number: editWeek,
+        month_year: `${month}-01`,
+        narrative_text: editText,
+      })
+      setEditWeek(null)
+      load()
+    } finally {
+      setSaving(false)
+    }
   }
 
   const METRICS: { key: keyof WeekStats; label: string }[] = [
@@ -94,44 +107,52 @@ export default function WeeklyReportPage() {
       </Table>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {[1,2,3,4].map(w => (
-          <Card key={w}>
-            <CardBody>
-              <p className="text-xs font-medium uppercase tracking-widest text-text-muted mb-3">Week {w} — narrative</p>
-              <NarrativeField
-                value={getNarrative(w)}
-                onSave={text => saveNarrative(w, text)}
-                saving={saving === w}
-              />
-            </CardBody>
-          </Card>
-        ))}
+        {[1,2,3,4].map(w => {
+          const text = getNarrative(w)
+          return (
+            <Card key={w}>
+              <CardBody>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-medium uppercase tracking-widest text-text-muted">Week {w} — narrative</p>
+                  <Button variant="ghost" size="sm" onClick={() => openEdit(w)}>
+                    {text ? 'Edit' : 'Add'}
+                  </Button>
+                </div>
+                {text ? (
+                  <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap">{text}</p>
+                ) : (
+                  <p className="text-sm text-text-muted italic">No narrative yet.</p>
+                )}
+              </CardBody>
+            </Card>
+          )
+        })}
       </div>
-    </div>
-  )
-}
 
-function NarrativeField({ value, onSave, saving }: { value: string; onSave: (t: string) => void; saving: boolean }) {
-  const [text, setText] = useState(value)
-  useEffect(() => { setText(value) }, [value])
-  return (
-    <div>
-      <textarea
-        rows={4}
-        value={text}
-        onChange={e => setText(e.target.value)}
-        className="w-full rounded-md border border-border bg-surface-elevated px-3 py-2 text-sm text-foreground placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/40 resize-none"
-        placeholder="Notes for Abigél…"
-      />
-      <Button
-        size="sm"
-        variant="secondary"
-        onClick={() => onSave(text)}
-        disabled={saving}
-        className="mt-2"
+      <Modal
+        open={editWeek !== null}
+        onClose={() => setEditWeek(null)}
+        title={`Week ${editWeek} narrative`}
+        description="Notes for Abigél — send by Friday 2pm."
+        size="lg"
+        footer={
+          <>
+            <Button variant="ghost" size="sm" onClick={() => setEditWeek(null)} disabled={saving}>Cancel</Button>
+            <Button size="sm" onClick={saveNarrative} disabled={saving}>
+              {saving ? 'Saving…' : 'Save narrative'}
+            </Button>
+          </>
+        }
       >
-        {saving ? 'Saving…' : 'Save'}
-      </Button>
+        <textarea
+          rows={8}
+          value={editText}
+          onChange={e => setEditText(e.target.value)}
+          autoFocus
+          className="w-full rounded-md border border-border bg-surface-elevated px-3 py-2 text-sm text-foreground placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/40 resize-none"
+          placeholder="Notes for Abigél…"
+        />
+      </Modal>
     </div>
   )
 }
