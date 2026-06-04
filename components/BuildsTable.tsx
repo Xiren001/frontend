@@ -136,17 +136,12 @@ interface CardProps {
   onOpenEdit: (b: Build) => void
   onDelete: (id: string) => void
   onPhaseSet: (id: string, field: keyof Build) => void
-  onPhaseClear: (id: string, field: keyof Build) => void
   onOutcomeChange: (id: string, outcome: BuildOutcome) => void
 }
 
-function BuildCard({ b, isAdmin, advancing, onOpenNotes, onOpenEdit, onDelete, onPhaseSet, onPhaseClear, onOutcomeChange }: CardProps) {
+function BuildCard({ b, isAdmin, advancing, onOpenNotes, onOpenEdit, onDelete, onPhaseSet, onOutcomeChange }: CardProps) {
   const nextKey = getNextPhaseKey(b)
   const nextInfo = nextKey ? PHASE_KEY_INFO[String(nextKey)] : null
-
-  // Most recent set phase key (for the ← clear button)
-  const setKeys = PHASE_SEQUENCE.filter(k => b[k])
-  const latestKey = setKeys[setKeys.length - 1] ?? null
 
   return (
     <div
@@ -201,16 +196,6 @@ function BuildCard({ b, isAdmin, advancing, onOpenNotes, onOpenEdit, onDelete, o
             className={`text-xs font-medium px-2 py-0.5 rounded border transition-colors disabled:opacity-40 ${PHASE_BTN[nextInfo.variant]}`}
           >
             {advancing === b.id + String(nextKey) ? '…' : `${nextInfo.label} →`}
-          </button>
-        )}
-        {isAdmin && latestKey && (
-          <button
-            onClick={() => onPhaseClear(b.id, latestKey)}
-            disabled={advancing === b.id + String(latestKey)}
-            className="text-danger hover:text-red-400 font-bold text-sm leading-none disabled:opacity-40"
-            title="Return to previous phase"
-          >
-            ←
           </button>
         )}
       </div>
@@ -347,16 +332,6 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
     } finally { setAdvancing(null) }
   }
 
-  async function handlePhaseClear(buildId: string, field: keyof Build) {
-    setAdvancing(buildId + String(field))
-    const idx = PHASE_SEQUENCE.indexOf(field)
-    const update: Record<string, null> = {}
-    for (let i = idx; i < PHASE_SEQUENCE.length; i++) update[PHASE_SEQUENCE[i] as string] = null
-    try {
-      await api.put(`/api/builds/${buildId}`, update)
-      onRefresh()
-    } finally { setAdvancing(null) }
-  }
 
   async function handleOutcomeChange(buildId: string, outcome: BuildOutcome) {
     await api.put(`/api/builds/${buildId}`, { outcome })
@@ -548,7 +523,6 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
             onOpenEdit={openEdit}
             onDelete={setDeleteId}
             onPhaseSet={handlePhaseSet}
-            onPhaseClear={handlePhaseClear}
             onOutcomeChange={handleOutcomeChange}
           />
         ))}
@@ -577,7 +551,6 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
             </TableHead>
             <TableBody>
               {weekBuilds.map(b => {
-                const nextPhaseKey = getNextPhaseKey(b)
                 return (
                   <TableRow
                     key={b.id}
@@ -600,29 +573,21 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
                       const hide = showClass(col.showFrom)
                       const startVal = b[col.startKey] as string | null
                       const endVal = col.endKey ? b[col.endKey] as string | null : null
-                      const isPhase1 = col.startKey === 'phase1_start'
-                      const isUnlocked = isPhase1 || !!startVal
-
-                      if (!isUnlocked) {
-                        return <TableCell key={col.label} className={`${hide} text-text-muted whitespace-nowrap`}>—</TableCell>
-                      }
 
                       if (!col.endKey) {
-                        // Decided: single-date column
+                        // Decided: single-date column — always visible
                         return (
                           <TableCell key={col.label} className={`${hide} whitespace-nowrap`} onClick={e => e.stopPropagation()}>
                             {startVal ? (
-                              <div className="flex items-center gap-1">
-                                {isAdmin && (
-                                  <button
-                                    onClick={() => handlePhaseClear(b.id, col.startKey)}
-                                    disabled={advancing === b.id + String(col.startKey)}
-                                    title="Clear"
-                                    className="text-danger hover:text-red-400 font-bold text-sm leading-none disabled:opacity-40 transition-colors"
-                                  >←</button>
-                                )}
-                                <span className="font-mono text-xs text-foreground">{formatDate(startVal)}</span>
-                              </div>
+                              <span className="font-mono text-xs text-foreground">{formatDate(startVal)}</span>
+                            ) : isAdmin ? (
+                              <button
+                                onClick={() => handlePhaseSet(b.id, col.startKey)}
+                                disabled={advancing === b.id + String(col.startKey)}
+                                className={`text-xs font-medium px-2.5 py-1 rounded border transition-colors disabled:opacity-40 whitespace-nowrap ${PHASE_BTN[col.variant]}`}
+                              >
+                                {advancing === b.id + String(col.startKey) ? '…' : `${col.label} →`}
+                              </button>
                             ) : (
                               <span className="text-text-muted">—</span>
                             )}
@@ -630,23 +595,15 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
                         )
                       }
 
-                      // Stacked phase column: top = start date, bottom = end date
+                      // Stacked phase column — always visible, no auto-lock
                       return (
                         <TableCell key={col.label} className={`${hide} whitespace-nowrap`} onClick={e => e.stopPropagation()}>
                           <div className="flex flex-col gap-0.5 min-w-[88px]">
                             {/* Top: start date */}
-                            <div className="flex items-center gap-1">
-                              {isAdmin && startVal && (
-                                <button
-                                  onClick={() => handlePhaseClear(b.id, col.startKey)}
-                                  disabled={advancing === b.id + String(col.startKey)}
-                                  title="Clear phase"
-                                  className="text-danger hover:text-red-400 font-bold text-sm leading-none disabled:opacity-40 transition-colors"
-                                >←</button>
-                              )}
+                            <div>
                               {startVal ? (
                                 <span className="font-mono text-xs text-foreground">{formatDate(startVal)}</span>
-                              ) : isAdmin && nextPhaseKey === col.startKey ? (
+                              ) : isAdmin ? (
                                 <button
                                   onClick={() => handlePhaseSet(b.id, col.startKey)}
                                   disabled={advancing === b.id + String(col.startKey)}
@@ -658,12 +615,12 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
                                 <span className="font-mono text-xs text-text-muted">—</span>
                               )}
                             </div>
-                            {/* Bottom: end date (only when start is set) */}
+                            {/* Bottom: end date (only once start is set) */}
                             {startVal && (
                               <div>
                                 {endVal ? (
                                   <span className="font-mono text-xs text-text-muted">{formatDate(endVal)}</span>
-                                ) : isAdmin && nextPhaseKey === col.endKey ? (
+                                ) : isAdmin ? (
                                   <button
                                     onClick={() => handlePhaseSet(b.id, col.endKey!)}
                                     disabled={advancing === b.id + String(col.endKey)}
