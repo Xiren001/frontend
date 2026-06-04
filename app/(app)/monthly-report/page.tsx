@@ -20,6 +20,7 @@ interface MonthlyReport {
   avgBuildDays: number | null
   avgTotalDays: number | null
   mistakesTotal: number
+  mistakesRepeating: number
   mistakesByCategory: Record<string, number>
   sopUpdated: number
   narrative: { narrative_text: string } | null
@@ -83,7 +84,8 @@ export default function MonthlyReportPage() {
     { label: 'Win rate (decided)', value: report.winRate },
     { label: 'Build cycle avg (days)', value: report.avgBuildDays ?? '—' },
     { label: 'Total pipeline avg (days)', value: report.avgTotalDays ?? '—' },
-    { label: 'Mistakes logged', value: report.mistakesTotal },
+    { label: 'Issues logged', value: report.mistakesTotal },
+    { label: '  · Repeating', value: report.mistakesRepeating },
     { label: '  · By category', value: categoryBreakdown },
     { label: '  · SOP updated', value: report.sopUpdated },
   ] : []

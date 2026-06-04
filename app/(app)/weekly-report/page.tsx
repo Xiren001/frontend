@@ -60,7 +60,7 @@ export default function WeeklyReportPage() {
     { key: 'completed', label: 'Completed (live)' },
     { key: 'winners', label: 'Expanding' },
     { key: 'killed', label: 'Stopped' },
-    { key: 'mistakes', label: 'Mistakes logged' },
+    { key: 'mistakes', label: 'Issues' },
     { key: 'avgBuildDays', label: 'Avg build (days)' },
     { key: 'avgTotalDays', label: 'Avg total: approved → live (days)' },
   ]
