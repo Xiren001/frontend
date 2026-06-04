@@ -23,7 +23,9 @@ export interface Build {
   language: string | null
   approved_date: string | null
   phase1_start: string | null
+  phase1_end: string | null
   into_proofread: string | null
+  proof_end: string | null
   into_testing: string | null
   outcome_decided: string | null
   outcome: BuildOutcome

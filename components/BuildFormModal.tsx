@@ -136,11 +136,15 @@ export function BuildFormModal({
         {mode === 'edit' && (
           <div>
             <p className="text-xs text-text-muted mb-3 uppercase tracking-wide font-medium">Phase dates</p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               {dateField('phase1_start',    'Phase 1 Start')}
-              {dateField('into_proofread',  'Into Proofread')}
-              {dateField('into_testing',    'Into Testing')}
-              {dateField('outcome_decided', 'Outcome Decided')}
+              {dateField('phase1_end',      'Phase 1 End')}
+              <div className="hidden sm:block" />
+              {dateField('into_proofread',  'Proof Start')}
+              {dateField('proof_end',       'Proof End')}
+              <div className="hidden sm:block" />
+              {dateField('into_testing',    'Test Start')}
+              {dateField('outcome_decided', 'Test End / Decided')}
             </div>
           </div>
         )}

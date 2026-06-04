@@ -16,9 +16,9 @@ import * as XLSX from 'xlsx'
 
 // ── Phase config ─────────────────────────────────────────────────────────────
 
-// Ordered sequence of date keys — used for advance/clear logic
+// Ordered sequence of date keys — used for mobile advance logic
 const PHASE_SEQUENCE: (keyof Build)[] = [
-  'phase1_start', 'into_proofread', 'into_testing', 'outcome_decided',
+  'phase1_start', 'phase1_end', 'into_proofread', 'proof_end', 'into_testing', 'outcome_decided',
 ]
 
 // Column rendering config: each phase column shows a stacked start+end date pair.
@@ -31,18 +31,20 @@ const PHASE_COLS: {
   variant:     'default' | 'warn' | 'accent'
   showFrom?:   'md'
 }[] = [
-  { label: 'Phase 1',  startKey: 'phase1_start',   endKey: 'into_proofread',  endBtnLabel: 'Proofread', variant: 'default' },
-  { label: 'Proofread',startKey: 'into_proofread',  endKey: 'into_testing',    endBtnLabel: 'Testing',   variant: 'warn',   showFrom: 'md' },
-  { label: 'Testing',  startKey: 'into_testing',    endKey: 'outcome_decided', endBtnLabel: 'Decided',   variant: 'default', showFrom: 'md' },
-  { label: 'Decided',  startKey: 'outcome_decided', endKey: null,              endBtnLabel: null,         variant: 'accent', showFrom: 'md' },
+  { label: 'Phase 1',  startKey: 'phase1_start',   endKey: 'phase1_end',      endBtnLabel: 'End Build',  variant: 'default' },
+  { label: 'Proofread',startKey: 'into_proofread',  endKey: 'proof_end',       endBtnLabel: 'End Proof',  variant: 'warn',   showFrom: 'md' },
+  { label: 'Testing',  startKey: 'into_testing',    endKey: 'outcome_decided', endBtnLabel: 'Decided',    variant: 'default', showFrom: 'md' },
+  { label: 'Decided',  startKey: 'outcome_decided', endKey: null,              endBtnLabel: null,          variant: 'accent', showFrom: 'md' },
 ]
 
 // Per-key label + variant used for advance buttons in mobile card
 const PHASE_KEY_INFO: Record<string, { label: string; variant: 'default' | 'warn' | 'accent' }> = {
-  phase1_start:    { label: 'Building',  variant: 'default' },
-  into_proofread:  { label: 'Proofread', variant: 'warn'    },
-  into_testing:    { label: 'Testing',   variant: 'default' },
-  outcome_decided: { label: 'Decided',   variant: 'accent'  },
+  phase1_start:    { label: 'Building',   variant: 'default' },
+  phase1_end:      { label: 'End Build',  variant: 'default' },
+  into_proofread:  { label: 'Proofread',  variant: 'warn'    },
+  proof_end:       { label: 'End Proof',  variant: 'warn'    },
+  into_testing:    { label: 'Testing',    variant: 'default' },
+  outcome_decided: { label: 'Decided',    variant: 'accent'  },
 }
 
 const OUTCOME_VARIANT: Record<NonNullable<BuildOutcome>, 'accent' | 'warn' | 'danger'> = {
@@ -235,8 +237,10 @@ const IMPORT_COLS = [
   { label: 'Week',            key: 'week_number',     width: 6  },
   { label: 'Approved Date',   key: 'approved_date',   width: 14 },
   { label: 'Phase 1 Start',   key: 'phase1_start',    width: 14 },
-  { label: 'Into Proofread',  key: 'into_proofread',  width: 14 },
-  { label: 'Into Testing',    key: 'into_testing',    width: 14 },
+  { label: 'Phase 1 End',     key: 'phase1_end',      width: 14 },
+  { label: 'Proof Start',     key: 'into_proofread',  width: 14 },
+  { label: 'Proof End',       key: 'proof_end',       width: 14 },
+  { label: 'Test Start',      key: 'into_testing',    width: 14 },
   { label: 'Outcome Decided', key: 'outcome_decided', width: 14 },
   { label: 'Outcome',         key: 'outcome',         width: 12 },
   { label: 'Proofreader',     key: 'proofreader',     width: 14 },
@@ -400,8 +404,10 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
           week_number:     Number(r[colIdx('week')]) || 1,
           approved_date:   toDateStr(r[colIdx('approved date')]),
           phase1_start:    toDateStr(r[colIdx('phase 1 start')]),
-          into_proofread:  toDateStr(r[colIdx('into proofread')]),
-          into_testing:    toDateStr(r[colIdx('into testing')]),
+          phase1_end:      toDateStr(r[colIdx('phase 1 end')]),
+          into_proofread:  toDateStr(r[colIdx('proof start')]),
+          proof_end:       toDateStr(r[colIdx('proof end')]),
+          into_testing:    toDateStr(r[colIdx('test start')]),
           outcome_decided: toDateStr(r[colIdx('outcome decided')]),
           outcome:         outcome || null,
           proofreader:     r[colIdx('proofreader')]?.toString().trim() || null,
