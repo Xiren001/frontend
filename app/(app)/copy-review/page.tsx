@@ -25,9 +25,12 @@ interface ProofProduct {
   correction_count: number
 }
 
+type CorrectionSource = 'website' | 'ads'
+
 interface ProofCorrection {
   id: string
   product_id: string
+  source: CorrectionSource | null
   location: string | null
   original_text: string | null
   corrected_text: string | null
@@ -47,7 +50,7 @@ function emptyProductForm(): Partial<ProofProduct> {
 }
 
 function emptyCorrectionForm(): Partial<ProofCorrection> {
-  return { location: '', original_text: '', corrected_text: '', issue_type: '', severity: '', notes: '', done: false }
+  return { source: null, location: '', original_text: '', corrected_text: '', issue_type: '', severity: '', notes: '', done: false }
 }
 
 function normSeverity(s: string | null) {
@@ -412,11 +415,21 @@ export default function CopyReviewPage() {
                         >
                           <div className="flex items-start gap-3">
                             <div className="flex-1 min-w-0 space-y-2.5">
-                              {/* Location + number */}
-                              <div className="flex items-center gap-2">
+                              {/* Index + source + location */}
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <span className="text-[10px] font-mono text-text-muted bg-surface-elevated border border-border-subtle rounded px-1.5 py-0.5">
                                   #{i + 1}
                                 </span>
+                                {c.source && (
+                                  <span className={cn(
+                                    'text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded',
+                                    c.source === 'ads'
+                                      ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                                      : 'bg-blue-500/10 text-blue-400 border border-blue-500/20',
+                                  )}>
+                                    {c.source === 'ads' ? 'ADS' : 'Website'}
+                                  </span>
+                                )}
                                 {c.location && (
                                   <span className="text-xs font-medium text-text-muted uppercase tracking-wide">
                                     {c.location}
@@ -623,6 +636,28 @@ export default function CopyReviewPage() {
         }
       >
         <div className="space-y-4">
+          <FormField label="Source">
+            <div className="flex gap-1 p-1 bg-surface-elevated rounded-lg border border-border-subtle w-fit">
+              {(['website', 'ads'] as CorrectionSource[]).map(src => (
+                <button
+                  key={src}
+                  type="button"
+                  onClick={() => setCorrectionForm(f => ({ ...f, source: src }))}
+                  className={cn(
+                    'px-4 py-1.5 rounded-md text-sm font-medium transition-colors capitalize',
+                    correctionForm.source === src
+                      ? src === 'ads'
+                        ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                        : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                      : 'text-text-muted hover:text-foreground',
+                  )}
+                >
+                  {src === 'ads' ? 'ADS' : 'Website'}
+                </button>
+              ))}
+            </div>
+          </FormField>
+
           <FormField label="Location">
             <Input
               value={correctionForm.location ?? ''}
