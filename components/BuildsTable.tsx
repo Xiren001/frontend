@@ -158,7 +158,7 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
         )}
       </div>
 
-      <div className="flex items-start" style={{ gap: '0.25rem' }}>
+      <div className="flex flex-col xl:flex-row items-start gap-1">
         {/* ── Main tracker table ── */}
         <div className="flex-1 overflow-x-auto min-w-0">
           <Table>
@@ -278,7 +278,7 @@ export function BuildsTable({ builds, type, onRefresh, isAdmin }: Props) {
         </div>
 
         {/* ── Stats table ── */}
-        <div className="shrink-0 w-44 text-xs border border-border-subtle rounded-md overflow-hidden">
+        <div className="w-full xl:w-44 xl:shrink-0 text-xs border border-border-subtle rounded-md overflow-hidden">
           <table className="w-full">
             <thead>
               <tr className="bg-surface border-b border-border-subtle">
