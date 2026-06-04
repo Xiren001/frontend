@@ -11,6 +11,7 @@ import { Modal, FormField } from '@/components/ui/modal'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { Pencil, Trash2, Plus, ExternalLink } from 'lucide-react'
+import { Tabs } from '@/components/ui/tabs'
 
 interface ProofProduct {
   id: string
@@ -98,6 +99,7 @@ export default function CopyReviewPage() {
   const [savingCorrection, setSavingCorrection] = useState(false)
   const [deleteCorrectionId, setDeleteCorrectionId] = useState<string | null>(null)
   const [deletingCorrection, setDeletingCorrection] = useState(false)
+  const [sourceTab, setSourceTab] = useState<CorrectionSource>('website')
 
   const loadProducts = useCallback(() => {
     api.get<ProofProduct[]>('/api/proof-corrections/products').then(setProducts).catch(console.error)
@@ -390,55 +392,46 @@ export default function CopyReviewPage() {
                   )}
                 </div>
 
-                {/* Corrections — grouped by source */}
-                <div className="flex-1 overflow-y-auto">
-                  {(['website', 'ads'] as CorrectionSource[]).map(source => {
-                    const group = selectedCorrections.filter(c => c.source === source)
-                    const isWebsite = source === 'website'
-                    return (
-                      <div key={source}>
-                        {/* Section header */}
-                        <div className={cn(
-                          'sticky top-0 z-10 px-5 py-2.5 flex items-center justify-between border-b border-border-subtle',
-                          isWebsite
-                            ? 'bg-blue-500/5 border-t border-blue-500/10'
-                            : 'bg-purple-500/5 border-t border-purple-500/10',
-                        )}>
-                          <div className="flex items-center gap-2">
-                            <span className={cn(
-                              'text-xs font-semibold uppercase tracking-wider',
-                              isWebsite ? 'text-blue-400' : 'text-purple-400',
-                            )}>
-                              {isWebsite ? 'Website' : 'ADS'}
-                            </span>
-                            <span className="text-[10px] font-mono text-text-muted">
-                              {group.filter(c => c.done).length}/{group.length}
-                            </span>
-                          </div>
-                          {isAdmin && (
-                            <button
-                              onClick={() => openCreateCorrection(selectedProduct.id, source)}
-                              className={cn(
-                                'flex items-center gap-1 text-[10px] font-medium transition-colors',
-                                isWebsite
-                                  ? 'text-blue-400/60 hover:text-blue-400'
-                                  : 'text-purple-400/60 hover:text-purple-400',
-                              )}
-                            >
-                              <Plus className="h-3 w-3" />
-                              Add
-                            </button>
-                          )}
-                        </div>
+                {/* Source tabs */}
+                {(() => {
+                  const websiteCnt = selectedCorrections.filter(c => c.source === 'website').length
+                  const adsCnt     = selectedCorrections.filter(c => c.source === 'ads').length
+                  const tabItems = [
+                    { id: 'website', label: 'Website', count: websiteCnt },
+                    { id: 'ads',     label: 'ADS',     count: adsCnt     },
+                  ]
+                  const tabCorrections = selectedCorrections.filter(c => c.source === sourceTab)
+                  return (
+                    <>
+                      <div className="shrink-0 px-5 border-b border-border-subtle flex items-center justify-between">
+                        <Tabs tabs={tabItems} active={sourceTab} onChange={v => setSourceTab(v as CorrectionSource)} />
+                        {isAdmin && (
+                          <button
+                            onClick={() => openCreateCorrection(selectedProduct.id, sourceTab)}
+                            className="flex items-center gap-1 text-xs text-text-muted hover:text-foreground transition-colors pb-1"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            Add
+                          </button>
+                        )}
+                      </div>
 
-                        {/* Group corrections */}
-                        {group.length === 0 ? (
-                          <div className="px-5 py-5 text-center">
-                            <p className="text-xs text-text-muted">No {isWebsite ? 'website' : 'ads'} corrections yet.</p>
+                      <div className="flex-1 overflow-y-auto">
+                        {tabCorrections.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center h-full gap-3 py-16 text-center">
+                            <p className="text-sm text-text-muted">
+                              No {sourceTab === 'website' ? 'website' : 'ads'} corrections yet.
+                            </p>
+                            {isAdmin && (
+                              <Button variant="secondary" size="sm" onClick={() => openCreateCorrection(selectedProduct.id, sourceTab)}>
+                                <Plus className="h-3.5 w-3.5 mr-1" />
+                                Add correction
+                              </Button>
+                            )}
                           </div>
                         ) : (
                           <div className="divide-y divide-border-subtle">
-                            {group.map((c, i) => (
+                            {tabCorrections.map((c, i) => (
                               <div
                                 key={c.id}
                                 className={cn(
@@ -449,7 +442,6 @@ export default function CopyReviewPage() {
                               >
                                 <div className="flex items-start gap-3">
                                   <div className="flex-1 min-w-0 space-y-2.5">
-                                    {/* Index + location */}
                                     <div className="flex items-center gap-2 flex-wrap">
                                       <span className="text-[10px] font-mono text-text-muted bg-surface-elevated border border-border-subtle rounded px-1.5 py-0.5">
                                         #{i + 1}
@@ -461,7 +453,6 @@ export default function CopyReviewPage() {
                                       )}
                                     </div>
 
-                                    {/* Before */}
                                     {c.original_text && (
                                       <div className="space-y-0.5">
                                         <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Before</p>
@@ -471,7 +462,6 @@ export default function CopyReviewPage() {
                                       </div>
                                     )}
 
-                                    {/* After */}
                                     {c.corrected_text && (
                                       <div className="space-y-0.5">
                                         <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">After</p>
@@ -481,7 +471,6 @@ export default function CopyReviewPage() {
                                       </div>
                                     )}
 
-                                    {/* Badges */}
                                     <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
                                       {c.issue_type && <Badge variant="default">{c.issue_type}</Badge>}
                                       <SeverityBadge severity={c.severity} />
@@ -495,7 +484,6 @@ export default function CopyReviewPage() {
                                     )}
                                   </div>
 
-                                  {/* Actions */}
                                   {isAdmin && (
                                     <div className="flex items-center gap-0.5 shrink-0 -mt-0.5">
                                       <button
@@ -525,91 +513,9 @@ export default function CopyReviewPage() {
                           </div>
                         )}
                       </div>
-                    )
-                  })}
-
-                  {/* Unsourced corrections (no source set) */}
-                  {(() => {
-                    const unsourced = selectedCorrections.filter(c => !c.source)
-                    if (unsourced.length === 0) return null
-                    return (
-                      <div>
-                        <div className="sticky top-0 z-10 px-5 py-2.5 flex items-center justify-between border-b border-t border-border-subtle bg-surface-elevated/30">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">Other</span>
-                            <span className="text-[10px] font-mono text-text-muted">{unsourced.length}</span>
-                          </div>
-                        </div>
-                        <div className="divide-y divide-border-subtle">
-                          {unsourced.map((c, i) => (
-                            <div
-                              key={c.id}
-                              className={cn(
-                                'px-5 py-4 border-l-[3px] transition-opacity',
-                                severityBorder(c.severity),
-                                c.done && 'opacity-50',
-                              )}
-                            >
-                              <div className="flex items-start gap-3">
-                                <div className="flex-1 min-w-0 space-y-2.5">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="text-[10px] font-mono text-text-muted bg-surface-elevated border border-border-subtle rounded px-1.5 py-0.5">
-                                      #{i + 1}
-                                    </span>
-                                    {c.location && (
-                                      <span className="text-xs font-medium text-text-muted uppercase tracking-wide">
-                                        {c.location}
-                                      </span>
-                                    )}
-                                  </div>
-                                  {c.original_text && (
-                                    <div className="space-y-0.5">
-                                      <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Before</p>
-                                      <p className="text-sm text-text-secondary leading-relaxed line-through decoration-text-muted/50">{c.original_text}</p>
-                                    </div>
-                                  )}
-                                  {c.corrected_text && (
-                                    <div className="space-y-0.5">
-                                      <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">After</p>
-                                      <p className="text-sm text-foreground font-medium leading-relaxed">{c.corrected_text}</p>
-                                    </div>
-                                  )}
-                                  <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-                                    {c.issue_type && <Badge variant="default">{c.issue_type}</Badge>}
-                                    <SeverityBadge severity={c.severity} />
-                                    {c.done && <Badge variant="muted">Resolved</Badge>}
-                                  </div>
-                                  {c.notes && (
-                                    <p className="text-xs text-text-muted italic border-l-2 border-border-subtle pl-2">{c.notes}</p>
-                                  )}
-                                </div>
-                                {isAdmin && (
-                                  <div className="flex items-center gap-0.5 shrink-0 -mt-0.5">
-                                    <button onClick={() => toggleCorrectionDone(c)} className="p-1.5 rounded text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors text-xs">{c.done ? '↩' : '✓'}</button>
-                                    <button onClick={() => openEditCorrection(c)} className="p-1.5 rounded text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"><Pencil className="h-3.5 w-3.5" /></button>
-                                    <button onClick={() => setDeleteCorrectionId(c.id)} className="p-1.5 rounded text-text-muted hover:text-danger hover:bg-danger-muted transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )
-                  })()}
-
-                  {selectedCorrections.length === 0 && (
-                    <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
-                      <p className="text-sm text-text-muted">No corrections yet.</p>
-                      {isAdmin && (
-                        <Button variant="secondary" size="sm" onClick={() => openCreateCorrection(selectedProduct.id)}>
-                          <Plus className="h-3.5 w-3.5 mr-1" />
-                          Add correction
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                </div>
+                    </>
+                  )
+                })()}
               </>
             ) : (
               <div className="flex items-center justify-center h-full">
