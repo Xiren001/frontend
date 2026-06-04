@@ -1,33 +1,34 @@
 'use client'
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import { api } from './api'
-import type { ApproverPermissions, UserRole } from './types'
+import type { ApproverPermissions, ViewerPermissions, UserRole } from './types'
 
 interface RoleState {
   role: UserRole | null
   permissions: ApproverPermissions | null
+  viewerPermissions: ViewerPermissions | null
   loading: boolean
 }
 
-const Ctx = createContext<RoleState>({ role: null, permissions: null, loading: true })
+const Ctx = createContext<RoleState>({ role: null, permissions: null, viewerPermissions: null, loading: true })
 
 export function RoleProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<RoleState>({ role: null, permissions: null, loading: true })
+  const [state, setState] = useState<RoleState>({ role: null, permissions: null, viewerPermissions: null, loading: true })
 
   useEffect(() => {
-    api.get<{ userRole: UserRole; approverPermissions: ApproverPermissions | null }>('/api/me')
-      .then(d => setState({ role: d.userRole, permissions: d.approverPermissions, loading: false }))
+    api.get<{ userRole: UserRole; approverPermissions: ApproverPermissions | null; viewerPermissions: ViewerPermissions | null }>('/api/me')
+      .then(d => setState({ role: d.userRole, permissions: d.approverPermissions, viewerPermissions: d.viewerPermissions, loading: false }))
       .catch(async () => {
         // /api/me failed — fall back to querying Supabase directly on the client
         try {
           const { createClient } = await import('./supabase')
           const supabase = createClient()
           const { data: { session } } = await supabase.auth.getSession()
-          if (!session) { setState({ role: null, permissions: null, loading: false }); return }
+          if (!session) { setState({ role: null, permissions: null, viewerPermissions: null, loading: false }); return }
           const { data } = await supabase.from('profiles').select('role').eq('id', session.user.id).single()
-          setState({ role: (data?.role ?? 'viewer') as UserRole, permissions: null, loading: false })
+          setState({ role: (data?.role ?? 'viewer') as UserRole, permissions: null, viewerPermissions: null, loading: false })
         } catch {
-          setState({ role: 'viewer', permissions: null, loading: false })
+          setState({ role: 'viewer', permissions: null, viewerPermissions: null, loading: false })
         }
       })
   }, [])
@@ -52,12 +53,22 @@ export const PATH_PERMISSION: Record<string, keyof ApproverPermissions | null> =
   '/qa-checklist':    'jewelry_tracker',
 }
 
-export function canAccessPath(role: UserRole | null, path: string, permissions: ApproverPermissions | null): boolean {
-  // If role is unknown (API failed), allow access — backend handles auth for writes
+export function canAccessPath(
+  role: UserRole | null,
+  path: string,
+  permissions: ApproverPermissions | null,
+  viewerPermissions?: ViewerPermissions | null,
+): boolean {
   if (!role) return true
   if (role === 'admin') return true
   const base = '/' + path.split('/').filter(Boolean)[0]
-  if (role === 'viewer') return base === '/weekly-report' || base === '/monthly-report'
+  if (role === 'viewer') {
+    if (base === '/weekly-report' || base === '/monthly-report') return true
+    const key = PATH_PERMISSION[base]
+    if (key === undefined) return false
+    if (key === null) return true
+    return viewerPermissions?.[key] === true
+  }
   if (role === 'approver') {
     const key = PATH_PERMISSION[base]
     if (key === undefined) return false

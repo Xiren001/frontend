@@ -40,7 +40,7 @@ const NAV = [
 export function NavSidebar() {
   const pathname = usePathname()
   const router = useRouter()
-  const { role, permissions } = useRole()
+  const { role, permissions, viewerPermissions } = useRole()
   const [collapsed, setCollapsed] = useState(false)
 
   useEffect(() => {
@@ -62,7 +62,11 @@ export function NavSidebar() {
   const visibleNav = NAV.filter(item => {
     if (role === 'admin') return true
     const key = PATH_PERMISSION[item.href]
-    if (role === 'viewer') return key === null
+    if (role === 'viewer') {
+      if (key === null) return true
+      if (key === undefined) return false
+      return viewerPermissions?.[key] === true
+    }
     if (role === 'approver') {
       if (key === null) return true
       if (key === undefined) return false

@@ -9,6 +9,8 @@ export interface ApproverPermissions {
   settings: boolean
 }
 
+export type ViewerPermissions = ApproverPermissions
+
 export type BuildType = 'jewelry' | 'funnel'
 export type BuildOutcome = 'stopped' | 'testing' | 'expanding' | null
 export type BuildPhase = 'pending' | 'building' | 'proofread' | 'testing' | 'decided'
@@ -74,6 +76,7 @@ export interface Settings {
   tool_approval_threshold: number
   payment_approval_threshold: number
   approver_permissions: ApproverPermissions
+  viewer_permissions: ViewerPermissions | null
 }
 
 export interface KPI {
