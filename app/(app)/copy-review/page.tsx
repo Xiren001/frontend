@@ -5,12 +5,12 @@ import { api } from '@/lib/api'
 import { useRole } from '@/lib/role-context'
 import { useRealtimeRefresh } from '@/lib/use-realtime-refresh'
 import { PageHeader } from '@/components/ui/page-header'
-import { Card, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Modal, FormField } from '@/components/ui/modal'
 import { Input } from '@/components/ui/input'
-import { ChevronDown, ChevronRight, Pencil, Trash2, Plus } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { Pencil, Trash2, Plus, ExternalLink } from 'lucide-react'
 
 interface ProofProduct {
   id: string
@@ -50,11 +50,24 @@ function emptyCorrectionForm(): Partial<ProofCorrection> {
   return { location: '', original_text: '', corrected_text: '', issue_type: '', severity: '', notes: '', done: false }
 }
 
+function normSeverity(s: string | null) {
+  if (!s) return ''
+  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+}
+
 function SeverityBadge({ severity }: { severity: string | null }) {
   if (!severity) return null
-  if (severity.toLowerCase() === 'high') return <Badge variant="danger">{severity}</Badge>
-  if (severity.toLowerCase() === 'medium') return <Badge variant="warn">{severity}</Badge>
+  const n = normSeverity(severity)
+  if (n.includes('crit') || n === 'high') return <Badge variant="danger">{severity}</Badge>
+  if (n.includes('med')) return <Badge variant="warn">{severity}</Badge>
   return <Badge variant="muted">{severity}</Badge>
+}
+
+function severityBorder(severity: string | null) {
+  const n = normSeverity(severity)
+  if (n.includes('crit') || n === 'high') return 'border-l-danger'
+  if (n.includes('med')) return 'border-l-yellow-500'
+  return 'border-l-border-subtle'
 }
 
 export default function CopyReviewPage() {
@@ -63,7 +76,7 @@ export default function CopyReviewPage() {
 
   const [products, setProducts] = useState<ProofProduct[]>([])
   const [langFilter, setLangFilter] = useState<LangFilter>('all')
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [corrections, setCorrections] = useState<Record<string, ProofCorrection[]>>({})
 
   // Product modal
@@ -97,17 +110,22 @@ export default function CopyReviewPage() {
 
   useEffect(() => { loadProducts() }, [loadProducts])
 
-  function toggleExpand(id: string) {
-    setExpanded(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) {
-        next.delete(id)
-      } else {
-        next.add(id)
-        loadCorrections(id)
-      }
-      return next
-    })
+  const visible = products.filter(p => langFilter === 'all' || p.language === langFilter)
+  const selectedProduct = visible.find(p => p.id === selectedId) ?? null
+  const selectedCorrections = selectedId ? (corrections[selectedId] ?? []) : []
+
+  useEffect(() => {
+    if (visible.length === 0) { setSelectedId(null); return }
+    setSelectedId(prev => (prev && visible.some(p => p.id === prev) ? prev : visible[0].id))
+  }, [products, langFilter])
+
+  useEffect(() => {
+    if (selectedId && corrections[selectedId] === undefined) loadCorrections(selectedId)
+  }, [selectedId, loadCorrections])
+
+  function selectProduct(id: string) {
+    setSelectedId(id)
+    if (corrections[id] === undefined) loadCorrections(id)
   }
 
   async function toggleProductDone(product: ProofProduct) {
@@ -122,17 +140,11 @@ export default function CopyReviewPage() {
     loadCorrections(correction.product_id)
   }
 
-  // Product CRUD
   function openCreateProduct() {
-    setEditProduct(null)
-    setProductForm(emptyProductForm())
-    setProductModalOpen(true)
+    setEditProduct(null); setProductForm(emptyProductForm()); setProductModalOpen(true)
   }
-
   function openEditProduct(p: ProofProduct) {
-    setEditProduct(p)
-    setProductForm({ ...p })
-    setProductModalOpen(true)
+    setEditProduct(p); setProductForm({ ...p }); setProductModalOpen(true)
   }
 
   async function handleSaveProduct() {
@@ -159,19 +171,13 @@ export default function CopyReviewPage() {
     } finally { setDeletingProduct(false) }
   }
 
-  // Correction CRUD
   function openCreateCorrection(productId: string) {
-    setEditCorrection(null)
-    setCorrectionProductId(productId)
-    setCorrectionForm(emptyCorrectionForm())
-    setCorrectionModalOpen(true)
+    setEditCorrection(null); setCorrectionProductId(productId)
+    setCorrectionForm(emptyCorrectionForm()); setCorrectionModalOpen(true)
   }
-
   function openEditCorrection(c: ProofCorrection) {
-    setEditCorrection(c)
-    setCorrectionProductId(c.product_id)
-    setCorrectionForm({ ...c })
-    setCorrectionModalOpen(true)
+    setEditCorrection(c); setCorrectionProductId(c.product_id)
+    setCorrectionForm({ ...c }); setCorrectionModalOpen(true)
   }
 
   async function handleSaveCorrection() {
@@ -183,7 +189,7 @@ export default function CopyReviewPage() {
       } else if (correctionProductId) {
         await api.post('/api/proof-corrections/corrections', { ...correctionForm, product_id: correctionProductId })
         loadCorrections(correctionProductId)
-        loadProducts() // refresh correction_count
+        loadProducts()
       }
       setCorrectionModalOpen(false)
     } finally { setSavingCorrection(false) }
@@ -199,46 +205,29 @@ export default function CopyReviewPage() {
       await api.delete(`/api/proof-corrections/corrections/${deleteCorrectionId}`)
       setDeleteCorrectionId(null)
       if (productId) loadCorrections(productId)
-      loadProducts() // refresh correction_count
+      loadProducts()
     } finally { setDeletingCorrection(false) }
   }
 
-  const visible = products.filter(p => langFilter === 'all' || p.language === langFilter)
   const esCnt = products.filter(p => p.language === 'ES').length
   const deCnt = products.filter(p => p.language === 'DE').length
 
   const FILTERS: { key: LangFilter; label: string; count: number }[] = [
     { key: 'all', label: 'All', count: products.length },
-    { key: 'ES', label: 'ES', count: esCnt },
-    { key: 'DE', label: 'DE', count: deCnt },
+    { key: 'ES',  label: 'ES',  count: esCnt },
+    { key: 'DE',  label: 'DE',  count: deCnt },
   ]
 
   return (
-    <div>
-      <PageHeader
-        title="Copy Review"
-        description="Proofreading corrections per product — text changes to product pages and ads."
-        actions={isAdmin ? (
-          <Button variant="secondary" size="sm" onClick={openCreateProduct}>+ Add product</Button>
-        ) : undefined}
-      />
-
-      {/* Language filter tabs */}
-      <div className="flex gap-1 mb-5">
-        {FILTERS.map(f => (
-          <button
-            key={f.key}
-            onClick={() => setLangFilter(f.key)}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-              langFilter === f.key
-                ? 'bg-accent-muted text-accent-bright border border-accent-border/50'
-                : 'text-text-secondary hover:bg-surface-hover hover:text-foreground border border-transparent'
-            }`}
-          >
-            {f.label}
-            <span className="ml-1.5 text-[10px] text-text-muted">{f.count}</span>
-          </button>
-        ))}
+    <div className="flex flex-col h-[calc(100vh-4rem)]">
+      <div className="shrink-0">
+        <PageHeader
+          title="Copy Review"
+          description="Proofreading corrections per product — text changes to product pages and ads."
+          actions={isAdmin ? (
+            <Button variant="secondary" size="sm" onClick={openCreateProduct}>+ Add product</Button>
+          ) : undefined}
+        />
       </div>
 
       {visible.length === 0 ? (
@@ -248,61 +237,120 @@ export default function CopyReviewPage() {
           )}
         </p>
       ) : (
-        <div className="space-y-3">
-          {visible.map(product => {
-            const isExpanded = expanded.has(product.id)
-            const productCorrections = corrections[product.id] ?? []
+        <div className="flex-1 flex overflow-hidden rounded-lg border border-border-subtle mt-1">
 
-            return (
-              <Card key={product.id} className="overflow-hidden">
-                {/* Product header row */}
-                <div
-                  className="px-4 py-3 flex items-center gap-3 cursor-pointer hover:bg-surface-hover/40 transition-colors select-none"
-                  onClick={() => toggleExpand(product.id)}
-                >
-                  <div className="shrink-0 text-text-muted">
-                    {isExpanded
-                      ? <ChevronDown className="h-4 w-4" />
-                      : <ChevronRight className="h-4 w-4" />}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium text-foreground">{product.product_name}</span>
-                      {product.language && (
-                        <Badge variant="accent">{product.language}</Badge>
-                      )}
-                      {product.done && (
-                        <Badge variant="muted">Done</Badge>
-                      )}
-                    </div>
-                    {product.proofreader && (
-                      <p className="text-xs text-text-muted mt-0.5">{product.proofreader}</p>
+          {/* ── Left: product list ── */}
+          <aside className="w-64 xl:w-72 shrink-0 flex flex-col border-r border-border-subtle bg-surface-elevated/20">
+            {/* Filters */}
+            <div className="px-3 py-3 border-b border-border-subtle space-y-2.5">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">In proofread</p>
+              <div className="flex gap-1">
+                {FILTERS.map(f => (
+                  <button
+                    key={f.key}
+                    onClick={() => setLangFilter(f.key)}
+                    className={cn(
+                      'flex-1 py-1 rounded-md text-xs font-medium transition-colors',
+                      langFilter === f.key
+                        ? 'bg-accent-muted text-accent-bright border border-accent-border/50'
+                        : 'text-text-muted hover:bg-surface-hover hover:text-foreground border border-transparent',
                     )}
-                  </div>
+                  >
+                    {f.label}
+                    <span className="ml-1 text-[10px] opacity-60">{f.count}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
 
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-xs text-text-muted font-mono">
-                      {product.correction_count} correction{product.correction_count !== 1 ? 's' : ''}
-                    </span>
+            {/* Product list */}
+            <ul className="flex-1 overflow-y-auto divide-y divide-border-subtle">
+              {visible.map(p => {
+                const isSelected = p.id === selectedId
+                const doneCnt  = corrections[p.id]?.filter(c => c.done).length ?? null
+                return (
+                  <li key={p.id}>
+                    <button
+                      type="button"
+                      onClick={() => selectProduct(p.id)}
+                      className={cn(
+                        'w-full text-left px-3 py-3 transition-colors border-l-2',
+                        isSelected
+                          ? 'bg-accent-muted/40 border-l-accent'
+                          : 'hover:bg-surface-hover/50 border-l-transparent',
+                      )}
+                    >
+                      <p className={cn(
+                        'text-sm font-medium leading-snug line-clamp-2',
+                        p.done ? 'text-text-muted line-through' : 'text-foreground',
+                      )}>
+                        {p.product_name}
+                      </p>
+                      {p.proofreader && (
+                        <p className="text-xs text-text-muted mt-0.5 truncate">{p.proofreader}</p>
+                      )}
+                      <div className="flex items-center justify-between mt-1.5 gap-1">
+                        <div className="flex items-center gap-1">
+                          {p.language && <Badge variant="accent">{p.language}</Badge>}
+                          {p.done && <Badge variant="muted">Done</Badge>}
+                        </div>
+                        <span className={cn(
+                          'text-[10px] font-mono shrink-0',
+                          p.correction_count > 0 ? 'text-text-secondary' : 'text-text-muted',
+                        )}>
+                          {doneCnt !== null
+                            ? `${doneCnt}/${p.correction_count}`
+                            : `${p.correction_count}`
+                          }
+                        </span>
+                      </div>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          </aside>
+
+          {/* ── Right: selected product ── */}
+          <section className="flex-1 flex flex-col min-w-0 bg-background overflow-hidden">
+            {selectedProduct ? (
+              <>
+                {/* Product header */}
+                <div className="shrink-0 px-5 py-4 border-b border-border-subtle">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <h2 className="text-base font-semibold text-foreground leading-snug">
+                        {selectedProduct.product_name}
+                      </h2>
+                      <div className="flex items-center gap-2 flex-wrap mt-1.5">
+                        {selectedProduct.language && <Badge variant="accent">{selectedProduct.language}</Badge>}
+                        {selectedProduct.proofreader && (
+                          <span className="text-xs text-text-muted">{selectedProduct.proofreader}</span>
+                        )}
+                        {selectedProduct.done && <Badge variant="muted">Done</Badge>}
+                        <span className="text-xs text-text-muted font-mono">
+                          {selectedCorrections.filter(c => c.done).length}/{selectedProduct.correction_count} resolved
+                        </span>
+                      </div>
+                    </div>
 
                     {isAdmin && (
-                      <div className="flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
+                      <div className="flex items-center gap-0.5 shrink-0">
                         <button
-                          onClick={() => toggleProductDone(product)}
-                          className="p-1.5 rounded text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors text-xs"
-                          title={product.done ? 'Mark not done' : 'Mark done'}
+                          onClick={() => toggleProductDone(selectedProduct)}
+                          className="px-2 py-1.5 rounded text-xs text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                          title={selectedProduct.done ? 'Mark not done' : 'Mark done'}
                         >
-                          {product.done ? '↩' : '✓'}
+                          {selectedProduct.done ? '↩ Reopen' : '✓ Done'}
                         </button>
                         <button
-                          onClick={() => openEditProduct(product)}
+                          onClick={() => openEditProduct(selectedProduct)}
                           className="p-1.5 rounded text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </button>
                         <button
-                          onClick={() => setDeleteProductId(product.id)}
+                          onClick={() => setDeleteProductId(selectedProduct.id)}
                           className="p-1.5 rounded text-text-muted hover:text-danger hover:bg-danger-muted transition-colors"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -310,135 +358,159 @@ export default function CopyReviewPage() {
                       </div>
                     )}
                   </div>
+
+                  {(selectedProduct.pdp_url || selectedProduct.drive_folder) && (
+                    <div className="flex gap-3 mt-3">
+                      {selectedProduct.pdp_url && (
+                        <a
+                          href={selectedProduct.pdp_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-xs text-accent hover:text-accent-bright transition-colors"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          PDP
+                        </a>
+                      )}
+                      {selectedProduct.drive_folder && (
+                        <a
+                          href={selectedProduct.drive_folder}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-xs text-accent hover:text-accent-bright transition-colors"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          Drive folder
+                        </a>
+                      )}
+                    </div>
+                  )}
                 </div>
 
-                {/* Expanded corrections */}
-                {isExpanded && (
-                  <div className="border-t border-border-subtle">
-                    {/* Product meta */}
-                    {(product.pdp_url || product.drive_folder) && (
-                      <div className="px-4 py-2 flex gap-4 bg-surface-elevated/40 border-b border-border-subtle">
-                        {product.pdp_url && (
-                          <a
-                            href={product.pdp_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-accent hover:text-accent-bright"
-                            onClick={e => e.stopPropagation()}
-                          >
-                            PDP →
-                          </a>
-                        )}
-                        {product.drive_folder && (
-                          <a
-                            href={product.drive_folder}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-accent hover:text-accent-bright"
-                            onClick={e => e.stopPropagation()}
-                          >
-                            Drive folder →
-                          </a>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Corrections list */}
-                    {productCorrections.length === 0 ? (
-                      <div className="px-4 py-4 text-sm text-text-muted">
-                        No corrections yet.
-                        {isAdmin && (
-                          <button
-                            onClick={() => openCreateCorrection(product.id)}
-                            className="ml-2 text-accent hover:text-accent-bright"
-                          >
-                            Add one
-                          </button>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="divide-y divide-border-subtle">
-                        {productCorrections.map(c => (
-                          <div key={c.id} className={`px-4 py-3 ${c.done ? 'opacity-60' : ''}`}>
-                            <div className="flex items-start gap-3">
-                              <div className="flex-1 min-w-0 space-y-1">
+                {/* Corrections list */}
+                <div className="flex-1 overflow-y-auto">
+                  {selectedCorrections.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full gap-3 text-center py-16">
+                      <p className="text-sm text-text-muted">No corrections yet.</p>
+                      {isAdmin && (
+                        <Button variant="secondary" size="sm" onClick={() => openCreateCorrection(selectedProduct.id)}>
+                          <Plus className="h-3.5 w-3.5 mr-1" />
+                          Add correction
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-border-subtle">
+                      {selectedCorrections.map((c, i) => (
+                        <div
+                          key={c.id}
+                          className={cn(
+                            'px-5 py-4 border-l-[3px] transition-opacity',
+                            severityBorder(c.severity),
+                            c.done && 'opacity-50',
+                          )}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="flex-1 min-w-0 space-y-2.5">
+                              {/* Location + number */}
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-mono text-text-muted bg-surface-elevated border border-border-subtle rounded px-1.5 py-0.5">
+                                  #{i + 1}
+                                </span>
                                 {c.location && (
-                                  <p className="text-xs font-medium text-text-muted uppercase tracking-wide">{c.location}</p>
-                                )}
-
-                                {(c.original_text || c.corrected_text) && (
-                                  <div className="flex items-start gap-2 flex-wrap">
-                                    {c.original_text && (
-                                      <span className="text-sm text-text-secondary line-through">{c.original_text}</span>
-                                    )}
-                                    {c.original_text && c.corrected_text && (
-                                      <span className="text-text-muted text-sm">→</span>
-                                    )}
-                                    {c.corrected_text && (
-                                      <span className="text-sm text-foreground font-medium">{c.corrected_text}</span>
-                                    )}
-                                  </div>
-                                )}
-
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  {c.issue_type && (
-                                    <Badge variant="default">{c.issue_type}</Badge>
-                                  )}
-                                  <SeverityBadge severity={c.severity} />
-                                  {c.done && <Badge variant="muted">Done</Badge>}
-                                </div>
-
-                                {c.notes && (
-                                  <p className="text-xs text-text-muted">{c.notes}</p>
+                                  <span className="text-xs font-medium text-text-muted uppercase tracking-wide">
+                                    {c.location}
+                                  </span>
                                 )}
                               </div>
 
-                              {isAdmin && (
-                                <div className="flex items-center gap-0.5 shrink-0">
-                                  <button
-                                    onClick={() => toggleCorrectionDone(c)}
-                                    className="p-1.5 rounded text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors text-xs"
-                                    title={c.done ? 'Mark not done' : 'Mark done'}
-                                  >
-                                    {c.done ? '↩' : '✓'}
-                                  </button>
-                                  <button
-                                    onClick={() => openEditCorrection(c)}
-                                    className="p-1.5 rounded text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
-                                  >
-                                    <Pencil className="h-3.5 w-3.5" />
-                                  </button>
-                                  <button
-                                    onClick={() => setDeleteCorrectionId(c.id)}
-                                    className="p-1.5 rounded text-text-muted hover:text-danger hover:bg-danger-muted transition-colors"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </button>
+                              {/* Before */}
+                              {c.original_text && (
+                                <div className="space-y-0.5">
+                                  <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Before</p>
+                                  <p className="text-sm text-text-secondary leading-relaxed line-through decoration-text-muted/50">
+                                    {c.original_text}
+                                  </p>
                                 </div>
                               )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
 
-                    {/* Add correction button */}
-                    {isAdmin && productCorrections.length > 0 && (
-                      <div className="px-4 py-2 border-t border-border-subtle">
-                        <button
-                          onClick={() => openCreateCorrection(product.id)}
-                          className="flex items-center gap-1.5 text-xs text-text-muted hover:text-foreground transition-colors"
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                          Add correction
-                        </button>
-                      </div>
-                    )}
+                              {/* After */}
+                              {c.corrected_text && (
+                                <div className="space-y-0.5">
+                                  <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">After</p>
+                                  <p className="text-sm text-foreground font-medium leading-relaxed">
+                                    {c.corrected_text}
+                                  </p>
+                                </div>
+                              )}
+
+                              {/* Badges + notes */}
+                              <div className="flex items-start justify-between gap-2 pt-0.5">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  {c.issue_type && <Badge variant="default">{c.issue_type}</Badge>}
+                                  <SeverityBadge severity={c.severity} />
+                                  {c.done && <Badge variant="muted">Resolved</Badge>}
+                                </div>
+                              </div>
+
+                              {c.notes && (
+                                <p className="text-xs text-text-muted italic border-l-2 border-border-subtle pl-2">
+                                  {c.notes}
+                                </p>
+                              )}
+                            </div>
+
+                            {/* Actions */}
+                            {isAdmin && (
+                              <div className="flex items-center gap-0.5 shrink-0 -mt-0.5">
+                                <button
+                                  onClick={() => toggleCorrectionDone(c)}
+                                  className="p-1.5 rounded text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors text-xs"
+                                  title={c.done ? 'Reopen' : 'Mark resolved'}
+                                >
+                                  {c.done ? '↩' : '✓'}
+                                </button>
+                                <button
+                                  onClick={() => openEditCorrection(c)}
+                                  className="p-1.5 rounded text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => setDeleteCorrectionId(c.id)}
+                                  className="p-1.5 rounded text-text-muted hover:text-danger hover:bg-danger-muted transition-colors"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Add correction footer */}
+                {isAdmin && selectedCorrections.length > 0 && (
+                  <div className="shrink-0 px-5 py-3 border-t border-border-subtle">
+                    <button
+                      onClick={() => openCreateCorrection(selectedProduct.id)}
+                      className="flex items-center gap-1.5 text-xs text-text-muted hover:text-foreground transition-colors"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Add correction
+                    </button>
                   </div>
                 )}
-              </Card>
-            )
-          })}
+              </>
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-sm text-text-muted">Select a product to review corrections.</p>
+              </div>
+            )}
+          </section>
+
         </div>
       )}
 
@@ -595,9 +667,9 @@ export default function CopyReviewPage() {
                 onChange={e => setCorrectionForm(f => ({ ...f, severity: e.target.value }))}
               >
                 <option value="">—</option>
-                <option value="low">Low</option>
+                <option value="minor">Minor</option>
                 <option value="medium">Medium</option>
-                <option value="high">High</option>
+                <option value="critical">Critical</option>
               </select>
             </FormField>
           </div>
@@ -620,7 +692,7 @@ export default function CopyReviewPage() {
                 onChange={e => setCorrectionForm(f => ({ ...f, done: e.target.checked }))}
                 className="rounded border-border"
               />
-              <span className="text-sm text-text-secondary">Mark as done</span>
+              <span className="text-sm text-text-secondary">Mark as resolved</span>
             </label>
           </FormField>
         </div>
