@@ -364,8 +364,17 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
   function handleTemplateDownload() {
     const headers = IMPORT_COLS.map(c => c.label)
     const example = [
-      'Example Product', 'EN', 1, '2026-06-01', '2026-06-02',
-      '2026-06-05', '2026-06-07', '2026-06-14', 'expanding', 'Jane', 'Optional note here',
+      'Example Product', 'EN', 1,
+      '2026-06-01',  // Approved Date
+      '2026-06-02',  // Phase 1 Start
+      '2026-06-05',  // Phase 1 End
+      '2026-06-07',  // Proof Start
+      '2026-06-14',  // Proof End
+      '2026-06-16',  // Test Start
+      '2026-06-20',  // Outcome Decided
+      'expanding',   // Outcome
+      'Jane',        // Proofreader
+      'Optional note here', // Notes
     ]
     const ws = XLSX.utils.aoa_to_sheet([headers, example])
     ws['!cols'] = IMPORT_COLS.map(c => ({ wch: c.width }))
