@@ -1,5 +1,5 @@
 'use client'
-import { useState, useCallback, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { Upload, Trophy, TrendingUp, X } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardBody } from '@/components/ui/card'
@@ -16,7 +16,6 @@ interface ProductRow {
   grossMargin: number
   prevUnitsSold: number
   unitGrowthPct: number
-  grossSales: number
 }
 
 function parseCSVLine(line: string): string[] {
@@ -51,32 +50,25 @@ function parseCSV(text: string): ProductRow[] {
       grossMargin: parseFloat(cols[6]) || 0,
       prevUnitsSold: parseFloat(cols[8]) || 0,
       unitGrowthPct: parseFloat(cols[15]) || 0,
-      grossSales: parseFloat(cols[3]) || 0,
     }
   }).filter(r => r.title.trim().length > 0)
 }
 
-// Report 1: 35+ units/7-day period AND 50%+ gross margin
-function qualifiedDemand(rows: ProductRow[]): ProductRow[] {
+// Report 1: 35+ units sold AND 50%+ gross margin
+function filterQualifiedDemand(rows: ProductRow[]): ProductRow[] {
   return rows.filter(r => r.unitsSold >= 35 && r.grossMargin >= 0.50)
 }
 
-// Report 2: 35+ units/7-day period AND positive growth vs previous 7 days
-function momentumTracker(rows: ProductRow[]): ProductRow[] {
+// Report 2: 35+ units sold AND growing vs previous period — sorted by growth
+function filterMomentum(rows: ProductRow[]): ProductRow[] {
   return rows
     .filter(r => r.unitsSold >= 35 && r.unitGrowthPct > 0)
     .sort((a, b) => b.unitGrowthPct - a.unitGrowthPct)
     .map((r, i) => ({ ...r, rank: i + 1 }))
 }
 
-function fmtPct(v: number) {
-  return (v * 100).toFixed(1) + '%'
-}
-
-function fmtGrowth(v: number) {
-  const sign = v >= 0 ? '+' : ''
-  return sign + v.toFixed(1) + '%'
-}
+function fmtPct(v: number) { return (v * 100).toFixed(1) + '%' }
+function fmtGrowth(v: number) { return (v >= 0 ? '+' : '') + v.toFixed(1) + '%' }
 
 const demandColumns: ResponsiveColumn<ProductRow>[] = [
   {
@@ -166,101 +158,144 @@ const momentumColumns: ResponsiveColumn<ProductRow>[] = [
 
 type TabId = 'demand' | 'momentum'
 
-export default function WinningProductsPage() {
-  const [rows, setRows] = useState<ProductRow[] | null>(null)
-  const [fileName, setFileName] = useState<string | null>(null)
-  const [tab, setTab] = useState<TabId>('demand')
+interface UploadSlotProps {
+  label: string
+  description: string
+  icon: React.ReactNode
+  fileName: string | null
+  onFile: (file: File) => void
+  onClear: () => void
+}
+
+function UploadSlot({ label, description, icon, fileName, onFile, onClear }: UploadSlotProps) {
   const [dragging, setDragging] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   function handleFile(file: File) {
-    if (!file.name.endsWith('.csv')) return
-    setFileName(file.name)
+    if (file.name.endsWith('.csv')) onFile(file)
+  }
+
+  if (fileName) {
+    return (
+      <div className="flex items-center justify-between rounded-lg border border-border-subtle bg-surface-elevated px-4 py-3 gap-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="shrink-0 text-accent">{icon}</div>
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-foreground">{label}</p>
+            <p className="text-xs text-text-muted font-mono truncate">{fileName}</p>
+          </div>
+        </div>
+        <button onClick={onClear} className="shrink-0 text-text-muted hover:text-foreground transition-colors">
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      onDragOver={e => { e.preventDefault(); setDragging(true) }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={e => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
+      onClick={() => inputRef.current?.click()}
+      className={cn(
+        'flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed py-8 cursor-pointer transition-colors',
+        dragging
+          ? 'border-accent bg-accent-muted'
+          : 'border-border-subtle hover:border-border hover:bg-surface-hover',
+      )}
+    >
+      <div className={cn('transition-colors', dragging ? 'text-accent' : 'text-text-muted')}>{icon}</div>
+      <div className="text-center px-4">
+        <p className="text-sm font-medium text-foreground">{label}</p>
+        <p className="text-xs text-text-muted mt-0.5">{description}</p>
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".csv"
+        className="hidden"
+        onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }}
+      />
+    </div>
+  )
+}
+
+function readFile(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
     const reader = new FileReader()
-    reader.onload = e => {
-      const text = e.target?.result as string
-      setRows(parseCSV(text))
-    }
+    reader.onload = e => resolve(e.target?.result as string)
+    reader.onerror = reject
     reader.readAsText(file)
+  })
+}
+
+export default function WinningProductsPage() {
+  const [demandFileName, setDemandFileName] = useState<string | null>(null)
+  const [demandRows, setDemandRows] = useState<ProductRow[] | null>(null)
+  const [momentumFileName, setMomentumFileName] = useState<string | null>(null)
+  const [momentumRows, setMomentumRows] = useState<ProductRow[] | null>(null)
+  const [tab, setTab] = useState<TabId>('demand')
+
+  async function handleDemandFile(file: File) {
+    setDemandFileName(file.name)
+    const text = await readFile(file)
+    setDemandRows(parseCSV(text))
   }
 
-  const onDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    setDragging(false)
-    const file = e.dataTransfer.files[0]
-    if (file) handleFile(file)
-  }, [])
-
-  function clearFile() {
-    setRows(null)
-    setFileName(null)
-    if (inputRef.current) inputRef.current.value = ''
+  async function handleMomentumFile(file: File) {
+    setMomentumFileName(file.name)
+    const text = await readFile(file)
+    setMomentumRows(parseCSV(text))
   }
 
-  const demand = rows ? qualifiedDemand(rows) : []
-  const momentum = rows ? momentumTracker(rows) : []
+  const demand = demandRows ? filterQualifiedDemand(demandRows) : []
+  const momentum = momentumRows ? filterMomentum(momentumRows) : []
+  const hasAny = demandRows !== null || momentumRows !== null
 
   const tabs = [
-    { id: 'demand' as TabId, label: 'Qualified Demand', count: rows ? demand.length : undefined },
-    { id: 'momentum' as TabId, label: 'Momentum Tracker', count: rows ? momentum.length : undefined },
+    {
+      id: 'demand' as TabId,
+      label: 'Qualified Demand',
+      count: demandRows ? demand.length : undefined,
+    },
+    {
+      id: 'momentum' as TabId,
+      label: 'Momentum Tracker',
+      count: momentumRows ? momentum.length : undefined,
+    },
   ]
 
   return (
     <div>
       <PageHeader
         title="Winning Products"
-        description="Upload a Shopify product sales CSV to identify top performers and growth opportunities."
+        description="Upload both Shopify exports to identify your proven sellers and highest-growth products."
       />
 
-      {/* Upload area */}
-      {!rows ? (
-        <Card>
-          <CardBody>
-            <div
-              onDragOver={e => { e.preventDefault(); setDragging(true) }}
-              onDragLeave={() => setDragging(false)}
-              onDrop={onDrop}
-              onClick={() => inputRef.current?.click()}
-              className={cn(
-                'flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed py-16 cursor-pointer transition-colors',
-                dragging
-                  ? 'border-accent bg-accent-muted'
-                  : 'border-border-subtle hover:border-border hover:bg-surface-hover',
-              )}
-            >
-              <Upload className={cn('h-8 w-8', dragging ? 'text-accent' : 'text-text-muted')} />
-              <div className="text-center">
-                <p className="text-sm font-medium text-foreground">Drop your CSV file here</p>
-                <p className="text-xs text-text-muted mt-1">or click to browse — Shopify product sales export</p>
-              </div>
-            </div>
-            <input
-              ref={inputRef}
-              type="file"
-              accept=".csv"
-              className="hidden"
-              onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }}
-            />
-          </CardBody>
-        </Card>
-      ) : (
-        <div className="space-y-6">
-          {/* File info bar */}
-          <div className="flex items-center justify-between rounded-lg bg-surface-elevated border border-border-subtle px-4 py-2.5">
-            <div className="flex items-center gap-2 min-w-0">
-              <Upload className="h-3.5 w-3.5 text-text-muted shrink-0" />
-              <span className="text-xs text-text-secondary font-mono truncate">{fileName}</span>
-              <span className="text-xs text-text-muted">· {rows.length} products loaded</span>
-            </div>
-            <button
-              onClick={clearFile}
-              className="flex items-center gap-1 text-xs text-text-muted hover:text-foreground transition-colors shrink-0 ml-4"
-            >
-              <X className="h-3.5 w-3.5" />
-              Clear
-            </button>
-          </div>
+      {/* Two upload slots — always visible */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+        <UploadSlot
+          label="Qualified Demand"
+          description="35+ units/day · 50%+ margin"
+          icon={<Trophy className="h-5 w-5" />}
+          fileName={demandFileName}
+          onFile={handleDemandFile}
+          onClear={() => { setDemandFileName(null); setDemandRows(null) }}
+        />
+        <UploadSlot
+          label="Momentum Tracker"
+          description="Selling well · growing vs. prior 7d"
+          icon={<TrendingUp className="h-5 w-5" />}
+          fileName={momentumFileName}
+          onFile={handleMomentumFile}
+          onClear={() => { setMomentumFileName(null); setMomentumRows(null) }}
+        />
+      </div>
 
+      {/* Results */}
+      {hasAny && (
+        <div className="space-y-6">
           {/* Summary cards */}
           <div className="grid grid-cols-2 gap-4">
             <Card>
@@ -270,7 +305,9 @@ export default function WinningProductsPage() {
                     <Trophy className="h-4 w-4 text-accent" />
                   </div>
                   <div>
-                    <p className="text-2xl font-semibold text-foreground leading-none">{demand.length}</p>
+                    <p className="text-2xl font-semibold text-foreground leading-none">
+                      {demandRows ? demand.length : '—'}
+                    </p>
                     <p className="text-xs text-text-muted mt-1">Qualified Demand</p>
                   </div>
                 </div>
@@ -286,7 +323,9 @@ export default function WinningProductsPage() {
                     <TrendingUp className="h-4 w-4 text-accent" />
                   </div>
                   <div>
-                    <p className="text-2xl font-semibold text-foreground leading-none">{momentum.length}</p>
+                    <p className="text-2xl font-semibold text-foreground leading-none">
+                      {momentumRows ? momentum.length : '—'}
+                    </p>
                     <p className="text-xs text-text-muted mt-1">Momentum Tracker</p>
                   </div>
                 </div>
@@ -306,30 +345,42 @@ export default function WinningProductsPage() {
               {tab === 'demand' && (
                 <>
                   <p className="text-xs text-text-muted mb-4 leading-relaxed">
-                    Products selling <strong className="text-foreground">5+ units/day</strong> (35+ in the period) with{' '}
-                    <strong className="text-foreground">50%+ gross margin</strong> — your proven sellers worth paying attention to.
+                    Products selling <strong className="text-foreground">5+ units/day</strong> with{' '}
+                    <strong className="text-foreground">50%+ gross margin</strong> — proven sellers worth paying attention to.
                   </p>
-                  <ResponsiveTable
-                    columns={demandColumns}
-                    data={demand}
-                    rowKey={r => r.title}
-                    emptyMessage="No products meet the criteria."
-                  />
+                  {!demandRows ? (
+                    <p className="text-sm text-text-muted text-center py-10">
+                      Upload the Qualified Demand CSV to see results.
+                    </p>
+                  ) : (
+                    <ResponsiveTable
+                      columns={demandColumns}
+                      data={demand}
+                      rowKey={r => r.title}
+                      emptyMessage="No products meet the criteria."
+                    />
+                  )}
                 </>
               )}
               {tab === 'momentum' && (
                 <>
                   <p className="text-xs text-text-muted mb-4 leading-relaxed">
-                    Products already selling well (35+/period) that are{' '}
+                    Products already selling well that are{' '}
                     <strong className="text-foreground">growing vs. the previous 7 days</strong> — scale ad spend,
                     inventory, and creative testing here.
                   </p>
-                  <ResponsiveTable
-                    columns={momentumColumns}
-                    data={momentum}
-                    rowKey={r => r.title}
-                    emptyMessage="No products are currently growing."
-                  />
+                  {!momentumRows ? (
+                    <p className="text-sm text-text-muted text-center py-10">
+                      Upload the Momentum Tracker CSV to see results.
+                    </p>
+                  ) : (
+                    <ResponsiveTable
+                      columns={momentumColumns}
+                      data={momentum}
+                      rowKey={r => r.title}
+                      emptyMessage="No products are currently growing."
+                    />
+                  )}
                 </>
               )}
             </CardBody>
