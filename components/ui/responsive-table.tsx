@@ -72,7 +72,7 @@ export function ResponsiveTable<T>({
             <div
               key={rowKey(row)}
               className={cn(
-                'rounded-lg border border-border-subtle bg-surface-elevated p-4 space-y-3',
+                'rounded-xl border border-border-subtle bg-surface-elevated p-4 space-y-3 shadow-sm',
                 rowClassName?.(row),
               )}
             >
@@ -178,7 +178,7 @@ export function MobileDataCard({
   className?: string
 }) {
   return (
-    <div className={cn('rounded-lg border border-border-subtle bg-surface-elevated p-4', className)}>
+    <div className={cn('rounded-xl border border-border-subtle bg-surface-elevated p-4 shadow-sm', className)}>
       {children}
     </div>
   )

@@ -24,9 +24,9 @@ export function Tabs({ tabs, active, onChange, className }: TabsProps) {
             key={tab.id}
             onClick={() => onChange(tab.id)}
             className={cn(
-              'relative px-4 py-2.5 text-sm transition-colors -mb-px',
+              'relative px-4 py-3 text-sm transition-colors -mb-px',
               isActive
-                ? 'text-accent-bright font-medium'
+                ? 'text-accent font-medium'
                 : 'text-text-muted hover:text-foreground',
             )}
           >
@@ -34,10 +34,10 @@ export function Tabs({ tabs, active, onChange, className }: TabsProps) {
               {tab.label}
               {tab.count !== undefined && (
                 <span className={cn(
-                  'font-mono text-xs px-1.5 py-0.5 rounded-md',
+                  'text-xs px-2 py-0.5 rounded-md font-medium',
                   isActive
-                    ? 'bg-accent-muted text-accent border border-accent-border/50'
-                    : 'bg-surface-elevated text-text-muted border border-border-subtle',
+                    ? 'bg-accent-muted text-accent border border-accent-border'
+                    : 'bg-surface text-text-muted border border-border-subtle',
                 )}>
                   {tab.count}
                 </span>

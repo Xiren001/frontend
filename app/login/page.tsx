@@ -29,24 +29,21 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+    <div className="min-h-screen flex items-center justify-center bg-surface px-4">
       <div className="w-full max-w-sm">
-        <div className="flex items-center justify-center gap-2.5 mb-8">
-          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-accent-muted border border-accent-border">
-            <Terminal className="h-4 w-4 text-accent" />
+        <div className="flex flex-col items-center text-center mb-8">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent text-white shadow-sm mb-4">
+            <Terminal className="h-5 w-5" />
           </div>
-          <div>
-            <p className="text-sm font-mono font-medium text-foreground">myko ops hub</p>
-            <p className="text-[10px] font-mono text-text-muted uppercase tracking-widest">operations</p>
-          </div>
+          <h1 className="text-xl font-semibold text-foreground">Myko Ops Hub</h1>
+          <p className="text-sm text-text-muted mt-1">Sign in to your operations dashboard</p>
         </div>
 
         <Card>
           <CardBody className="p-8">
-            <p className="text-sm text-text-muted mb-6">Sign in to your account</p>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-5">
               <div>
-                <label className="block text-xs font-medium text-text-secondary mb-1.5">Email</label>
+                <label className="block text-sm font-medium text-foreground mb-2">Email</label>
                 <Input
                   type="email"
                   value={email}
@@ -56,7 +53,7 @@ export default function LoginPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-text-secondary mb-1.5">Password</label>
+                <label className="block text-sm font-medium text-foreground mb-2">Password</label>
                 <Input
                   type="password"
                   value={password}
@@ -64,7 +61,7 @@ export default function LoginPage() {
                   required
                 />
               </div>
-              {error && <p className="text-xs text-danger font-mono">{error}</p>}
+              {error && <p className="text-sm text-danger">{error}</p>}
               <Button type="submit" disabled={loading} className="w-full">
                 {loading ? 'Signing in…' : 'Sign in'}
               </Button>

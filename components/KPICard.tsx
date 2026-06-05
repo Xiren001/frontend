@@ -11,27 +11,27 @@ interface KPICardProps {
 
 export function KPICard({ label, value, target, unit = '', status = 'neutral' }: KPICardProps) {
   const statusStyles = {
-    ok:      'border-accent-border/40 bg-accent-muted/50',
-    warn:    'border-warn/20 bg-warn-muted',
-    bad:     'border-danger/20 bg-danger-muted',
-    neutral: 'border-border-subtle bg-surface',
+    ok:      'border-accent-border bg-accent-muted/60',
+    warn:    'border-amber-200 bg-warn-muted',
+    bad:     'border-red-200 bg-danger-muted',
+    neutral: 'border-border-subtle bg-surface-elevated',
   }[status]
 
   const valueColor = {
-    ok:      'text-accent-bright',
+    ok:      'text-accent',
     warn:    'text-warn',
     bad:     'text-danger',
     neutral: 'text-foreground',
   }[status]
 
   return (
-    <div className={cn('rounded-lg border p-5', statusStyles)}>
-      <p className="text-xs text-text-muted font-medium uppercase tracking-widest">{label}</p>
-      <p className={cn('mt-2 text-2xl font-medium font-mono tabular-nums', valueColor)}>
+    <div className={cn('rounded-xl border p-5 shadow-sm', statusStyles)}>
+      <p className="text-sm text-text-muted font-medium">{label}</p>
+      <p className={cn('mt-2 text-3xl font-semibold tabular-nums tracking-tight', valueColor)}>
         {value ?? '—'}{value !== null && value !== '—' ? unit : ''}
       </p>
       {target !== undefined && (
-        <p className="mt-1.5 text-xs text-text-muted font-mono">target: {target}{unit}</p>
+        <p className="mt-2 text-xs text-text-muted">Target: {target}{unit}</p>
       )}
     </div>
   )
