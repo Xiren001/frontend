@@ -119,7 +119,10 @@ export default function CopyReviewPage() {
       .catch(console.error)
   }, [])
 
-  useRealtimeRefresh(['proof_products', 'proof_corrections'], loadProducts)
+  useRealtimeRefresh(['proof_products', 'proof_corrections'], () => {
+    loadProducts()
+    if (selectedId) loadCorrections(selectedId)
+  })
 
   useEffect(() => { loadProducts() }, [loadProducts])
 
