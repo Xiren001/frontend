@@ -39,6 +39,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 export function useRole() { return useContext(Ctx) }
 
 export const PATH_PERMISSION: Record<string, keyof ApproverPermissions | null> = {
+  '/product-ranking':  null,
   '/winning-products': null,
   '/weekly-report':   null,
   '/monthly-report':  null,

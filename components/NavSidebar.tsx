@@ -18,6 +18,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Trophy,
+  Star,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase'
@@ -31,6 +32,7 @@ const NAV = [
   { href: '/proofread-queue', label: 'Proofread Queue',  icon: ListChecks },
   { href: '/copy-review',     label: 'Proofreading ES·DE', icon: FileCheck },
   { href: '/mistake-log',     label: 'Mistake Log',      icon: AlertTriangle },
+  { href: '/product-ranking',  label: 'Product Ranking',   icon: Star },
   { href: '/winning-products', label: 'Winning Products',  icon: Trophy },
   { href: '/weekly-report',   label: 'Weekly Report',    icon: CalendarDays },
   { href: '/monthly-report',  label: 'Monthly Report',   icon: BarChart3 },
