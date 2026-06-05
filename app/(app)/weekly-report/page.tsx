@@ -3,16 +3,33 @@ import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import { useRealtimeRefresh } from '@/lib/use-realtime-refresh'
 import { currentMonth } from '@/lib/utils'
-import type { WeekStats } from '@/lib/types'
+import type { WeekStats, BuildSummary } from '@/lib/types'
 import { PageHeader } from '@/components/ui/page-header'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Card, CardBody } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { MobileDataCard, MobileDataRow, ResponsiveCardList, ResponsiveDesktopTable } from '@/components/ui/responsive-table'
 import { Modal } from '@/components/ui/modal'
+import { TrendingUp, FlaskConical } from 'lucide-react'
 
 interface ReportNarrative { id: string; week_number: number; narrative_text: string }
+
+function BuildList({ builds, emptyText }: { builds: BuildSummary[]; emptyText: string }) {
+  if (builds.length === 0) return <p className="text-xs text-text-muted italic">{emptyText}</p>
+  return (
+    <ul className="space-y-1.5">
+      {builds.map((b, i) => (
+        <li key={i} className="flex items-center gap-2">
+          <span className="text-sm text-foreground font-medium leading-snug">{b.product_name}</span>
+          {b.language && <Badge variant="accent">{b.language}</Badge>}
+          <Badge variant={b.type === 'jewelry' ? 'default' : 'muted'}>{b.type === 'jewelry' ? 'Jewelry' : 'Funnel'}</Badge>
+        </li>
+      ))}
+    </ul>
+  )
+}
 
 export default function WeeklyReportPage() {
   const [month, setMonth] = useState(currentMonth())
@@ -77,6 +94,9 @@ export default function WeeklyReportPage() {
     return vals.reduce((a, b) => a + b, 0)
   }
 
+  const hasAnyExpanding = weekStats.some(w => (w.expandingBuilds?.length ?? 0) > 0)
+  const hasAnyTesting   = weekStats.some(w => (w.testingBuilds?.length ?? 0) > 0)
+
   return (
     <div>
       <PageHeader
@@ -95,7 +115,7 @@ export default function WeeklyReportPage() {
             <div className="space-y-2">
               {weekStats.map(w => (
                 <MobileDataRow key={w.week} label={`Week ${w.week}`} mono>
-                  {w[m.key] ?? '—'}
+                  {(w[m.key] as string | number | null) ?? '—'}
                 </MobileDataRow>
               ))}
               <MobileDataRow label="Month" mono>
@@ -122,7 +142,7 @@ export default function WeeklyReportPage() {
                 <TableCell className="text-foreground">{m.label}</TableCell>
                 {weekStats.map(w => (
                   <TableCell key={w.week} mono className="text-center text-foreground">
-                    {w[m.key] ?? '—'}
+                    {(w[m.key] as string | number | null) ?? '—'}
                   </TableCell>
                 ))}
                 <TableCell mono className="text-center font-medium text-foreground">{monthTotal(m.key)}</TableCell>
@@ -132,7 +152,8 @@ export default function WeeklyReportPage() {
         </Table>
       </ResponsiveDesktopTable>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Narratives */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
         {[1, 2, 3, 4].map(w => {
           const text = getNarrative(w)
           return (
@@ -154,6 +175,52 @@ export default function WeeklyReportPage() {
           )
         })}
       </div>
+
+      {/* ── Expanding products by week ── */}
+      {hasAnyExpanding && (
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <TrendingUp className="h-4 w-4 text-accent" />
+            <h2 className="text-sm font-semibold text-foreground uppercase tracking-widest">Expanding Products</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {weekStats.map(w => (
+              <Card key={w.week}>
+                <CardBody>
+                  <p className="text-xs font-medium uppercase tracking-widest text-text-muted mb-3">Week {w.week}</p>
+                  <BuildList
+                    builds={w.expandingBuilds ?? []}
+                    emptyText="None this week"
+                  />
+                </CardBody>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Products still testing by week ── */}
+      {hasAnyTesting && (
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <FlaskConical className="h-4 w-4 text-yellow-500" />
+            <h2 className="text-sm font-semibold text-foreground uppercase tracking-widest">Still in Testing</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {weekStats.map(w => (
+              <Card key={w.week}>
+                <CardBody>
+                  <p className="text-xs font-medium uppercase tracking-widest text-text-muted mb-3">Week {w.week}</p>
+                  <BuildList
+                    builds={w.testingBuilds ?? []}
+                    emptyText="None this week"
+                  />
+                </CardBody>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
 
       <Modal
         open={editWeek !== null}

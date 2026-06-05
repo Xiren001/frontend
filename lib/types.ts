@@ -95,6 +95,13 @@ export interface KPI {
   phaseBreakdown: { building: number; proofread: number; testing: number; decided: number }
 }
 
+export interface BuildSummary {
+  product_name: string
+  language: string | null
+  type: string
+  week_number?: number
+}
+
 export interface WeekStats {
   week: number
   logged: number
@@ -104,6 +111,8 @@ export interface WeekStats {
   mistakes: number
   avgBuildDays: number | null
   avgTotalDays: number | null
+  expandingBuilds?: BuildSummary[]
+  testingBuilds?: BuildSummary[]
 }
 
 export interface PlannerNote {
