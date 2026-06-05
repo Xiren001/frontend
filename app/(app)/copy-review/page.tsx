@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { Pencil, Trash2, Plus, ExternalLink, Languages } from 'lucide-react'
 import { Tabs } from '@/components/ui/tabs'
-import { translateSeverity, translateIssueType, translateLocation } from '@/lib/proof-translations'
+import { translateSeverity, translateIssueType, translateLocation, UI } from '@/lib/proof-translations'
 
 interface ProofProduct {
   id: string
@@ -222,6 +222,9 @@ export default function CopyReviewPage() {
     setIsTranslated(v => !v)
   }
 
+  const uiLang = isTranslated ? 'EN' : ((selectedProduct?.language === 'DE' ? 'DE' : 'ES') as 'ES' | 'DE' | 'EN')
+  const L = UI[uiLang]
+
   const esCnt = products.filter(p => p.language === 'ES').length
   const deCnt = products.filter(p => p.language === 'DE').length
 
@@ -342,7 +345,7 @@ export default function CopyReviewPage() {
                         )}
                         {selectedProduct.done && <Badge variant="muted">Done</Badge>}
                         <span className="text-xs text-text-muted font-mono">
-                          {selectedCorrections.filter(c => c.done).length}/{selectedProduct.correction_count} resolved
+                          {L.resolvedOf(selectedCorrections.filter(c => c.done).length, selectedProduct.correction_count)}
                         </span>
                       </div>
                     </div>
@@ -405,7 +408,7 @@ export default function CopyReviewPage() {
                       )}
                     >
                       <Languages className="h-3.5 w-3.5" />
-                      {isTranslated ? 'EN' : 'Translate to EN'}
+                      {isTranslated ? 'EN' : L.translateBtn}
                     </button>
                   </div>
                 </div>{/* end shrink-0 product header */}
@@ -438,12 +441,12 @@ export default function CopyReviewPage() {
                         {tabCorrections.length === 0 ? (
                           <div className="flex flex-col items-center justify-center h-full gap-3 py-16 text-center">
                             <p className="text-sm text-text-muted">
-                              No {sourceTab === 'website' ? 'website' : 'ads'} corrections yet.
+                              {sourceTab === 'website' ? L.noWebsite : L.noAds}
                             </p>
                             {isAdmin && (
                               <Button variant="secondary" size="sm" onClick={() => openCreateCorrection(selectedProduct.id, sourceTab)}>
                                 <Plus className="h-3.5 w-3.5 mr-1" />
-                                Add correction
+                                {L.addCorrection}
                               </Button>
                             )}
                           </div>
@@ -477,7 +480,7 @@ export default function CopyReviewPage() {
 
                                     {c.original_text && (
                                       <div className="space-y-0.5">
-                                        <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Before</p>
+                                        <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">{L.before}</p>
                                         <p className="text-sm text-text-secondary leading-relaxed line-through decoration-text-muted/50">
                                           {c.original_text}
                                         </p>
@@ -486,7 +489,7 @@ export default function CopyReviewPage() {
 
                                     {c.corrected_text && (
                                       <div className="space-y-0.5">
-                                        <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">After</p>
+                                        <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">{L.after}</p>
                                         <p className="text-sm text-foreground font-medium leading-relaxed">
                                           {c.corrected_text}
                                         </p>
@@ -496,7 +499,7 @@ export default function CopyReviewPage() {
                                     <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
                                       {issueTyp && <Badge variant="default">{issueTyp}</Badge>}
                                       <SeverityBadge severity={sev} />
-                                      {c.done && <Badge variant="muted">Resolved</Badge>}
+                                      {c.done && <Badge variant="muted">{L.resolved}</Badge>}
                                     </div>
 
                                     {c.notes && (
@@ -541,7 +544,7 @@ export default function CopyReviewPage() {
               </>
             ) : (
               <div className="flex items-center justify-center h-full">
-                <p className="text-sm text-text-muted">Select a product to review corrections.</p>
+                <p className="text-sm text-text-muted">{UI[selectedProduct ? uiLang : 'EN'].selectProduct}</p>
               </div>
             )}
           </section>
