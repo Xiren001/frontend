@@ -16,6 +16,7 @@ import { translateSeverity, translateIssueType, translateLocation, UI } from '@/
 
 interface ProofProduct {
   id: string
+  build_id: string | null
   language: string | null
   proofreader: string | null
   product_name: string
