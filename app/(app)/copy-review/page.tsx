@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { Pencil, Trash2, Plus, ExternalLink, Languages } from 'lucide-react'
 import { Tabs } from '@/components/ui/tabs'
+import { translateSeverity, translateIssueType, translateLocation } from '@/lib/proof-translations'
 
 interface ProofProduct {
   id: string
@@ -103,10 +104,6 @@ export default function CopyReviewPage() {
 
   // Translation — volatile: not persisted, resets on reload
   const [isTranslated, setIsTranslated] = useState(false)
-  const [translating, setTranslating] = useState(false)
-  const [translationCache, setTranslationCache] = useState<
-    Record<string, Record<string, { location: string | null; original_text: string | null; corrected_text: string | null; issue_type: string | null; notes: string | null }>>
-  >({})
 
   const loadProducts = useCallback(() => {
     api.get<ProofProduct[]>('/api/proof-corrections/products').then(setProducts).catch(console.error)
@@ -221,37 +218,8 @@ export default function CopyReviewPage() {
     } finally { setDeletingCorrection(false) }
   }
 
-  async function handleTranslate() {
-    if (!selectedProduct) return
-    const pid = selectedProduct.id
-    if (isTranslated) { setIsTranslated(false); return }
-
-    // Use cache if already translated
-    if (translationCache[pid]) { setIsTranslated(true); return }
-
-    setTranslating(true)
-    try {
-      const snippets = selectedCorrections.map(c => ({
-        id: c.id,
-        location: c.location,
-        original_text: c.original_text,
-        corrected_text: c.corrected_text,
-        issue_type: c.issue_type,
-        notes: c.notes,
-      }))
-      const { translations } = await api.post<{ translations: typeof snippets }>(
-        '/api/translate',
-        { corrections: snippets, language: selectedProduct.language ?? 'ES' }
-      )
-      const map: Record<string, typeof snippets[number]> = {}
-      for (const t of translations) map[t.id] = t
-      setTranslationCache(prev => ({ ...prev, [pid]: map }))
-      setIsTranslated(true)
-    } catch (e) {
-      console.error('Translation failed', e)
-    } finally {
-      setTranslating(false)
-    }
+  function handleTranslate() {
+    setIsTranslated(v => !v)
   }
 
   const esCnt = products.filter(p => p.language === 'ES').length
@@ -429,17 +397,15 @@ export default function CopyReviewPage() {
                     )}
                     <button
                       onClick={handleTranslate}
-                      disabled={translating}
                       className={cn(
                         'ml-auto flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md border transition-colors',
                         isTranslated
                           ? 'bg-accent-muted text-accent-bright border-accent-border/50'
                           : 'text-text-muted border-border-subtle hover:text-foreground hover:border-border',
-                        translating && 'opacity-50 cursor-not-allowed',
                       )}
                     >
                       <Languages className="h-3.5 w-3.5" />
-                      {translating ? 'Translating…' : isTranslated ? 'EN' : 'Translate to EN'}
+                      {isTranslated ? 'EN' : 'Translate to EN'}
                     </button>
                   </div>
                 </div>{/* end shrink-0 product header */}
@@ -484,12 +450,9 @@ export default function CopyReviewPage() {
                         ) : (
                           <div className="divide-y divide-border-subtle">
                             {tabCorrections.map((c, i) => {
-                              const t = isTranslated ? translationCache[selectedProduct.id]?.[c.id] : null
-                              const loc      = t?.location      ?? c.location
-                              const origText = t?.original_text  ?? c.original_text
-                              const corrText = t?.corrected_text ?? c.corrected_text
-                              const issueTyp = t?.issue_type     ?? c.issue_type
-                              const notesTxt = t?.notes          ?? c.notes
+                              const loc      = isTranslated ? translateLocation(c.location)  : c.location
+                              const issueTyp = isTranslated ? translateIssueType(c.issue_type) : c.issue_type
+                              const sev      = isTranslated ? translateSeverity(c.severity)  : c.severity
                               return (
                               <div
                                 key={c.id}
@@ -512,33 +475,33 @@ export default function CopyReviewPage() {
                                       )}
                                     </div>
 
-                                    {origText && (
+                                    {c.original_text && (
                                       <div className="space-y-0.5">
                                         <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Before</p>
                                         <p className="text-sm text-text-secondary leading-relaxed line-through decoration-text-muted/50">
-                                          {origText}
+                                          {c.original_text}
                                         </p>
                                       </div>
                                     )}
 
-                                    {corrText && (
+                                    {c.corrected_text && (
                                       <div className="space-y-0.5">
                                         <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">After</p>
                                         <p className="text-sm text-foreground font-medium leading-relaxed">
-                                          {corrText}
+                                          {c.corrected_text}
                                         </p>
                                       </div>
                                     )}
 
                                     <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
                                       {issueTyp && <Badge variant="default">{issueTyp}</Badge>}
-                                      <SeverityBadge severity={c.severity} />
+                                      <SeverityBadge severity={sev} />
                                       {c.done && <Badge variant="muted">Resolved</Badge>}
                                     </div>
 
-                                    {notesTxt && (
+                                    {c.notes && (
                                       <p className="text-xs text-text-muted italic border-l-2 border-border-subtle pl-2">
-                                        {notesTxt}
+                                        {c.notes}
                                       </p>
                                     )}
                                   </div>
