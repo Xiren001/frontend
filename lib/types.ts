@@ -32,6 +32,7 @@ export interface Build {
   outcome_decided: string | null
   outcome: BuildOutcome
   batch_group: number | null
+  batch_name: string | null
   notes: string | null
   proofreader: string | null
   // computed

@@ -16,14 +16,10 @@ import * as XLSX from 'xlsx'
 
 // ── Phase config ─────────────────────────────────────────────────────────────
 
-// Ordered sequence of date keys — used for mobile advance logic
 const PHASE_SEQUENCE: (keyof Build)[] = [
   'phase1_start', 'phase1_end', 'into_proofread', 'proof_end', 'into_testing', 'outcome_decided',
 ]
 
-// Column rendering config: each phase column shows a stacked start+end date pair.
-// Decided is a single-date column (endKey = null).
-// prereq: the start button is only shown when this field is set on the build.
 const PHASE_COLS: {
   label:       string
   startKey:    keyof Build
@@ -39,7 +35,6 @@ const PHASE_COLS: {
   { label: 'Decided',  startKey: 'outcome_decided', endKey: null,              endBtnLabel: null,         prereq: 'into_testing', variant: 'accent', showFrom: 'md' },
 ]
 
-// Per-key label + variant used for advance buttons in mobile card
 const PHASE_KEY_INFO: Record<string, { label: string; variant: 'default' | 'warn' | 'accent' }> = {
   phase1_start:    { label: 'Building',   variant: 'default' },
   phase1_end:      { label: 'End Build',  variant: 'default' },
@@ -152,7 +147,6 @@ function BuildCard({ b, isAdmin, advancing, onOpenNotes, onOpenEdit, onDelete, o
       className="bg-surface-elevated border border-border-subtle rounded-lg p-4 cursor-pointer hover:bg-surface-hover transition-colors active:scale-[0.995]"
       onClick={() => onOpenNotes(b)}
     >
-      {/* Header row */}
       <div className="flex items-start justify-between gap-2 mb-3">
         <div className="min-w-0">
           <p className="font-medium text-foreground text-sm truncate">{b.product_name}</p>
@@ -160,7 +154,6 @@ function BuildCard({ b, isAdmin, advancing, onOpenNotes, onOpenEdit, onDelete, o
             {[b.language, `Wk ${b.week_number}`].filter(Boolean).join(' · ')}
           </p>
         </div>
-        {/* Admin action icons — stop propagation so they don't open notes */}
         {isAdmin && (
           <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
             <Link
@@ -188,7 +181,6 @@ function BuildCard({ b, isAdmin, advancing, onOpenNotes, onOpenEdit, onDelete, o
         )}
       </div>
 
-      {/* Phase status + advance */}
       <div className="flex items-center gap-2 mb-3" onClick={e => e.stopPropagation()}>
         <span className={`text-xs px-2 py-0.5 rounded border font-medium ${PHASE_BADGE_CLS[b.phase] ?? PHASE_BADGE_CLS.pending}`}>
           {b.phase.charAt(0).toUpperCase() + b.phase.slice(1)}
@@ -204,7 +196,6 @@ function BuildCard({ b, isAdmin, advancing, onOpenNotes, onOpenEdit, onDelete, o
         )}
       </div>
 
-      {/* Stats row */}
       <div className="flex items-center justify-between text-xs text-text-muted" onClick={e => e.stopPropagation()}>
         <div className="flex items-center gap-3">
           {b.approved_date && <span>Approved {formatDate(b.approved_date)}</span>}
@@ -228,8 +219,6 @@ function BuildCard({ b, isAdmin, advancing, onOpenNotes, onOpenEdit, onDelete, o
     </div>
   )
 }
-
-// ── Main component ────────────────────────────────────────────────────────────
 
 // ── xlsx column map ───────────────────────────────────────────────────────────
 
@@ -267,18 +256,19 @@ function toDateStr(val: unknown): string | null {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-type ActiveTab = 1 | 2 | 3 | 4 | 'batches'
-
 interface Props {
   builds: Build[]
   type: BuildType
-  month: string   // e.g. "2026-06"
+  month: string
   onRefresh: () => void
   isAdmin: boolean
 }
 
 export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) {
-  const [activeTab, setActiveTab] = useState<ActiveTab>(1)
+  const [activeWeek, setActiveWeek] = useState<1|2|3|4>(1)
+  const [activeBatch, setActiveBatch] = useState<number | null>(null)
+  const [renamingBatch, setRenamingBatch] = useState<number | null>(null)
+  const [renameValue, setRenameValue] = useState('')
   const [formOpen, setFormOpen] = useState(false)
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create')
   const [editBuild, setEditBuild] = useState<Build | null>(null)
@@ -294,15 +284,16 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
   const [bulkDeleting, setBulkDeleting] = useState(false)
   const [grouping, setGrouping] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const renameInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     api.get<Settings>('/api/settings').then(setSettings).catch(() => {})
   }, [])
 
   const weeks = [1, 2, 3, 4]
-  const activeWeek = typeof activeTab === 'number' ? activeTab : 1
-  const weekBuilds = typeof activeTab === 'number' ? builds.filter(b => b.week_number === activeTab) : []
+  const weekBuilds = builds.filter(b => b.week_number === activeWeek)
 
+  // Build batch map
   const batchMap = new Map<number, Build[]>()
   for (const b of builds) {
     if (b.batch_group != null) {
@@ -312,22 +303,24 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
   }
   const batchEntries = [...batchMap.entries()].sort(([a], [b]) => a - b)
 
-  // Clear selection when the active tab changes
-  useEffect(() => { setSelectedIds(new Set()) }, [activeTab])
+  function batchDisplayName(batchNum: number) {
+    const batchBuilds = batchMap.get(batchNum)
+    return batchBuilds?.[0]?.batch_name ?? `Batch ${batchNum}`
+  }
+
+  // Clear selection when week or batch changes
+  useEffect(() => { setSelectedIds(new Set()) }, [activeWeek, activeBatch])
 
   const buildAvg = avgNum(weekBuilds.map(b => b.build_days))
   const proofAvg = avgNum(weekBuilds.map(b => b.proof_days))
   const testAvg  = avgNum(weekBuilds.map(b => b.test_days))
   const totalAvg = avgNum(weekBuilds.map(b => b.total_days))
 
-  const tabs = [
-    ...weeks.map(w => ({
-      id: w as ActiveTab,
-      label: `Week ${w}`,
-      count: builds.filter(b => b.week_number === w).length,
-    })),
-    { id: 'batches' as ActiveTab, label: 'Batches', count: builds.filter(b => b.batch_group != null).length },
-  ]
+  const tabs = weeks.map(w => ({
+    id: w,
+    label: `Week ${w}`,
+    count: builds.filter(b => b.week_number === w).length,
+  }))
 
   function openCreate() { setFormMode('create'); setEditBuild(null); setFormOpen(true) }
   function openEdit(b: Build) { setFormMode('edit'); setEditBuild(b); setFormOpen(true) }
@@ -375,8 +368,25 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
 
   async function handleUngroup(batchNum: number) {
     const toUngroup = builds.filter(b => b.batch_group === batchNum)
-    await Promise.all(toUngroup.map(b => api.put(`/api/builds/${b.id}`, { batch_group: null })))
+    await Promise.all(toUngroup.map(b => api.put(`/api/builds/${b.id}`, { batch_group: null, batch_name: null })))
+    if (activeBatch === batchNum) setActiveBatch(null)
     onRefresh()
+  }
+
+  async function handleRenameCommit() {
+    if (renamingBatch === null) return
+    const toRename = builds.filter(b => b.batch_group === renamingBatch)
+    const newName = renameValue.trim() || null
+    await Promise.all(toRename.map(b => api.put(`/api/builds/${b.id}`, { batch_name: newName })))
+    setRenamingBatch(null)
+    onRefresh()
+  }
+
+  function startRename(batchNum: number) {
+    if (!isAdmin) return
+    setRenamingBatch(batchNum)
+    setRenameValue(batchDisplayName(batchNum))
+    setTimeout(() => renameInputRef.current?.select(), 10)
   }
 
   function toggleSelect(id: string) {
@@ -403,7 +413,6 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
     } finally { setAdvancing(null) }
   }
 
-
   async function handleOutcomeChange(buildId: string, outcome: BuildOutcome) {
     await api.put(`/api/builds/${buildId}`, { outcome })
     onRefresh()
@@ -414,9 +423,7 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
   function handleExport() {
     const allCols = [...IMPORT_COLS, ...EXPORT_EXTRA]
     const headers = allCols.map(c => c.label)
-    const rows = builds.map(b =>
-      allCols.map(c => b[c.key as keyof Build] ?? '')
-    )
+    const rows = builds.map(b => allCols.map(c => b[c.key as keyof Build] ?? ''))
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows])
     ws['!cols'] = allCols.map((c, i) => ({ wch: i < IMPORT_COLS.length ? (IMPORT_COLS[i] as { width: number }).width : 10 }))
     const wb = XLSX.utils.book_new()
@@ -424,22 +431,13 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
     XLSX.writeFile(wb, `${type}-builds-${month}.xlsx`)
   }
 
-  // ── Template download ─────────────────────────────────────────────────────
-
   function handleTemplateDownload() {
     const headers = IMPORT_COLS.map(c => c.label)
     const example = [
       'Example Product', 'EN', 1,
-      '2026-06-01',  // Approved Date
-      '2026-06-02',  // Phase 1 Start
-      '2026-06-05',  // Phase 1 End
-      '2026-06-07',  // Proof Start
-      '2026-06-14',  // Proof End
-      '2026-06-16',  // Test Start
-      '2026-06-20',  // Outcome Decided
-      'expanding',   // Outcome
-      'Jane',        // Proofreader
-      'Optional note here', // Notes
+      '2026-06-01', '2026-06-02', '2026-06-05', '2026-06-07',
+      '2026-06-14', '2026-06-16', '2026-06-20',
+      'expanding', 'Jane', 'Optional note here',
     ]
     const ws = XLSX.utils.aoa_to_sheet([headers, example])
     ws['!cols'] = IMPORT_COLS.map(c => ({ wch: c.width }))
@@ -447,8 +445,6 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
     XLSX.utils.book_append_sheet(wb, ws, 'Template')
     XLSX.writeFile(wb, `${type}-import-template.xlsx`)
   }
-
-  // ── Import ────────────────────────────────────────────────────────────────
 
   async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -464,18 +460,14 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
       const hdrs = (raw[0] as string[]).map(h => h?.toString().trim().toLowerCase())
       const colIdx = (label: string) => hdrs.indexOf(label.toLowerCase())
 
-      let ok = 0
-      let err = 0
+      let ok = 0; let err = 0
       for (const row of raw.slice(1)) {
         const r = row as unknown[]
         const productName = r[colIdx('product name')]?.toString().trim()
         if (!productName) continue
-
         const outcome = r[colIdx('outcome')]?.toString().trim() as Build['outcome'] | undefined
         const build = {
-          type,
-          month_year: `${month}-01`,
-          product_name: productName,
+          type, month_year: `${month}-01`, product_name: productName,
           language:        r[colIdx('language')]?.toString().trim() || null,
           week_number:     Number(r[colIdx('week')]) || 1,
           approved_date:   toDateStr(r[colIdx('approved date')]),
@@ -485,7 +477,7 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
           proof_end:       toDateStr(r[colIdx('proof end')]),
           into_testing:    toDateStr(r[colIdx('test start')]),
           outcome_decided: toDateStr(r[colIdx('outcome decided')]),
-          outcome:         outcome || null,
+          outcome: outcome || null,
           proofreader:     r[colIdx('proofreader')]?.toString().trim() || null,
           notes:           r[colIdx('notes')]?.toString().trim() || null,
         }
@@ -506,18 +498,73 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
     if (details) details.open = false
   }
 
+  // ── Batch sub-tab row ──────────────────────────────────────────────────────
+
+  const BatchSubTabs = () => {
+    if (batchEntries.length === 0) return null
+    return (
+      <div className="flex items-center gap-2 flex-wrap py-2 border-t border-border-subtle">
+        <div className="flex items-center gap-1 shrink-0">
+          <Layers className="h-3.5 w-3.5 text-text-muted" />
+          <span className="text-xs text-text-muted font-medium">Batches</span>
+        </div>
+        <div className="flex items-center gap-1.5 flex-wrap flex-1">
+          {batchEntries.map(([batchNum]) => {
+            const name = batchDisplayName(batchNum)
+            const isActive = activeBatch === batchNum
+            const isRenaming = renamingBatch === batchNum
+            return (
+              <div key={batchNum}>
+                {isRenaming ? (
+                  <input
+                    ref={renameInputRef}
+                    autoFocus
+                    value={renameValue}
+                    onChange={e => setRenameValue(e.target.value)}
+                    onBlur={handleRenameCommit}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') { e.preventDefault(); handleRenameCommit() }
+                      if (e.key === 'Escape') setRenamingBatch(null)
+                    }}
+                    className="text-xs px-2 py-1 rounded border border-accent/60 bg-surface-elevated text-foreground w-28 focus:outline-none focus:ring-1 focus:ring-accent/40"
+                  />
+                ) : (
+                  <button
+                    onClick={() => setActiveBatch(isActive ? null : batchNum)}
+                    onDoubleClick={() => startRename(batchNum)}
+                    title={isAdmin ? 'Double-click to rename' : undefined}
+                    className={cn(
+                      'text-xs px-2.5 py-1 rounded-md border font-medium transition-colors select-none',
+                      isActive
+                        ? 'bg-accent-muted text-accent border-accent-border'
+                        : 'text-text-secondary border-border-subtle hover:text-foreground hover:border-border hover:bg-surface-hover',
+                    )}
+                  >
+                    {name}
+                  </button>
+                )}
+              </div>
+            )
+          })}
+          {activeBatch !== null && isAdmin && (
+            <Button variant="ghost" size="sm" onClick={() => handleUngroup(activeBatch)}>
+              Ungroup
+            </Button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="space-y-6">
-      {/* Mobile: week select + actions menu */}
+    <div className="space-y-4">
+      {/* ── Mobile: week select + actions menu ── */}
       <div className="flex items-center gap-2 md:hidden">
         <select
-          value={activeTab}
-          onChange={e => {
-            const v = e.target.value
-            setActiveTab(v === 'batches' ? 'batches' : Number(v) as ActiveTab)
-          }}
+          value={activeWeek}
+          onChange={e => { setActiveWeek(Number(e.target.value) as 1|2|3|4); setActiveBatch(null) }}
           className={cn(SELECT_CLS, 'flex-1 min-w-0')}
-          aria-label="Select tab"
+          aria-label="Select week"
         >
           {tabs.map(tab => (
             <option key={tab.id} value={tab.id}>
@@ -532,51 +579,32 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
               <ChevronDown className="h-3.5 w-3.5 text-text-muted" />
             </summary>
             <div className="absolute right-0 top-full z-20 mt-1 min-w-44 rounded-md border border-border bg-surface-elevated py-1 shadow-lg">
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-surface-hover"
-                onClick={e => { closeActionsMenu(e); handleTemplateDownload() }}
-              >
+              <button type="button" className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-surface-hover"
+                onClick={e => { closeActionsMenu(e); handleTemplateDownload() }}>
                 <FileDown className="h-3.5 w-3.5 text-text-muted" />Template
               </button>
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-surface-hover disabled:opacity-50"
-                disabled={importing}
-                onClick={e => { closeActionsMenu(e); fileInputRef.current?.click() }}
-              >
+              <button type="button" className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-surface-hover disabled:opacity-50"
+                disabled={importing} onClick={e => { closeActionsMenu(e); fileInputRef.current?.click() }}>
                 <Upload className="h-3.5 w-3.5 text-text-muted" />{importing ? 'Importing…' : 'Import'}
               </button>
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-surface-hover"
-                onClick={e => { closeActionsMenu(e); handleExport() }}
-              >
+              <button type="button" className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-surface-hover"
+                onClick={e => { closeActionsMenu(e); handleExport() }}>
                 <Download className="h-3.5 w-3.5 text-text-muted" />Export
               </button>
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-surface-hover border-t border-border-subtle mt-1 pt-2"
-                onClick={e => { closeActionsMenu(e); openCreate() }}
-              >
+              <button type="button" className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-surface-hover border-t border-border-subtle mt-1 pt-2"
+                onClick={e => { closeActionsMenu(e); openCreate() }}>
                 + Add build
               </button>
-              {selectedIds.size > 0 && typeof activeTab === 'number' && (
-                <button
-                  type="button"
+              {selectedIds.size > 0 && activeBatch === null && (
+                <button type="button"
                   className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-surface-hover border-t border-border-subtle mt-1 pt-2"
-                  disabled={grouping}
-                  onClick={e => { closeActionsMenu(e); handleGroupAsBatch() }}
-                >
+                  disabled={grouping} onClick={e => { closeActionsMenu(e); handleGroupAsBatch() }}>
                   <Layers className="h-3.5 w-3.5 text-text-muted" />{grouping ? 'Grouping…' : `Batch ${selectedIds.size}`}
                 </button>
               )}
-              {selectedIds.size > 0 && typeof activeTab === 'number' && (
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-danger hover:bg-danger-muted"
-                  onClick={e => { closeActionsMenu(e); setBulkDeleteOpen(true) }}
-                >
+              {selectedIds.size > 0 && activeBatch === null && (
+                <button type="button" className="flex w-full items-center gap-2 px-3 py-2 text-sm text-danger hover:bg-danger-muted"
+                  onClick={e => { closeActionsMenu(e); setBulkDeleteOpen(true) }}>
                   <Trash2 className="h-3.5 w-3.5" />Delete {selectedIds.size} selected
                 </button>
               )}
@@ -585,9 +613,14 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
         )}
       </div>
 
-      {/* Desktop: week tabs + toolbar */}
+      {/* ── Desktop: week tabs + toolbar ── */}
       <div className="hidden md:flex items-center justify-between gap-4">
-        <Tabs tabs={tabs} active={activeTab} onChange={id => setActiveTab(id === 'batches' ? 'batches' : Number(id) as ActiveTab)} className="flex-1" />
+        <Tabs
+          tabs={tabs}
+          active={activeWeek}
+          onChange={id => { setActiveWeek(Number(id) as 1|2|3|4); setActiveBatch(null) }}
+          className="flex-1"
+        />
         {isAdmin && (
           <div className="flex items-center gap-2 shrink-0">
             <Button variant="ghost" size="sm" onClick={handleTemplateDownload} title="Download import template">
@@ -599,12 +632,12 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
             <Button variant="ghost" size="sm" onClick={handleExport} title="Export to .xlsx">
               <Download className="h-3.5 w-3.5 mr-1.5" />Export
             </Button>
-            {selectedIds.size > 0 && typeof activeTab === 'number' && (
+            {selectedIds.size > 0 && activeBatch === null && (
               <Button variant="secondary" size="sm" onClick={handleGroupAsBatch} disabled={grouping}>
                 <Layers className="h-3.5 w-3.5 mr-1.5" />{grouping ? 'Grouping…' : `Batch ${selectedIds.size}`}
               </Button>
             )}
-            {selectedIds.size > 0 && typeof activeTab === 'number' && (
+            {selectedIds.size > 0 && activeBatch === null && (
               <Button variant="danger" size="sm" onClick={() => setBulkDeleteOpen(true)}>
                 <Trash2 className="h-3.5 w-3.5 mr-1.5" />Delete {selectedIds.size}
               </Button>
@@ -615,42 +648,78 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
           </div>
         )}
       </div>
+
+      {/* ── Batch sub-tabs (below week tabs, both mobile + desktop) ── */}
+      <BatchSubTabs />
+
       {isAdmin && (
         <input ref={fileInputRef} type="file" accept=".xlsx" className="hidden" onChange={handleImport} />
       )}
 
-      {/* ── Mobile card layout (< md) ── */}
-      <div className="block md:hidden space-y-3">
-        {activeTab === 'batches' ? (
-          batchEntries.length === 0 ? (
-            <p className="text-sm text-text-muted text-center py-10">No batches yet. Select products and tap &ldquo;Batch&rdquo;.</p>
-          ) : (
-            batchEntries.map(([batchNum, batchBuilds]) => (
-              <div key={batchNum} className="border border-border-subtle rounded-lg overflow-hidden">
-                <div className="flex items-center justify-between px-3 py-2.5 bg-surface-elevated border-b border-border-subtle">
-                  <div className="flex items-center gap-2">
-                    <Layers className="h-3.5 w-3.5 text-text-muted" />
-                    <span className="text-sm font-semibold text-foreground">Batch {batchNum}</span>
-                    <span className="text-xs text-text-muted">· {batchBuilds.length}</span>
-                  </div>
-                  {isAdmin && (
-                    <button onClick={() => handleUngroup(batchNum)} className="text-xs text-text-muted hover:text-foreground transition-colors px-2 py-1 rounded hover:bg-surface-hover">Ungroup</button>
-                  )}
-                </div>
-                <div className="divide-y divide-border-subtle">
-                  {batchBuilds.map(b => (
-                    <button key={b.id} type="button" onClick={() => setNotesBuild(b)}
-                      className="w-full text-left px-3 py-2.5 hover:bg-surface-hover transition-colors">
-                      <p className="text-sm font-medium text-foreground">{b.product_name}</p>
-                      <p className="text-xs text-text-muted font-mono mt-0.5">{[b.language, `Wk ${b.week_number}`, b.phase].filter(Boolean).join(' · ')}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))
-          )
-        ) : (
+      {/* ── Batch view (when a batch tab is active) ── */}
+      {activeBatch !== null && (() => {
+        const batchBuilds = batchMap.get(activeBatch) ?? []
+        return (
           <>
+            {/* Mobile */}
+            <div className="block md:hidden space-y-3">
+              {batchBuilds.length === 0 ? (
+                <p className="text-sm text-text-muted text-center py-10">This batch is empty.</p>
+              ) : batchBuilds.map(b => (
+                <button key={b.id} type="button" onClick={() => setNotesBuild(b)}
+                  className="w-full text-left px-3 py-3 border border-border-subtle rounded-lg hover:bg-surface-hover transition-colors">
+                  <p className="text-sm font-medium text-foreground">{b.product_name}</p>
+                  <p className="text-xs text-text-muted font-mono mt-0.5">{[b.language, `Wk ${b.week_number}`, b.phase].filter(Boolean).join(' · ')}</p>
+                </button>
+              ))}
+            </div>
+            {/* Desktop */}
+            <div className="hidden md:block border border-border-subtle rounded-xl overflow-hidden">
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableHeader>Product</TableHeader>
+                    <TableHeader>Lang</TableHeader>
+                    <TableHeader>Week</TableHeader>
+                    <TableHeader>Phase</TableHeader>
+                    <TableHeader>Outcome</TableHeader>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {batchBuilds.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-text-muted py-12">This batch is empty.</TableCell>
+                    </TableRow>
+                  ) : batchBuilds.map(b => (
+                    <TableRow key={b.id} className="cursor-pointer" onClick={() => setNotesBuild(b)}>
+                      <TableCell className="font-medium text-foreground">{b.product_name}</TableCell>
+                      <TableCell mono className="text-text-muted">{b.language ?? '—'}</TableCell>
+                      <TableCell mono className="text-text-muted">W{b.week_number}</TableCell>
+                      <TableCell>
+                        <span className={`text-xs px-2 py-0.5 rounded border font-medium ${PHASE_BADGE_CLS[b.phase] ?? PHASE_BADGE_CLS.pending}`}>
+                          {b.phase.charAt(0).toUpperCase() + b.phase.slice(1)}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        {b.outcome
+                          ? <Badge variant={OUTCOME_VARIANT[b.outcome]}>{b.outcome}</Badge>
+                          : <span className="text-text-muted">—</span>
+                        }
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </>
+        )
+      })()}
+
+      {/* ── Week view (when no batch is active) ── */}
+      {activeBatch === null && (
+        <>
+          {/* Mobile card layout */}
+          <div className="block md:hidden space-y-3">
             {weekBuilds.length === 0 && (
               <p className="text-sm text-text-muted text-center py-10">
                 No builds in Week {activeWeek}
@@ -670,162 +739,77 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
                 onOutcomeChange={handleOutcomeChange}
               />
             ))}
-          </>
-        )}
-      </div>
+          </div>
 
-      {/* ── Batches view (md+) ── */}
-      {activeTab === 'batches' && (
-        <div className="hidden md:block space-y-4">
-          {batchEntries.length === 0 ? (
-            <p className="text-center text-sm text-text-muted py-12">
-              No batches yet. Select products in a week tab and click &ldquo;Batch N selected&rdquo;.
-            </p>
-          ) : (
-            batchEntries.map(([batchNum, batchBuilds]) => (
-              <div key={batchNum} className="border border-border-subtle rounded-xl overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-3 bg-surface-elevated border-b border-border-subtle">
-                  <div className="flex items-center gap-2">
-                    <Layers className="h-4 w-4 text-text-muted" />
-                    <span className="text-sm font-semibold text-foreground">Batch {batchNum}</span>
-                    <Badge variant="muted">{batchBuilds.length} {batchBuilds.length === 1 ? 'product' : 'products'}</Badge>
-                  </div>
-                  {isAdmin && (
-                    <Button variant="ghost" size="sm" onClick={() => handleUngroup(batchNum)}>Ungroup</Button>
-                  )}
-                </div>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableHeader>Product</TableHeader>
-                      <TableHeader>Lang</TableHeader>
-                      <TableHeader>Week</TableHeader>
-                      <TableHeader>Phase</TableHeader>
-                      <TableHeader>Outcome</TableHeader>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {batchBuilds.map(b => (
-                      <TableRow key={b.id} className="cursor-pointer" onClick={() => setNotesBuild(b)}>
-                        <TableCell className="font-medium text-foreground">{b.product_name}</TableCell>
-                        <TableCell mono className="text-text-muted">{b.language ?? '—'}</TableCell>
-                        <TableCell mono className="text-text-muted">W{b.week_number}</TableCell>
-                        <TableCell>
-                          <span className={`text-xs px-2 py-0.5 rounded border font-medium ${PHASE_BADGE_CLS[b.phase] ?? PHASE_BADGE_CLS.pending}`}>
-                            {b.phase.charAt(0).toUpperCase() + b.phase.slice(1)}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          {b.outcome
-                            ? <Badge variant={OUTCOME_VARIANT[b.outcome]}>{b.outcome}</Badge>
-                            : <span className="text-text-muted">—</span>
-                          }
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            ))
-          )}
-        </div>
-      )}
-
-      {/* ── Desktop table layout (md+) ── */}
-      {activeTab !== 'batches' && (
-      <div className="hidden md:flex items-start gap-1">
-        <div className="flex-1 overflow-x-auto min-w-0">
-          <Table>
-            <TableHead>
-              <TableRow>
-                {isAdmin && (
-                  <TableHeader className="w-8 pr-0">
-                    <input
-                      type="checkbox"
-                      checked={weekBuilds.length > 0 && selectedIds.size === weekBuilds.length}
-                      ref={el => { if (el) el.indeterminate = selectedIds.size > 0 && selectedIds.size < weekBuilds.length }}
-                      onChange={toggleSelectAll}
-                      className="cursor-pointer accent-accent"
-                    />
-                  </TableHeader>
-                )}
-                <TableHeader>Product</TableHeader>
-                <TableHeader className={`${showClass('md')} whitespace-nowrap`}>Approved</TableHeader>
-                {PHASE_COLS.map(col => (
-                  <TableHeader key={col.label} className={`whitespace-nowrap ${showClass(col.showFrom)}`}>
-                    {col.label}
-                  </TableHeader>
-                ))}
-                <TableHeader>Outcome</TableHeader>
-                <TableHeader className={`${showClass('lg')} text-right whitespace-nowrap`}>Build d</TableHeader>
-                <TableHeader className={`${showClass('lg')} text-right whitespace-nowrap`}>Proof d</TableHeader>
-                <TableHeader className={`${showClass('lg')} text-right whitespace-nowrap`}>Test d</TableHeader>
-                <TableHeader className="text-right whitespace-nowrap">Total d</TableHeader>
-                {isAdmin && <TableHeader />}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {weekBuilds.map(b => {
-                return (
-                  <TableRow
-                    key={b.id}
-                    className={cn('cursor-pointer', selectedIds.has(b.id) && 'bg-accent-muted/30')}
-                    onClick={() => setNotesBuild(b)}
-                  >
+          {/* Desktop table layout */}
+          <div className="hidden md:flex items-start gap-1">
+            <div className="flex-1 overflow-x-auto min-w-0">
+              <Table>
+                <TableHead>
+                  <TableRow>
                     {isAdmin && (
-                      <TableCell className="pr-0 w-8" onClick={e => e.stopPropagation()}>
+                      <TableHeader className="w-8 pr-0">
                         <input
                           type="checkbox"
-                          checked={selectedIds.has(b.id)}
-                          onChange={() => toggleSelect(b.id)}
+                          checked={weekBuilds.length > 0 && selectedIds.size === weekBuilds.length}
+                          ref={el => { if (el) el.indeterminate = selectedIds.size > 0 && selectedIds.size < weekBuilds.length }}
+                          onChange={toggleSelectAll}
                           className="cursor-pointer accent-accent"
                         />
-                      </TableCell>
+                      </TableHeader>
                     )}
-                    <TableCell className="font-medium text-foreground" onClick={e => e.stopPropagation()}>
-                      <div className="flex flex-col gap-0.5">
-                        <MarqueeName name={b.product_name} className="max-w-[180px]" />
-                        {b.language && (
-                          <span className="text-[11px] font-mono text-text-muted">{b.language}</span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell mono className={`${showClass('md')} whitespace-nowrap`}>
-                      {formatDate(b.approved_date)}
-                    </TableCell>
+                    <TableHeader>Product</TableHeader>
+                    <TableHeader className={`${showClass('md')} whitespace-nowrap`}>Approved</TableHeader>
+                    {PHASE_COLS.map(col => (
+                      <TableHeader key={col.label} className={`whitespace-nowrap ${showClass(col.showFrom)}`}>
+                        {col.label}
+                      </TableHeader>
+                    ))}
+                    <TableHeader>Outcome</TableHeader>
+                    <TableHeader className={`${showClass('lg')} text-right whitespace-nowrap`}>Build d</TableHeader>
+                    <TableHeader className={`${showClass('lg')} text-right whitespace-nowrap`}>Proof d</TableHeader>
+                    <TableHeader className={`${showClass('lg')} text-right whitespace-nowrap`}>Test d</TableHeader>
+                    <TableHeader className="text-right whitespace-nowrap">Total d</TableHeader>
+                    {isAdmin && <TableHeader />}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {weekBuilds.map(b => (
+                    <TableRow
+                      key={b.id}
+                      className={cn('cursor-pointer', selectedIds.has(b.id) && 'bg-accent-muted/30')}
+                      onClick={() => setNotesBuild(b)}
+                    >
+                      {isAdmin && (
+                        <TableCell className="pr-0 w-8" onClick={e => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(b.id)}
+                            onChange={() => toggleSelect(b.id)}
+                            className="cursor-pointer accent-accent"
+                          />
+                        </TableCell>
+                      )}
+                      <TableCell className="font-medium text-foreground" onClick={e => e.stopPropagation()}>
+                        <div className="flex flex-col gap-0.5">
+                          <MarqueeName name={b.product_name} className="max-w-[180px]" />
+                          {b.language && (
+                            <span className="text-[11px] font-mono text-text-muted">{b.language}</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell mono className={`${showClass('md')} whitespace-nowrap`}>
+                        {formatDate(b.approved_date)}
+                      </TableCell>
 
-                    {PHASE_COLS.map(col => {
-                      const hide = showClass(col.showFrom)
-                      const startVal = b[col.startKey] as string | null
-                      const endVal = col.endKey ? b[col.endKey] as string | null : null
+                      {PHASE_COLS.map(col => {
+                        const hide = showClass(col.showFrom)
+                        const startVal = b[col.startKey] as string | null
+                        const endVal = col.endKey ? b[col.endKey] as string | null : null
 
-                      if (!col.endKey) {
-                        // Decided: single-date column — always visible
-                        return (
-                          <TableCell key={col.label} className={`${hide} whitespace-nowrap`} onClick={e => e.stopPropagation()}>
-                            {startVal ? (
-                              <span className="font-mono text-xs text-foreground">{formatDate(startVal)}</span>
-                            ) : isAdmin && (!col.prereq || !!b[col.prereq]) ? (
-                              <button
-                                onClick={() => handlePhaseSet(b.id, col.startKey)}
-                                disabled={advancing === b.id + String(col.startKey)}
-                                className={`text-xs font-medium px-2.5 py-1 rounded border transition-colors disabled:opacity-40 whitespace-nowrap ${PHASE_BTN[col.variant]}`}
-                              >
-                                {advancing === b.id + String(col.startKey) ? '…' : `${col.label} →`}
-                              </button>
-                            ) : (
-                              <span className="text-text-muted">—</span>
-                            )}
-                          </TableCell>
-                        )
-                      }
-
-                      // Stacked phase column — always visible, no auto-lock
-                      return (
-                        <TableCell key={col.label} className={`${hide} whitespace-nowrap`} onClick={e => e.stopPropagation()}>
-                          <div className="flex flex-col gap-0.5 min-w-[88px]">
-                            {/* Top: start date — button only when prereq is met */}
-                            <div>
+                        if (!col.endKey) {
+                          return (
+                            <TableCell key={col.label} className={`${hide} whitespace-nowrap`} onClick={e => e.stopPropagation()}>
                               {startVal ? (
                                 <span className="font-mono text-xs text-foreground">{formatDate(startVal)}</span>
                               ) : isAdmin && (!col.prereq || !!b[col.prereq]) ? (
@@ -837,149 +821,168 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
                                   {advancing === b.id + String(col.startKey) ? '…' : `${col.label} →`}
                                 </button>
                               ) : (
-                                <span className="font-mono text-xs text-text-muted">—</span>
+                                <span className="text-text-muted">—</span>
                               )}
-                            </div>
-                            {/* Bottom: end date (only once start is set) */}
-                            {startVal && (
+                            </TableCell>
+                          )
+                        }
+
+                        return (
+                          <TableCell key={col.label} className={`${hide} whitespace-nowrap`} onClick={e => e.stopPropagation()}>
+                            <div className="flex flex-col gap-0.5 min-w-[88px]">
                               <div>
-                                {endVal ? (
-                                  <span className="font-mono text-xs text-text-muted">{formatDate(endVal)}</span>
-                                ) : isAdmin ? (
+                                {startVal ? (
+                                  <span className="font-mono text-xs text-foreground">{formatDate(startVal)}</span>
+                                ) : isAdmin && (!col.prereq || !!b[col.prereq]) ? (
                                   <button
-                                    onClick={() => handlePhaseSet(b.id, col.endKey!)}
-                                    disabled={advancing === b.id + String(col.endKey)}
+                                    onClick={() => handlePhaseSet(b.id, col.startKey)}
+                                    disabled={advancing === b.id + String(col.startKey)}
                                     className={`text-xs font-medium px-2.5 py-1 rounded border transition-colors disabled:opacity-40 whitespace-nowrap ${PHASE_BTN[col.variant]}`}
                                   >
-                                    {advancing === b.id + String(col.endKey) ? '…' : `${col.endBtnLabel} →`}
+                                    {advancing === b.id + String(col.startKey) ? '…' : `${col.label} →`}
                                   </button>
                                 ) : (
                                   <span className="font-mono text-xs text-text-muted">—</span>
                                 )}
                               </div>
-                            )}
+                              {startVal && (
+                                <div>
+                                  {endVal ? (
+                                    <span className="font-mono text-xs text-text-muted">{formatDate(endVal)}</span>
+                                  ) : isAdmin ? (
+                                    <button
+                                      onClick={() => handlePhaseSet(b.id, col.endKey!)}
+                                      disabled={advancing === b.id + String(col.endKey)}
+                                      className={`text-xs font-medium px-2.5 py-1 rounded border transition-colors disabled:opacity-40 whitespace-nowrap ${PHASE_BTN[col.variant]}`}
+                                    >
+                                      {advancing === b.id + String(col.endKey) ? '…' : `${col.endBtnLabel} →`}
+                                    </button>
+                                  ) : (
+                                    <span className="font-mono text-xs text-text-muted">—</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                        )
+                      })}
+
+                      <TableCell onClick={e => e.stopPropagation()}>
+                        {isAdmin ? (
+                          <select
+                            value={b.outcome ?? ''}
+                            onChange={e => handleOutcomeChange(b.id, (e.target.value as BuildOutcome) || null)}
+                            className="text-xs bg-surface-elevated border border-border rounded px-1.5 py-0.5 text-foreground cursor-pointer focus:outline-none focus:ring-1 focus:ring-accent/40"
+                          >
+                            <option value="">—</option>
+                            <option value="stopped">Stopped</option>
+                            <option value="testing">Testing</option>
+                            <option value="expanding">Expanding</option>
+                          </select>
+                        ) : b.outcome ? (
+                          <Badge variant={OUTCOME_VARIANT[b.outcome]}>{b.outcome}</Badge>
+                        ) : (
+                          <span className="text-text-muted">—</span>
+                        )}
+                      </TableCell>
+
+                      <TableCell mono className={`${showClass('lg')} text-right text-text-muted`}>{b.build_days ?? '—'}</TableCell>
+                      <TableCell mono className={`${showClass('lg')} text-right text-text-muted`}>{b.proof_days ?? '—'}</TableCell>
+                      <TableCell mono className={`${showClass('lg')} text-right text-text-muted`}>{b.test_days ?? '—'}</TableCell>
+                      <TableCell mono className="text-right text-text-muted">{b.total_days ?? '—'}</TableCell>
+
+                      {isAdmin && (
+                        <TableCell className="text-right whitespace-nowrap" onClick={e => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-0.5">
+                            <Link
+                              href={`/qa-checklist/${b.id}`}
+                              className="p-1.5 rounded text-text-muted hover:text-accent hover:bg-accent-muted transition-colors"
+                              title="QA checklist"
+                            >
+                              <ClipboardList className="h-3.5 w-3.5" />
+                            </Link>
+                            <button
+                              onClick={() => openEdit(b)}
+                              className="p-1.5 rounded text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                              title="Edit"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => setDeleteId(b.id)}
+                              className="p-1.5 rounded text-text-muted hover:text-danger hover:bg-danger-muted transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
                           </div>
                         </TableCell>
-                      )
-                    })}
-
-                    {/* Inline outcome */}
-                    <TableCell onClick={e => e.stopPropagation()}>
-                      {isAdmin ? (
-                        <select
-                          value={b.outcome ?? ''}
-                          onChange={e => handleOutcomeChange(b.id, (e.target.value as BuildOutcome) || null)}
-                          className="text-xs bg-surface-elevated border border-border rounded px-1.5 py-0.5 text-foreground cursor-pointer focus:outline-none focus:ring-1 focus:ring-accent/40"
-                        >
-                          <option value="">—</option>
-                          <option value="stopped">Stopped</option>
-                          <option value="testing">Testing</option>
-                          <option value="expanding">Expanding</option>
-                        </select>
-                      ) : b.outcome ? (
-                        <Badge variant={OUTCOME_VARIANT[b.outcome]}>{b.outcome}</Badge>
-                      ) : (
-                        <span className="text-text-muted">—</span>
                       )}
-                    </TableCell>
-
-                    <TableCell mono className={`${showClass('lg')} text-right text-text-muted`}>{b.build_days ?? '—'}</TableCell>
-                    <TableCell mono className={`${showClass('lg')} text-right text-text-muted`}>{b.proof_days ?? '—'}</TableCell>
-                    <TableCell mono className={`${showClass('lg')} text-right text-text-muted`}>{b.test_days ?? '—'}</TableCell>
-                    <TableCell mono className="text-right text-text-muted">{b.total_days ?? '—'}</TableCell>
-
-                    {isAdmin && (
-                      <TableCell className="text-right whitespace-nowrap" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-end gap-0.5">
-                          <Link
-                            href={`/qa-checklist/${b.id}`}
-                            className="p-1.5 rounded text-text-muted hover:text-accent hover:bg-accent-muted transition-colors"
-                            title="QA checklist"
-                          >
-                            <ClipboardList className="h-3.5 w-3.5" />
-                          </Link>
-                          <button
-                            onClick={() => openEdit(b)}
-                            className="p-1.5 rounded text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
-                            title="Edit"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            onClick={() => setDeleteId(b.id)}
-                            className="p-1.5 rounded text-text-muted hover:text-danger hover:bg-danger-muted transition-colors"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
+                    </TableRow>
+                  ))}
+                  {weekBuilds.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={99} className="text-center text-text-muted py-12">
+                        No builds in Week {activeWeek}
+                        {isAdmin && <> · <button onClick={openCreate} className="text-accent hover:text-accent-bright">Add one</button></>}
                       </TableCell>
-                    )}
-                  </TableRow>
-                )
-              })}
-              {weekBuilds.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={99} className="text-center text-text-muted py-12">
-                    No builds in Week {activeWeek}
-                    {isAdmin && <> · <button onClick={openCreate} className="text-accent hover:text-accent-bright">Add one</button></>}
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
 
-        {/* ── Stats table ── */}
-        <div className="shrink-0 w-44 text-xs border border-border-subtle rounded-md overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-surface border-b border-border-subtle">
-                <th className="text-left px-3 py-2 text-text-muted font-medium">Phase</th>
-                <th className="text-right px-3 py-2 text-text-muted font-medium">Wk avg</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border-subtle">
-              {([
-                ['Building',  buildAvg, settings?.build_target_days],
-                ['Proofread', proofAvg, settings?.proof_target_days],
-                ['Testing',   testAvg,  settings?.test_target_days],
-              ] as [string, number | null, number | undefined][]).map(([label, val, tgt]) => (
-                <tr key={label}>
-                  <td className="px-3 py-2 text-text-secondary">{label}</td>
-                  <td className={`px-3 py-2 text-right font-mono font-medium ${tgt !== undefined ? statColor(val, tgt) : 'text-foreground'}`}>
-                    {val !== null ? `${val}d` : '—'}
-                  </td>
-                </tr>
-              ))}
-              <tr className="border-t-2 border-border">
-                <td className="px-3 py-2 text-text-secondary font-medium">Total</td>
-                <td className={`px-3 py-2 text-right font-mono font-medium ${settings ? statColor(totalAvg, settings.total_target_days) : 'text-foreground'}`}>
-                  {totalAvg !== null ? `${totalAvg}d` : '—'}
-                </td>
-              </tr>
-              {settings && (
-                <>
-                  <tr className="bg-surface-elevated">
-                    <td colSpan={2} className="px-3 py-1.5 text-text-muted text-[10px] uppercase tracking-wider font-medium">Target</td>
+            {/* Stats table */}
+            <div className="shrink-0 w-44 text-xs border border-border-subtle rounded-md overflow-hidden">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-surface border-b border-border-subtle">
+                    <th className="text-left px-3 py-2 text-text-muted font-medium">Phase</th>
+                    <th className="text-right px-3 py-2 text-text-muted font-medium">Wk avg</th>
                   </tr>
+                </thead>
+                <tbody className="divide-y divide-border-subtle">
                   {([
-                    ['Building',  settings.build_target_days],
-                    ['Proofread', settings.proof_target_days],
-                    ['Testing',   settings.test_target_days],
-                    ['Total',     settings.total_target_days],
-                  ] as [string, number][]).map(([label, val]) => (
+                    ['Building',  buildAvg, settings?.build_target_days],
+                    ['Proofread', proofAvg, settings?.proof_target_days],
+                    ['Testing',   testAvg,  settings?.test_target_days],
+                  ] as [string, number | null, number | undefined][]).map(([label, val, tgt]) => (
                     <tr key={label}>
-                      <td className="px-3 py-2 text-text-muted">{label}</td>
-                      <td className="px-3 py-2 text-right font-mono text-text-muted">{val}d</td>
+                      <td className="px-3 py-2 text-text-secondary">{label}</td>
+                      <td className={`px-3 py-2 text-right font-mono font-medium ${tgt !== undefined ? statColor(val, tgt) : 'text-foreground'}`}>
+                        {val !== null ? `${val}d` : '—'}
+                      </td>
                     </tr>
                   ))}
-                </>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                  <tr className="border-t-2 border-border">
+                    <td className="px-3 py-2 text-text-secondary font-medium">Total</td>
+                    <td className={`px-3 py-2 text-right font-mono font-medium ${settings ? statColor(totalAvg, settings.total_target_days) : 'text-foreground'}`}>
+                      {totalAvg !== null ? `${totalAvg}d` : '—'}
+                    </td>
+                  </tr>
+                  {settings && (
+                    <>
+                      <tr className="bg-surface-elevated">
+                        <td colSpan={2} className="px-3 py-1.5 text-text-muted text-[10px] uppercase tracking-wider font-medium">Target</td>
+                      </tr>
+                      {([
+                        ['Building',  settings.build_target_days],
+                        ['Proofread', settings.proof_target_days],
+                        ['Testing',   settings.test_target_days],
+                        ['Total',     settings.total_target_days],
+                      ] as [string, number][]).map(([label, val]) => (
+                        <tr key={label}>
+                          <td className="px-3 py-2 text-text-muted">{label}</td>
+                          <td className="px-3 py-2 text-right font-mono text-text-muted">{val}d</td>
+                        </tr>
+                      ))}
+                    </>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
       )}
 
       {/* ── Modals ── */}
