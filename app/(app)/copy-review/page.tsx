@@ -405,21 +405,6 @@ export default function CopyReviewPage() {
                   </div>
 
                   <div className="flex items-center gap-3 mt-3">
-                    <button
-                      onClick={handleTranslate}
-                      disabled={translating}
-                      className={cn(
-                        'flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md border transition-colors',
-                        isTranslated
-                          ? 'bg-accent-muted text-accent-bright border-accent-border/50'
-                          : 'text-text-muted border-border-subtle hover:text-foreground hover:border-border',
-                        translating && 'opacity-50 cursor-not-allowed',
-                      )}
-                    >
-                      <Languages className="h-3.5 w-3.5" />
-                      {translating ? 'Translating…' : isTranslated ? 'EN' : 'Translate to EN'}
-                    </button>
-
                     {selectedProduct.pdp_url && (
                       <a
                         href={selectedProduct.pdp_url}
@@ -442,6 +427,20 @@ export default function CopyReviewPage() {
                         Drive folder
                       </a>
                     )}
+                    <button
+                      onClick={handleTranslate}
+                      disabled={translating}
+                      className={cn(
+                        'ml-auto flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md border transition-colors',
+                        isTranslated
+                          ? 'bg-accent-muted text-accent-bright border-accent-border/50'
+                          : 'text-text-muted border-border-subtle hover:text-foreground hover:border-border',
+                        translating && 'opacity-50 cursor-not-allowed',
+                      )}
+                    >
+                      <Languages className="h-3.5 w-3.5" />
+                      {translating ? 'Translating…' : isTranslated ? 'EN' : 'Translate to EN'}
+                    </button>
                   </div>
                 </div>{/* end shrink-0 product header */}
 
