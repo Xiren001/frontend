@@ -28,7 +28,7 @@ const NAV = [
   { href: '/jewelry-tracker', label: 'Jewelry Tracker',  icon: Gem },
   { href: '/funnel-tracker',  label: 'Funnel Tracker',   icon: Filter },
   { href: '/proofread-queue', label: 'Proofread Queue',  icon: ListChecks },
-  { href: '/copy-review',     label: 'Copy Review',      icon: FileCheck },
+  { href: '/copy-review',     label: 'Proofreading ES·DE', icon: FileCheck },
   { href: '/mistake-log',     label: 'Mistake Log',      icon: AlertTriangle },
   { href: '/weekly-report',   label: 'Weekly Report',    icon: CalendarDays },
   { href: '/monthly-report',  label: 'Monthly Report',   icon: BarChart3 },
@@ -84,25 +84,25 @@ export function NavSidebar() {
   return (
     <aside
       className={cn(
-        'shrink-0 flex flex-col border-r border-border-subtle bg-surface h-screen sticky top-0 transition-[width] duration-200 overflow-hidden',
+        'shrink-0 flex flex-col border-r border-border-subtle bg-surface-elevated h-screen sticky top-0 transition-[width] duration-200 overflow-hidden shadow-sm',
         collapsed ? 'w-14' : 'w-60',
       )}
     >
       {/* ── Header ── */}
       <div
         className={cn(
-          'flex items-center border-b border-border-subtle h-[60px] px-3',
+          'flex items-center border-b border-border-subtle h-16 px-3',
           collapsed ? 'justify-center' : 'justify-between gap-2',
         )}
       >
         {!collapsed && (
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent-muted border border-accent-border">
-              <Terminal className="h-3.5 w-3.5 text-accent" />
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-white shadow-sm">
+              <Terminal className="h-4 w-4" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-mono font-medium text-foreground tracking-wide leading-none">myko</p>
-              <p className="text-[10px] font-mono text-text-muted uppercase tracking-widest mt-0.5">ops hub</p>
+              <p className="text-sm font-semibold text-foreground leading-none">Myko Ops</p>
+              <p className="text-xs text-text-muted mt-0.5">Hub</p>
             </div>
           </div>
         )}
@@ -122,7 +122,7 @@ export function NavSidebar() {
       </div>
 
       {/* ── Nav ── */}
-      <nav className="flex-1 overflow-y-auto py-3 px-2">
+      <nav className="flex-1 overflow-y-auto py-4 px-2">
         {visibleNav.map(item => {
           const active = pathname === item.href || pathname.startsWith(item.href + '/')
           const Icon = item.icon
@@ -132,11 +132,11 @@ export function NavSidebar() {
               href={item.href}
               title={collapsed ? item.label : undefined}
               className={cn(
-                'flex items-center rounded-md py-2 text-sm mb-0.5 transition-colors',
+                'flex items-center rounded-lg py-2 text-sm mb-0.5 transition-colors',
                 collapsed ? 'justify-center px-2' : 'gap-2.5 px-3',
                 active
-                  ? 'bg-accent-muted text-accent-bright font-medium border border-accent-border/50'
-                  : 'text-text-secondary hover:bg-surface-hover hover:text-foreground border border-transparent',
+                  ? 'bg-accent-muted text-accent font-medium'
+                  : 'text-text-secondary hover:bg-surface-hover hover:text-foreground',
               )}
             >
               <Icon className={cn('h-4 w-4 shrink-0', active ? 'text-accent' : 'text-text-muted')} />

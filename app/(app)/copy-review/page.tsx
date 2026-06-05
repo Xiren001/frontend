@@ -263,7 +263,7 @@ export default function CopyReviewPage() {
     <div className="flex flex-col h-[calc(100vh-4rem)]">
       <div className="shrink-0">
         <PageHeader
-          title="Copy Review"
+          title="Proofreading ES · DE"
           description="Proofreading corrections per product — text changes to product pages and ads."
           actions={isAdmin ? (
             <Button variant="secondary" size="sm" onClick={openCreateProduct}>+ Add product</Button>
