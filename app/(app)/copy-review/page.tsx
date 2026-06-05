@@ -250,6 +250,26 @@ export default function CopyReviewPage() {
   const uiLang = isTranslated ? 'EN' : ((selectedProduct?.language === 'DE' ? 'DE' : 'ES') as 'ES' | 'DE' | 'EN')
   const L = UI[uiLang]
 
+  // Sort order: 0 = no corrections, 1 = has corrections, 2 = no links, 3 = done
+  function productGroup(p: ProofProduct): 0 | 1 | 2 | 3 {
+    if (p.done) return 3
+    if (!p.pdp_url || !p.drive_folder) return 2
+    if (p.correction_count === 0) return 0
+    return 1
+  }
+
+  const sortedVisible = [...visible].sort((a, b) => {
+    const diff = productGroup(a) - productGroup(b)
+    return diff !== 0 ? diff : a.product_name.localeCompare(b.product_name)
+  })
+
+  const GROUP_LABELS: Record<number, string> = {
+    0: 'No corrections',
+    1: 'Has corrections',
+    2: 'Needs links',
+    3: 'Done',
+  }
+
   const esCnt = products.filter(p => p.language === 'ES').length
   const deCnt = products.filter(p => p.language === 'DE').length
 
@@ -305,12 +325,29 @@ export default function CopyReviewPage() {
             </div>
 
             {/* Product list */}
-            <ul className="flex-1 overflow-y-auto divide-y divide-border-subtle">
-              {visible.map(p => {
+            <ul className="flex-1 overflow-y-auto">
+              {sortedVisible.map((p, idx) => {
                 const isSelected = p.id === selectedId
-                const doneCnt  = corrections[p.id]?.filter(c => c.done).length ?? null
+                const doneCnt    = corrections[p.id]?.filter(c => c.done).length ?? null
+                const group      = productGroup(p)
+                const noLinks    = group === 2
+                const prevGroup  = idx > 0 ? productGroup(sortedVisible[idx - 1]) : -1
+                const showHeader = group !== prevGroup
                 return (
                   <li key={p.id}>
+                    {showHeader && (
+                      <div className={cn(
+                        'px-3 py-1.5 border-y border-border-subtle',
+                        noLinks ? 'bg-yellow-500/5' : 'bg-surface-elevated/30',
+                      )}>
+                        <p className={cn(
+                          'text-[10px] font-semibold uppercase tracking-widest',
+                          noLinks ? 'text-yellow-500/70' : 'text-text-muted',
+                        )}>
+                          {GROUP_LABELS[group]}
+                        </p>
+                      </div>
+                    )}
                     <button
                       type="button"
                       onClick={() => selectProduct(p.id)}
@@ -318,7 +355,9 @@ export default function CopyReviewPage() {
                         'w-full text-left px-3 py-3 transition-colors border-l-2',
                         isSelected
                           ? 'bg-accent-muted/40 border-l-accent'
-                          : 'hover:bg-surface-hover/50 border-l-transparent',
+                          : noLinks
+                            ? 'bg-yellow-500/[0.04] hover:bg-yellow-500/10 border-l-transparent'
+                            : 'hover:bg-surface-hover/50 border-l-transparent',
                       )}
                     >
                       <p className={cn(
