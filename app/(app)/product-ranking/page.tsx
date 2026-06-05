@@ -58,7 +58,7 @@ const testingColumns: ResponsiveColumn<Build>[] = [
   },
   {
     key: 'days',
-    header: 'Days',
+    header: 'Days Testing',
     align: 'right',
     mono: true,
     render: b => {
@@ -114,6 +114,16 @@ const expandingColumns: ResponsiveColumn<Build>[] = [
     mono: true,
     hideOnMobile: true,
     render: b => <span className="text-text-muted">{formatDate(b.into_testing)}</span>,
+  },
+  {
+    key: 'days',
+    header: 'Days Expanding',
+    align: 'right',
+    mono: true,
+    render: b => {
+      const d = daysSince(b.outcome_decided)
+      return <span className="font-medium text-foreground">{d ?? '—'}</span>
+    },
   },
 ]
 
