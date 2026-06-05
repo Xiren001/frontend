@@ -31,6 +31,7 @@ export interface Build {
   into_testing: string | null
   outcome_decided: string | null
   outcome: BuildOutcome
+  batch_group: number | null
   notes: string | null
   proofreader: string | null
   // computed
