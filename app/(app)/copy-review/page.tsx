@@ -102,6 +102,10 @@ export default function CopyReviewPage() {
   const [deletingCorrection, setDeletingCorrection] = useState(false)
   const [sourceTab, setSourceTab] = useState<CorrectionSource>('website')
 
+  // Setup gate — fill PDP + Drive before corrections are accessible
+  const [setupForm, setSetupForm] = useState({ pdp_url: '', drive_folder: '', proofreader: '' })
+  const [savingSetup, setSavingSetup] = useState(false)
+
   // Translation — volatile: not persisted, resets on reload
   const [isTranslated, setIsTranslated] = useState(false)
 
@@ -131,6 +135,16 @@ export default function CopyReviewPage() {
   useEffect(() => {
     if (selectedId && corrections[selectedId] === undefined) loadCorrections(selectedId)
   }, [selectedId, loadCorrections])
+
+  useEffect(() => {
+    if (!selectedId) return
+    const p = products.find(x => x.id === selectedId)
+    if (p) setSetupForm({
+      pdp_url:     p.pdp_url     ?? '',
+      drive_folder: p.drive_folder ?? '',
+      proofreader:  p.proofreader  ?? '',
+    })
+  }, [selectedId, products])
 
   function selectProduct(id: string) {
     setSelectedId(id)
@@ -216,6 +230,19 @@ export default function CopyReviewPage() {
       if (productId) loadCorrections(productId)
       loadProducts()
     } finally { setDeletingCorrection(false) }
+  }
+
+  async function handleSetupSave() {
+    if (!selectedProduct || !setupForm.pdp_url || !setupForm.drive_folder) return
+    setSavingSetup(true)
+    try {
+      await api.put(`/api/proof-corrections/products/${selectedProduct.id}`, {
+        pdp_url:      setupForm.pdp_url,
+        drive_folder: setupForm.drive_folder,
+        proofreader:  setupForm.proofreader || null,
+      })
+      loadProducts()
+    } finally { setSavingSetup(false) }
   }
 
   function handleTranslate() {
@@ -329,7 +356,63 @@ export default function CopyReviewPage() {
 
           {/* ── Right: selected product ── */}
           <section className="flex-1 flex flex-col min-w-0 bg-background overflow-hidden">
-            {selectedProduct ? (
+
+            {/* No product selected */}
+            {!selectedProduct && (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-sm text-text-muted">{UI['EN'].selectProduct}</p>
+              </div>
+            )}
+
+            {/* Product selected but links not filled yet — setup gate */}
+            {selectedProduct && (!selectedProduct.pdp_url || !selectedProduct.drive_folder) && (
+              <div className="flex-1 flex flex-col items-center justify-center px-8">
+                <div className="w-full max-w-sm space-y-5">
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-semibold text-foreground">{selectedProduct.product_name}</h3>
+                    <p className="text-xs text-text-muted">
+                      Add the PDP and Drive folder links before corrections can be entered.
+                    </p>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-foreground">PDP URL</label>
+                      <Input
+                        value={setupForm.pdp_url}
+                        onChange={e => setSetupForm(f => ({ ...f, pdp_url: e.target.value }))}
+                        placeholder="https://thenivora.es/products/…"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-foreground">Drive folder (ADS)</label>
+                      <Input
+                        value={setupForm.drive_folder}
+                        onChange={e => setSetupForm(f => ({ ...f, drive_folder: e.target.value }))}
+                        placeholder="https://drive.google.com/drive/folders/…"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-foreground">Proofreader</label>
+                      <Input
+                        value={setupForm.proofreader}
+                        onChange={e => setSetupForm(f => ({ ...f, proofreader: e.target.value }))}
+                        placeholder="Name"
+                      />
+                    </div>
+                  </div>
+                  <Button
+                    onClick={handleSetupSave}
+                    disabled={savingSetup || !setupForm.pdp_url || !setupForm.drive_folder}
+                    className="w-full"
+                  >
+                    {savingSetup ? 'Saving…' : 'Save & start reviewing'}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Product selected + links filled — full corrections view */}
+            {selectedProduct && selectedProduct.pdp_url && selectedProduct.drive_folder && (
               <>
                 {/* Product header */}
                 <div className="shrink-0 px-5 py-4 border-b border-border-subtle">
@@ -376,28 +459,24 @@ export default function CopyReviewPage() {
                   </div>
 
                   <div className="flex items-center gap-3 mt-3">
-                    {selectedProduct.pdp_url && (
-                      <a
-                        href={selectedProduct.pdp_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-xs text-accent hover:text-accent-bright transition-colors"
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                        PDP
-                      </a>
-                    )}
-                    {selectedProduct.drive_folder && (
-                      <a
-                        href={selectedProduct.drive_folder}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-xs text-accent hover:text-accent-bright transition-colors"
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                        Drive folder
-                      </a>
-                    )}
+                    <a
+                      href={selectedProduct.pdp_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs text-accent hover:text-accent-bright transition-colors"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      PDP
+                    </a>
+                    <a
+                      href={selectedProduct.drive_folder}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs text-accent hover:text-accent-bright transition-colors"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      Drive folder
+                    </a>
                     <button
                       onClick={handleTranslate}
                       className={cn(
@@ -411,13 +490,13 @@ export default function CopyReviewPage() {
                       {isTranslated ? 'EN' : L.translateBtn}
                     </button>
                   </div>
-                </div>{/* end shrink-0 product header */}
+                </div>
 
-                {/* Source tabs */}
+                {/* Source tabs + corrections */}
                 {(() => {
                   const websiteCnt = selectedCorrections.filter(c => c.source === 'website').length
                   const adsCnt     = selectedCorrections.filter(c => c.source === 'ads').length
-                  const tabItems = [
+                  const tabItems   = [
                     { id: 'website', label: 'Website', count: websiteCnt },
                     { id: 'ads',     label: 'ADS',     count: adsCnt     },
                   ]
@@ -453,88 +532,89 @@ export default function CopyReviewPage() {
                         ) : (
                           <div className="divide-y divide-border-subtle">
                             {tabCorrections.map((c, i) => {
-                              const loc      = isTranslated ? translateLocation(c.location)  : c.location
+                              const loc      = isTranslated ? translateLocation(c.location)    : c.location
                               const issueTyp = isTranslated ? translateIssueType(c.issue_type) : c.issue_type
-                              const sev      = isTranslated ? translateSeverity(c.severity)  : c.severity
+                              const sev      = isTranslated ? translateSeverity(c.severity)    : c.severity
                               return (
-                              <div
-                                key={c.id}
-                                className={cn(
-                                  'px-5 py-4 border-l-[3px] transition-opacity',
-                                  severityBorder(c.severity),
-                                  c.done && 'opacity-50',
-                                )}
-                              >
-                                <div className="flex items-start gap-3">
-                                  <div className="flex-1 min-w-0 space-y-2.5">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <span className="text-[10px] font-mono text-text-muted bg-surface-elevated border border-border-subtle rounded px-1.5 py-0.5">
-                                        #{i + 1}
-                                      </span>
-                                      {loc && (
-                                        <span className="text-xs font-medium text-text-muted uppercase tracking-wide">
-                                          {loc}
+                                <div
+                                  key={c.id}
+                                  className={cn(
+                                    'px-5 py-4 border-l-[3px] transition-opacity',
+                                    severityBorder(c.severity),
+                                    c.done && 'opacity-50',
+                                  )}
+                                >
+                                  <div className="flex items-start gap-3">
+                                    <div className="flex-1 min-w-0 space-y-2.5">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="text-[10px] font-mono text-text-muted bg-surface-elevated border border-border-subtle rounded px-1.5 py-0.5">
+                                          #{i + 1}
                                         </span>
+                                        {loc && (
+                                          <span className="text-xs font-medium text-text-muted uppercase tracking-wide">
+                                            {loc}
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      {c.original_text && (
+                                        <div className="space-y-0.5">
+                                          <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">{L.before}</p>
+                                          <p className="text-sm text-text-secondary leading-relaxed line-through decoration-text-muted/50">
+                                            {c.original_text}
+                                          </p>
+                                        </div>
+                                      )}
+
+                                      {c.corrected_text && (
+                                        <div className="space-y-0.5">
+                                          <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">{L.after}</p>
+                                          <p className="text-sm text-foreground font-medium leading-relaxed">
+                                            {c.corrected_text}
+                                          </p>
+                                        </div>
+                                      )}
+
+                                      <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                                        {issueTyp && <Badge variant="default">{issueTyp}</Badge>}
+                                        <SeverityBadge severity={sev} />
+                                        {c.done && <Badge variant="muted">{L.resolved}</Badge>}
+                                      </div>
+
+                                      {c.notes && (
+                                        <p className="text-xs text-text-muted italic border-l-2 border-border-subtle pl-2">
+                                          {c.notes}
+                                        </p>
                                       )}
                                     </div>
 
-                                    {c.original_text && (
-                                      <div className="space-y-0.5">
-                                        <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">{L.before}</p>
-                                        <p className="text-sm text-text-secondary leading-relaxed line-through decoration-text-muted/50">
-                                          {c.original_text}
-                                        </p>
+                                    {isAdmin && (
+                                      <div className="flex items-center gap-0.5 shrink-0 -mt-0.5">
+                                        <button
+                                          onClick={() => toggleCorrectionDone(c)}
+                                          className="p-1.5 rounded text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors text-xs"
+                                          title={c.done ? 'Reopen' : 'Mark resolved'}
+                                        >
+                                          {c.done ? '↩' : '✓'}
+                                        </button>
+                                        <button
+                                          onClick={() => openEditCorrection(c)}
+                                          className="p-1.5 rounded text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                                        >
+                                          <Pencil className="h-3.5 w-3.5" />
+                                        </button>
+                                        <button
+                                          onClick={() => setDeleteCorrectionId(c.id)}
+                                          className="p-1.5 rounded text-text-muted hover:text-danger hover:bg-danger-muted transition-colors"
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </button>
                                       </div>
-                                    )}
-
-                                    {c.corrected_text && (
-                                      <div className="space-y-0.5">
-                                        <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">{L.after}</p>
-                                        <p className="text-sm text-foreground font-medium leading-relaxed">
-                                          {c.corrected_text}
-                                        </p>
-                                      </div>
-                                    )}
-
-                                    <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-                                      {issueTyp && <Badge variant="default">{issueTyp}</Badge>}
-                                      <SeverityBadge severity={sev} />
-                                      {c.done && <Badge variant="muted">{L.resolved}</Badge>}
-                                    </div>
-
-                                    {c.notes && (
-                                      <p className="text-xs text-text-muted italic border-l-2 border-border-subtle pl-2">
-                                        {c.notes}
-                                      </p>
                                     )}
                                   </div>
-
-                                  {isAdmin && (
-                                    <div className="flex items-center gap-0.5 shrink-0 -mt-0.5">
-                                      <button
-                                        onClick={() => toggleCorrectionDone(c)}
-                                        className="p-1.5 rounded text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors text-xs"
-                                        title={c.done ? 'Reopen' : 'Mark resolved'}
-                                      >
-                                        {c.done ? '↩' : '✓'}
-                                      </button>
-                                      <button
-                                        onClick={() => openEditCorrection(c)}
-                                        className="p-1.5 rounded text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
-                                      >
-                                        <Pencil className="h-3.5 w-3.5" />
-                                      </button>
-                                      <button
-                                        onClick={() => setDeleteCorrectionId(c.id)}
-                                        className="p-1.5 rounded text-text-muted hover:text-danger hover:bg-danger-muted transition-colors"
-                                      >
-                                        <Trash2 className="h-3.5 w-3.5" />
-                                      </button>
-                                    </div>
-                                  )}
                                 </div>
-                              </div>
-                            )})}
+                              )
+                            })}
                           </div>
                         )}
                       </div>
@@ -542,11 +622,8 @@ export default function CopyReviewPage() {
                   )
                 })()}
               </>
-            ) : (
-              <div className="flex items-center justify-center h-full">
-                <p className="text-sm text-text-muted">{UI[selectedProduct ? uiLang : 'EN'].selectProduct}</p>
-              </div>
             )}
+
           </section>
 
         </div>
