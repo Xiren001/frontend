@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Upload, Trophy, TrendingUp, X, HelpCircle } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardBody } from '@/components/ui/card'
@@ -233,6 +233,26 @@ function readFile(file: File): Promise<string> {
   })
 }
 
+const STORAGE_DEMAND   = 'wp-demand'
+const STORAGE_MOMENTUM = 'wp-momentum'
+
+interface Stored { fileName: string; rows: ProductRow[] }
+
+function loadStored(key: string): Stored | null {
+  try {
+    const raw = localStorage.getItem(key)
+    return raw ? (JSON.parse(raw) as Stored) : null
+  } catch { return null }
+}
+
+function saveStored(key: string, value: Stored) {
+  try { localStorage.setItem(key, JSON.stringify(value)) } catch {}
+}
+
+function clearStored(key: string) {
+  try { localStorage.removeItem(key) } catch {}
+}
+
 export default function WinningProductsPage() {
   const [demandFileName, setDemandFileName] = useState<string | null>(null)
   const [demandRows, setDemandRows] = useState<ProductRow[] | null>(null)
@@ -243,16 +263,28 @@ export default function WinningProductsPage() {
   const [minMarginPct, setMinMarginPct] = useState(50)
   const [infoOpen, setInfoOpen] = useState(false)
 
+  // Restore from localStorage on mount
+  useEffect(() => {
+    const d = loadStored(STORAGE_DEMAND)
+    if (d) { setDemandFileName(d.fileName); setDemandRows(d.rows) }
+    const m = loadStored(STORAGE_MOMENTUM)
+    if (m) { setMomentumFileName(m.fileName); setMomentumRows(m.rows) }
+  }, [])
+
   async function handleDemandFile(file: File) {
-    setDemandFileName(file.name)
     const text = await readFile(file)
-    setDemandRows(parseCSV(text))
+    const rows = parseCSV(text)
+    setDemandFileName(file.name)
+    setDemandRows(rows)
+    saveStored(STORAGE_DEMAND, { fileName: file.name, rows })
   }
 
   async function handleMomentumFile(file: File) {
-    setMomentumFileName(file.name)
     const text = await readFile(file)
-    setMomentumRows(parseCSV(text))
+    const rows = parseCSV(text)
+    setMomentumFileName(file.name)
+    setMomentumRows(rows)
+    saveStored(STORAGE_MOMENTUM, { fileName: file.name, rows })
   }
 
   const demand = demandRows ? filterQualifiedDemand(demandRows, minPerDay, minMarginPct) : []
@@ -378,7 +410,7 @@ export default function WinningProductsPage() {
           icon={<Trophy className="h-5 w-5" />}
           fileName={demandFileName}
           onFile={handleDemandFile}
-          onClear={() => { setDemandFileName(null); setDemandRows(null) }}
+          onClear={() => { setDemandFileName(null); setDemandRows(null); clearStored(STORAGE_DEMAND) }}
         />
         <UploadSlot
           label="Momentum Tracker"
@@ -386,7 +418,7 @@ export default function WinningProductsPage() {
           icon={<TrendingUp className="h-5 w-5" />}
           fileName={momentumFileName}
           onFile={handleMomentumFile}
-          onClear={() => { setMomentumFileName(null); setMomentumRows(null) }}
+          onClear={() => { setMomentumFileName(null); setMomentumRows(null); clearStored(STORAGE_MOMENTUM) }}
         />
       </div>
 
