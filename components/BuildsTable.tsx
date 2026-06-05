@@ -287,6 +287,9 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
   const [advancing, setAdvancing] = useState<string | null>(null)
   const [settings, setSettings] = useState<Settings | null>(null)
   const [importing, setImporting] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -295,6 +298,9 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
 
   const weeks = [1, 2, 3, 4]
   const weekBuilds = builds.filter(b => b.week_number === activeWeek)
+
+  // Clear selection when the week tab changes
+  useEffect(() => { setSelectedIds(new Set()) }, [activeWeek])
 
   const buildAvg = avgNum(weekBuilds.map(b => b.build_days))
   const proofAvg = avgNum(weekBuilds.map(b => b.proof_days))
@@ -328,6 +334,32 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
       setDeleteId(null)
       onRefresh()
     } finally { setDeleting(false) }
+  }
+
+  async function handleBulkDelete() {
+    setBulkDeleting(true)
+    try {
+      await Promise.all([...selectedIds].map(id => api.delete(`/api/builds/${id}`)))
+      setSelectedIds(new Set())
+      setBulkDeleteOpen(false)
+      onRefresh()
+    } finally { setBulkDeleting(false) }
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds(prev =>
+      prev.size === weekBuilds.length
+        ? new Set()
+        : new Set(weekBuilds.map(b => b.id))
+    )
   }
 
   async function handlePhaseSet(buildId: string, field: keyof Build) {
@@ -493,6 +525,15 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
               >
                 + Add build
               </button>
+              {selectedIds.size > 0 && (
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-danger hover:bg-danger-muted border-t border-border-subtle mt-1 pt-2"
+                  onClick={e => { closeActionsMenu(e); setBulkDeleteOpen(true) }}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />Delete {selectedIds.size} selected
+                </button>
+              )}
             </div>
           </details>
         )}
@@ -512,6 +553,11 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
             <Button variant="ghost" size="sm" onClick={handleExport} title="Export to .xlsx">
               <Download className="h-3.5 w-3.5 mr-1.5" />Export
             </Button>
+            {selectedIds.size > 0 && (
+              <Button variant="danger" size="sm" onClick={() => setBulkDeleteOpen(true)}>
+                <Trash2 className="h-3.5 w-3.5 mr-1.5" />Delete {selectedIds.size}
+              </Button>
+            )}
             <Button variant="secondary" size="sm" onClick={openCreate}>
               + Add build
             </Button>
@@ -551,6 +597,17 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
           <Table>
             <TableHead>
               <TableRow>
+                {isAdmin && (
+                  <TableHeader className="w-8 pr-0">
+                    <input
+                      type="checkbox"
+                      checked={weekBuilds.length > 0 && selectedIds.size === weekBuilds.length}
+                      ref={el => { if (el) el.indeterminate = selectedIds.size > 0 && selectedIds.size < weekBuilds.length }}
+                      onChange={toggleSelectAll}
+                      className="cursor-pointer accent-accent"
+                    />
+                  </TableHeader>
+                )}
                 <TableHeader>Product</TableHeader>
                 <TableHeader className={`${showClass('md')} whitespace-nowrap`}>Approved</TableHeader>
                 {PHASE_COLS.map(col => (
@@ -571,9 +628,19 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
                 return (
                   <TableRow
                     key={b.id}
-                    className="cursor-pointer"
+                    className={cn('cursor-pointer', selectedIds.has(b.id) && 'bg-accent-muted/30')}
                     onClick={() => setNotesBuild(b)}
                   >
+                    {isAdmin && (
+                      <TableCell className="pr-0 w-8" onClick={e => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(b.id)}
+                          onChange={() => toggleSelect(b.id)}
+                          className="cursor-pointer accent-accent"
+                        />
+                      </TableCell>
+                    )}
                     <TableCell className="font-medium text-foreground" onClick={e => e.stopPropagation()}>
                       <div className="flex flex-col gap-0.5">
                         <MarqueeName name={b.product_name} className="max-w-[180px]" />
@@ -800,6 +867,16 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
         message="This build and its QA checklist will be permanently removed."
         confirmLabel="Delete"
         loading={deleting}
+      />
+
+      <ConfirmModal
+        open={bulkDeleteOpen}
+        onClose={() => setBulkDeleteOpen(false)}
+        onConfirm={handleBulkDelete}
+        title={`Delete ${selectedIds.size} build${selectedIds.size !== 1 ? 's' : ''}`}
+        message={`This will permanently delete ${selectedIds.size} build${selectedIds.size !== 1 ? 's' : ''} and their QA checklists. This cannot be undone.`}
+        confirmLabel={`Delete ${selectedIds.size}`}
+        loading={bulkDeleting}
       />
     </div>
   )
