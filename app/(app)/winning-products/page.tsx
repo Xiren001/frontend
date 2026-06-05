@@ -1,10 +1,12 @@
 'use client'
 import { useState, useRef } from 'react'
-import { Upload, Trophy, TrendingUp, X } from 'lucide-react'
+import { Upload, Trophy, TrendingUp, X, HelpCircle } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs } from '@/components/ui/tabs'
+import { Modal } from '@/components/ui/modal'
+import { Button } from '@/components/ui/button'
 import { ResponsiveTable, type ResponsiveColumn } from '@/components/ui/responsive-table'
 import { cn } from '@/lib/utils'
 
@@ -54,15 +56,16 @@ function parseCSV(text: string): ProductRow[] {
   }).filter(r => r.title.trim().length > 0)
 }
 
-// Report 1: 35+ units sold AND 50%+ gross margin
-function filterQualifiedDemand(rows: ProductRow[]): ProductRow[] {
-  return rows.filter(r => r.unitsSold >= 35 && r.grossMargin >= 0.50)
+function filterQualifiedDemand(rows: ProductRow[], minPerDay: number, minMarginPct: number): ProductRow[] {
+  const minUnits = minPerDay * 7
+  const minMargin = minMarginPct / 100
+  return rows.filter(r => r.unitsSold >= minUnits && r.grossMargin >= minMargin)
 }
 
-// Report 2: 35+ units sold AND growing vs previous period — sorted by growth
-function filterMomentum(rows: ProductRow[]): ProductRow[] {
+function filterMomentum(rows: ProductRow[], minPerDay: number): ProductRow[] {
+  const minUnits = minPerDay * 7
   return rows
-    .filter(r => r.unitsSold >= 35 && r.unitGrowthPct > 0)
+    .filter(r => r.unitsSold >= minUnits && r.unitGrowthPct > 0)
     .sort((a, b) => b.unitGrowthPct - a.unitGrowthPct)
     .map((r, i) => ({ ...r, rank: i + 1 }))
 }
@@ -236,6 +239,9 @@ export default function WinningProductsPage() {
   const [momentumFileName, setMomentumFileName] = useState<string | null>(null)
   const [momentumRows, setMomentumRows] = useState<ProductRow[] | null>(null)
   const [tab, setTab] = useState<TabId>('demand')
+  const [minPerDay, setMinPerDay] = useState(5)
+  const [minMarginPct, setMinMarginPct] = useState(50)
+  const [infoOpen, setInfoOpen] = useState(false)
 
   async function handleDemandFile(file: File) {
     setDemandFileName(file.name)
@@ -249,8 +255,8 @@ export default function WinningProductsPage() {
     setMomentumRows(parseCSV(text))
   }
 
-  const demand = demandRows ? filterQualifiedDemand(demandRows) : []
-  const momentum = momentumRows ? filterMomentum(momentumRows) : []
+  const demand = demandRows ? filterQualifiedDemand(demandRows, minPerDay, minMarginPct) : []
+  const momentum = momentumRows ? filterMomentum(momentumRows, minPerDay) : []
   const hasAny = demandRows !== null || momentumRows !== null
 
   const tabs = [
@@ -271,7 +277,98 @@ export default function WinningProductsPage() {
       <PageHeader
         title="Winning Products"
         description="Upload both Shopify exports to identify your proven sellers and highest-growth products."
+        actions={
+          <Button variant="ghost" size="sm" onClick={() => setInfoOpen(true)}>
+            <HelpCircle className="h-4 w-4 mr-1.5" />
+            How it works
+          </Button>
+        }
       />
+
+      <Modal
+        open={infoOpen}
+        onClose={() => setInfoOpen(false)}
+        title="How Winning Products Works"
+        size="lg"
+        footer={<Button size="sm" onClick={() => setInfoOpen(false)}>Got it</Button>}
+      >
+        <div className="space-y-6 text-sm">
+          <div className="flex gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-muted mt-0.5">
+              <Trophy className="h-4 w-4 text-accent" />
+            </div>
+            <div className="space-y-2">
+              <p className="font-semibold text-foreground">Report 1 — Qualified Demand</p>
+              <p className="text-text-secondary leading-relaxed">
+                Products that are selling at least <strong className="text-foreground">{minPerDay} units per day</strong> ({minPerDay * 7}+ in 7 days)
+                and making at least <strong className="text-foreground">{minMarginPct}% gross margin</strong>.
+              </p>
+              <p className="text-text-muted leading-relaxed italic">
+                "Which products are already proven sellers?"
+              </p>
+              <p className="text-text-secondary leading-relaxed">
+                Outcome: a list of products with enough demand and profit to be worth paying attention to.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-muted mt-0.5">
+              <TrendingUp className="h-4 w-4 text-accent" />
+            </div>
+            <div className="space-y-2">
+              <p className="font-semibold text-foreground">Report 2 — Momentum Tracker</p>
+              <p className="text-text-secondary leading-relaxed">
+                Products that are already selling well and <strong className="text-foreground">growing</strong> compared to the previous 7 days.
+                Sorted by highest growth first.
+              </p>
+              <p className="text-text-muted leading-relaxed italic">
+                "Which products should I scale right now?"
+              </p>
+              <p className="text-text-secondary leading-relaxed">
+                Outcome: a list of products gaining momentum and deserving more ad spend, inventory, and creative testing.
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-border-subtle bg-surface px-4 py-3 space-y-1">
+            <p className="text-text-secondary"><span className="font-medium text-foreground">Report 1</span> = What's selling?</p>
+            <p className="text-text-secondary"><span className="font-medium text-foreground">Report 2</span> = What's growing?</p>
+          </div>
+
+          <div className="rounded-lg border border-border-subtle bg-surface px-4 py-3 space-y-1.5">
+            <p className="text-xs font-medium text-text-muted uppercase tracking-widest">Current thresholds</p>
+            <p className="text-text-secondary">Min sales / day: <span className="font-mono font-medium text-foreground">{minPerDay}</span></p>
+            <p className="text-text-secondary">Min gross margin: <span className="font-mono font-medium text-foreground">{minMarginPct}%</span></p>
+            <p className="text-xs text-text-muted mt-1">Adjust these at the top of the page.</p>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Thresholds */}
+      <div className="flex flex-wrap items-center gap-4 mb-4">
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-text-muted whitespace-nowrap">Min sales / day</label>
+          <input
+            type="number"
+            min={1}
+            value={minPerDay}
+            onChange={e => setMinPerDay(Math.max(1, parseInt(e.target.value) || 1))}
+            className="w-16 rounded-md border border-border bg-surface-elevated px-2 py-1 text-sm font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-accent/40"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-text-muted whitespace-nowrap">Min gross margin %</label>
+          <input
+            type="number"
+            min={0}
+            max={100}
+            value={minMarginPct}
+            onChange={e => setMinMarginPct(Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))}
+            className="w-16 rounded-md border border-border bg-surface-elevated px-2 py-1 text-sm font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-accent/40"
+          />
+        </div>
+      </div>
 
       {/* Two upload slots — always visible */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
