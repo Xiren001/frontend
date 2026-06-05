@@ -44,8 +44,6 @@ interface ProofCorrection {
   created_at: string
 }
 
-type LangFilter = 'all' | 'ES' | 'DE'
-
 const SELECT_CLS = 'w-full rounded-md border border-border bg-surface-elevated px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent/40'
 
 function emptyProductForm(): Partial<ProofProduct> {
@@ -81,7 +79,7 @@ export default function CopyReviewPage() {
   const isAdmin = role === 'admin'
 
   const [products, setProducts] = useState<ProofProduct[]>([])
-  const [langFilter, setLangFilter] = useState<LangFilter>('all')
+  const [langFilter, setLangFilter] = useState<string>('all')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [corrections, setCorrections] = useState<Record<string, ProofCorrection[]>>({})
 
@@ -103,11 +101,11 @@ export default function CopyReviewPage() {
   const [deletingCorrection, setDeletingCorrection] = useState(false)
   const [sourceTab, setSourceTab] = useState<CorrectionSource>('website')
 
-  // Setup gate — fill PDP + Drive before corrections are accessible
+  // Setup gate
   const [setupForm, setSetupForm] = useState({ pdp_url: '', drive_folder: '' })
   const [savingSetup, setSavingSetup] = useState(false)
 
-  // Translation — volatile: not persisted, resets on reload
+  // Translation
   const [isTranslated, setIsTranslated] = useState(false)
 
   const loadProducts = useCallback(() => {
@@ -127,6 +125,17 @@ export default function CopyReviewPage() {
 
   useEffect(() => { loadProducts() }, [loadProducts])
 
+  // Derive unique language tabs dynamically from all products
+  const uniqueLangs = Array.from(new Set(products.map(p => p.language).filter(Boolean))).sort() as string[]
+  const langTabs = [
+    { id: 'all', label: 'All', count: products.length },
+    ...uniqueLangs.map(lang => ({
+      id: lang,
+      label: lang,
+      count: products.filter(p => p.language === lang).length,
+    })),
+  ]
+
   const visible = products.filter(p => langFilter === 'all' || p.language === langFilter)
   const selectedProduct = visible.find(p => p.id === selectedId) ?? null
   const selectedCorrections = selectedId ? (corrections[selectedId] ?? []) : []
@@ -143,10 +152,7 @@ export default function CopyReviewPage() {
   useEffect(() => {
     if (!selectedId) return
     const p = products.find(x => x.id === selectedId)
-    if (p) setSetupForm({
-      pdp_url:      p.pdp_url      ?? '',
-      drive_folder: p.drive_folder  ?? '',
-    })
+    if (p) setSetupForm({ pdp_url: p.pdp_url ?? '', drive_folder: p.drive_folder ?? '' })
   }, [selectedId, products])
 
   function selectProduct(id: string) {
@@ -253,14 +259,11 @@ export default function CopyReviewPage() {
     } finally { setSavingSetup(false) }
   }
 
-  function handleTranslate() {
-    setIsTranslated(v => !v)
-  }
+  function handleTranslate() { setIsTranslated(v => !v) }
 
   const uiLang = isTranslated ? 'EN' : ((selectedProduct?.language === 'DE' ? 'DE' : 'ES') as 'ES' | 'DE' | 'EN')
   const L = UI[uiLang]
 
-  // Sort: 0 = no corrections, 1 = has corrections, 2 = ready for revision, 3 = needs links, 4 = done
   function productGroup(p: ProofProduct): 0 | 1 | 2 | 3 | 4 {
     if (p.done) return 4
     if (!p.pdp_url || !p.drive_folder) return 3
@@ -282,24 +285,24 @@ export default function CopyReviewPage() {
     4: 'Done',
   }
 
-  const esCnt = products.filter(p => p.language === 'ES').length
-  const deCnt = products.filter(p => p.language === 'DE').length
-
-  const FILTERS: { key: LangFilter; label: string; count: number }[] = [
-    { key: 'all', label: 'All', count: products.length },
-    { key: 'ES',  label: 'ES',  count: esCnt },
-    { key: 'DE',  label: 'DE',  count: deCnt },
-  ]
-
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
       <div className="shrink-0">
         <PageHeader
-          title="Proofreading ES · DE"
+          title="Proofreading"
           description="Proofreading corrections per product — text changes to product pages and ads."
           actions={isAdmin ? (
             <Button variant="secondary" size="sm" onClick={openCreateProduct}>+ Add product</Button>
           ) : undefined}
+        />
+      </div>
+
+      {/* Language tabs — above the split pane, dynamically generated */}
+      <div className="shrink-0 border-b border-border-subtle mb-0">
+        <Tabs
+          tabs={langTabs}
+          active={langFilter}
+          onChange={id => setLangFilter(String(id))}
         />
       </div>
 
@@ -310,33 +313,10 @@ export default function CopyReviewPage() {
           )}
         </p>
       ) : (
-        <div className="flex-1 flex overflow-hidden rounded-lg border border-border-subtle mt-1">
+        <div className="flex-1 flex overflow-hidden border border-border-subtle rounded-b-lg border-t-0">
 
           {/* ── Left: product list ── */}
           <aside className="w-64 xl:w-72 shrink-0 flex flex-col border-r border-border-subtle bg-surface-elevated/20">
-            {/* Filters */}
-            <div className="px-3 py-3 border-b border-border-subtle space-y-2.5">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">In proofread</p>
-              <div className="flex gap-1">
-                {FILTERS.map(f => (
-                  <button
-                    key={f.key}
-                    onClick={() => setLangFilter(f.key)}
-                    className={cn(
-                      'flex-1 py-1 rounded-md text-xs font-medium transition-colors',
-                      langFilter === f.key
-                        ? 'bg-accent-muted text-accent-bright border border-accent-border/50'
-                        : 'text-text-muted hover:bg-surface-hover hover:text-foreground border border-transparent',
-                    )}
-                  >
-                    {f.label}
-                    <span className="ml-1 text-[10px] opacity-60">{f.count}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Product list */}
             <ul className="flex-1 overflow-y-auto">
               {sortedVisible.map((p, idx) => {
                 const isSelected = p.id === selectedId
@@ -388,7 +368,7 @@ export default function CopyReviewPage() {
                       )}
                       <div className="flex items-center justify-between mt-1.5 gap-1">
                         <div className="flex items-center gap-1">
-                          {p.language && <Badge variant="accent">{p.language}</Badge>}
+                          {langFilter === 'all' && p.language && <Badge variant="accent">{p.language}</Badge>}
                           {p.done && <Badge variant="muted">Done</Badge>}
                         </div>
                         <span className={cn(
@@ -411,14 +391,12 @@ export default function CopyReviewPage() {
           {/* ── Right: selected product ── */}
           <section className="flex-1 flex flex-col min-w-0 bg-background overflow-hidden">
 
-            {/* No product selected */}
             {!selectedProduct && (
               <div className="flex items-center justify-center h-full">
                 <p className="text-sm text-text-muted">{UI['EN'].selectProduct}</p>
               </div>
             )}
 
-            {/* Product selected but links not filled yet — setup gate */}
             {selectedProduct && (!selectedProduct.pdp_url || !selectedProduct.drive_folder) && (
               <div className="flex-1 flex flex-col items-center justify-center px-8">
                 <div className="w-full max-w-sm space-y-5">
@@ -457,10 +435,8 @@ export default function CopyReviewPage() {
               </div>
             )}
 
-            {/* Product selected + links filled — full corrections view */}
             {selectedProduct && selectedProduct.pdp_url && selectedProduct.drive_folder && (
               <>
-                {/* Product header */}
                 <div className="shrink-0 px-5 py-4 border-b border-border-subtle">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
@@ -489,14 +465,12 @@ export default function CopyReviewPage() {
                               ? 'bg-green-500/10 text-green-400 hover:bg-green-500/20'
                               : 'text-text-muted hover:text-foreground hover:bg-surface-hover',
                           )}
-                          title={selectedProduct.ready_for_revision ? 'Unmark ready for revision' : 'Mark ready for revision'}
                         >
                           {selectedProduct.ready_for_revision ? '↩ Unmark' : '✓ Ready'}
                         </button>
                         <button
                           onClick={() => toggleProductDone(selectedProduct)}
                           className="px-2 py-1.5 rounded text-xs text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
-                          title={selectedProduct.done ? 'Mark not done' : 'Mark done'}
                         >
                           {selectedProduct.done ? '↩ Reopen' : '✓ Done'}
                         </button>
@@ -523,8 +497,7 @@ export default function CopyReviewPage() {
                       rel="noopener noreferrer"
                       className="flex items-center gap-1 text-xs text-accent hover:text-accent-bright transition-colors"
                     >
-                      <ExternalLink className="h-3 w-3" />
-                      PDP
+                      <ExternalLink className="h-3 w-3" />PDP
                     </a>
                     <a
                       href={selectedProduct.drive_folder}
@@ -532,8 +505,7 @@ export default function CopyReviewPage() {
                       rel="noopener noreferrer"
                       className="flex items-center gap-1 text-xs text-accent hover:text-accent-bright transition-colors"
                     >
-                      <ExternalLink className="h-3 w-3" />
-                      Drive folder
+                      <ExternalLink className="h-3 w-3" />Drive folder
                     </a>
                     <button
                       onClick={handleTranslate}
@@ -550,7 +522,6 @@ export default function CopyReviewPage() {
                   </div>
                 </div>
 
-                {/* Source tabs + corrections */}
                 {(() => {
                   const websiteCnt = selectedCorrections.filter(c => c.source === 'website').length
                   const adsCnt     = selectedCorrections.filter(c => c.source === 'ads').length
@@ -568,8 +539,7 @@ export default function CopyReviewPage() {
                             onClick={() => openCreateCorrection(selectedProduct.id, sourceTab)}
                             className="flex items-center gap-1 text-xs text-text-muted hover:text-foreground transition-colors pb-1"
                           >
-                            <Plus className="h-3.5 w-3.5" />
-                            Add
+                            <Plus className="h-3.5 w-3.5" />Add
                           </button>
                         )}
                       </div>
@@ -582,8 +552,7 @@ export default function CopyReviewPage() {
                             </p>
                             {isAdmin && (
                               <Button variant="secondary" size="sm" onClick={() => openCreateCorrection(selectedProduct.id, sourceTab)}>
-                                <Plus className="h-3.5 w-3.5 mr-1" />
-                                {L.addCorrection}
+                                <Plus className="h-3.5 w-3.5 mr-1" />{L.addCorrection}
                               </Button>
                             )}
                           </div>
@@ -609,9 +578,7 @@ export default function CopyReviewPage() {
                                           #{i + 1}
                                         </span>
                                         {loc && (
-                                          <span className="text-xs font-medium text-text-muted uppercase tracking-wide">
-                                            {loc}
-                                          </span>
+                                          <span className="text-xs font-medium text-text-muted uppercase tracking-wide">{loc}</span>
                                         )}
                                       </div>
 
@@ -681,9 +648,7 @@ export default function CopyReviewPage() {
                 })()}
               </>
             )}
-
           </section>
-
         </div>
       )}
 
@@ -713,14 +678,12 @@ export default function CopyReviewPage() {
 
           <div className="grid grid-cols-2 gap-3">
             <FormField label="Language">
-              <select
-                className={SELECT_CLS}
-                value={productForm.language ?? 'ES'}
-                onChange={e => setProductForm(f => ({ ...f, language: e.target.value }))}
-              >
-                <option value="ES">ES</option>
-                <option value="DE">DE</option>
-              </select>
+              <Input
+                value={productForm.language ?? ''}
+                onChange={e => setProductForm(f => ({ ...f, language: e.target.value.toUpperCase() }))}
+                placeholder="e.g. ES, DE, FR"
+                maxLength={5}
+              />
             </FormField>
 
             <FormField label="Proofreader">

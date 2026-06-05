@@ -30,7 +30,7 @@ const NAV = [
   { href: '/jewelry-tracker', label: 'Jewelry Tracker',  icon: Gem },
   { href: '/funnel-tracker',  label: 'Funnel Tracker',   icon: Filter },
   { href: '/proofread-queue', label: 'Proofread Queue',  icon: ListChecks },
-  { href: '/copy-review',     label: 'Proofreading ES·DE', icon: FileCheck },
+  { href: '/copy-review',     label: 'Proofreading',       icon: FileCheck },
   { href: '/mistake-log',     label: 'Mistake Log',      icon: AlertTriangle },
   { href: '/product-ranking',  label: 'Product Ranking',   icon: Star },
   { href: '/winning-products', label: 'Winning Products',  icon: Trophy },
