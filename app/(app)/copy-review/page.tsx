@@ -103,7 +103,7 @@ export default function CopyReviewPage() {
   const [sourceTab, setSourceTab] = useState<CorrectionSource>('website')
 
   // Setup gate — fill PDP + Drive before corrections are accessible
-  const [setupForm, setSetupForm] = useState({ pdp_url: '', drive_folder: '', proofreader: '' })
+  const [setupForm, setSetupForm] = useState({ pdp_url: '', drive_folder: '' })
   const [savingSetup, setSavingSetup] = useState(false)
 
   // Translation — volatile: not persisted, resets on reload
@@ -140,9 +140,8 @@ export default function CopyReviewPage() {
     if (!selectedId) return
     const p = products.find(x => x.id === selectedId)
     if (p) setSetupForm({
-      pdp_url:     p.pdp_url     ?? '',
-      drive_folder: p.drive_folder ?? '',
-      proofreader:  p.proofreader  ?? '',
+      pdp_url:      p.pdp_url      ?? '',
+      drive_folder: p.drive_folder  ?? '',
     })
   }, [selectedId, products])
 
@@ -239,7 +238,6 @@ export default function CopyReviewPage() {
       await api.put(`/api/proof-corrections/products/${selectedProduct.id}`, {
         pdp_url:      setupForm.pdp_url,
         drive_folder: setupForm.drive_folder,
-        proofreader:  setupForm.proofreader || null,
       })
       loadProducts()
     } finally { setSavingSetup(false) }
@@ -389,14 +387,6 @@ export default function CopyReviewPage() {
                         value={setupForm.drive_folder}
                         onChange={e => setSetupForm(f => ({ ...f, drive_folder: e.target.value }))}
                         placeholder="https://drive.google.com/drive/folders/…"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-foreground">Proofreader</label>
-                      <Input
-                        value={setupForm.proofreader}
-                        onChange={e => setSetupForm(f => ({ ...f, proofreader: e.target.value }))}
-                        placeholder="Name"
                       />
                     </div>
                   </div>
