@@ -22,6 +22,7 @@ interface ProofProduct {
   pdp_url: string | null
   drive_folder: string | null
   done: boolean
+  ready_for_revision: boolean
   created_at: string
   updated_at: string
   correction_count: number
@@ -48,7 +49,7 @@ type LangFilter = 'all' | 'ES' | 'DE'
 const SELECT_CLS = 'w-full rounded-md border border-border bg-surface-elevated px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent/40'
 
 function emptyProductForm(): Partial<ProofProduct> {
-  return { language: 'ES', proofreader: '', product_name: '', pdp_url: '', drive_folder: '', done: false }
+  return { language: 'ES', proofreader: '', product_name: '', pdp_url: '', drive_folder: '', done: false, ready_for_revision: false }
 }
 
 function emptyCorrectionForm(): Partial<ProofCorrection> {
@@ -159,6 +160,12 @@ export default function CopyReviewPage() {
     loadProducts()
   }
 
+  async function toggleReadyForRevision(product: ProofProduct) {
+    if (!isAdmin) return
+    await api.put(`/api/proof-corrections/products/${product.id}`, { ready_for_revision: !product.ready_for_revision })
+    loadProducts()
+  }
+
   async function toggleCorrectionDone(correction: ProofCorrection) {
     if (!isAdmin) return
     await api.put(`/api/proof-corrections/corrections/${correction.id}`, { done: !correction.done })
@@ -253,10 +260,11 @@ export default function CopyReviewPage() {
   const uiLang = isTranslated ? 'EN' : ((selectedProduct?.language === 'DE' ? 'DE' : 'ES') as 'ES' | 'DE' | 'EN')
   const L = UI[uiLang]
 
-  // Sort order: 0 = no corrections, 1 = has corrections, 2 = no links, 3 = done
-  function productGroup(p: ProofProduct): 0 | 1 | 2 | 3 {
-    if (p.done) return 3
-    if (!p.pdp_url || !p.drive_folder) return 2
+  // Sort: 0 = no corrections, 1 = has corrections, 2 = ready for revision, 3 = needs links, 4 = done
+  function productGroup(p: ProofProduct): 0 | 1 | 2 | 3 | 4 {
+    if (p.done) return 4
+    if (!p.pdp_url || !p.drive_folder) return 3
+    if (p.ready_for_revision) return 2
     if (p.correction_count === 0) return 0
     return 1
   }
@@ -269,8 +277,9 @@ export default function CopyReviewPage() {
   const GROUP_LABELS: Record<number, string> = {
     0: 'No corrections',
     1: 'Has corrections',
-    2: 'Needs links',
-    3: 'Done',
+    2: 'Ready for revision',
+    3: 'Needs links',
+    4: 'Done',
   }
 
   const esCnt = products.filter(p => p.language === 'ES').length
@@ -333,7 +342,8 @@ export default function CopyReviewPage() {
                 const isSelected = p.id === selectedId
                 const doneCnt    = corrections[p.id]?.filter(c => c.done).length ?? null
                 const group      = productGroup(p)
-                const noLinks    = group === 2
+                const isReady    = group === 2
+                const noLinks    = group === 3
                 const prevGroup  = idx > 0 ? productGroup(sortedVisible[idx - 1]) : -1
                 const showHeader = group !== prevGroup
                 return (
@@ -341,11 +351,13 @@ export default function CopyReviewPage() {
                     {showHeader && (
                       <div className={cn(
                         'px-3 py-1.5 border-y border-border-subtle',
-                        noLinks ? 'bg-yellow-500/5' : 'bg-surface-elevated/30',
+                        isReady  ? 'bg-green-500/5'  :
+                        noLinks  ? 'bg-yellow-500/5' : 'bg-surface-elevated/30',
                       )}>
                         <p className={cn(
                           'text-[10px] font-semibold uppercase tracking-widest',
-                          noLinks ? 'text-yellow-500/70' : 'text-text-muted',
+                          isReady  ? 'text-green-500/70'  :
+                          noLinks  ? 'text-yellow-500/70' : 'text-text-muted',
                         )}>
                           {GROUP_LABELS[group]}
                         </p>
@@ -358,6 +370,8 @@ export default function CopyReviewPage() {
                         'w-full text-left px-3 py-3 transition-colors border-l-2',
                         isSelected
                           ? 'bg-accent-muted/40 border-l-accent'
+                          : isReady
+                            ? 'bg-green-500/[0.04] hover:bg-green-500/10 border-l-transparent'
                           : noLinks
                             ? 'bg-yellow-500/[0.04] hover:bg-yellow-500/10 border-l-transparent'
                             : 'hover:bg-surface-hover/50 border-l-transparent',
@@ -467,6 +481,18 @@ export default function CopyReviewPage() {
 
                     {isAdmin && (
                       <div className="flex items-center gap-0.5 shrink-0">
+                        <button
+                          onClick={() => toggleReadyForRevision(selectedProduct)}
+                          className={cn(
+                            'px-2 py-1.5 rounded text-xs transition-colors',
+                            selectedProduct.ready_for_revision
+                              ? 'bg-green-500/10 text-green-400 hover:bg-green-500/20'
+                              : 'text-text-muted hover:text-foreground hover:bg-surface-hover',
+                          )}
+                          title={selectedProduct.ready_for_revision ? 'Unmark ready for revision' : 'Mark ready for revision'}
+                        >
+                          {selectedProduct.ready_for_revision ? '↩ Unmark' : '✓ Ready'}
+                        </button>
                         <button
                           onClick={() => toggleProductDone(selectedProduct)}
                           className="px-2 py-1.5 rounded text-xs text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
