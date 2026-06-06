@@ -299,8 +299,8 @@ export default function CopyReviewPage() {
         />
       </div>
 
-      {/* Language tabs — above the split pane, dynamically generated */}
-      <div className="shrink-0 border-b border-border-subtle mb-0">
+      {/* Language tabs — sticky on mobile so they don't scroll off */}
+      <div className="shrink-0 sticky top-0 z-20 bg-background overflow-x-auto md:static md:z-auto md:overflow-visible">
         <Tabs
           tabs={langTabs}
           active={langFilter}
