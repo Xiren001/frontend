@@ -54,6 +54,10 @@ function emptyCorrectionForm(): Partial<ProofCorrection> {
   return { source: null, location: '', original_text: '', corrected_text: '', issue_type: '', severity: '', notes: '', done: false }
 }
 
+function Spinner() {
+  return <span className="inline-block w-3 h-3 rounded-full border border-current border-t-transparent animate-spin shrink-0" />
+}
+
 function normSeverity(s: string | null) {
   if (!s) return ''
   return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -117,6 +121,12 @@ export default function CopyReviewPage() {
   const [howToUseOpen, setHowToUseOpen] = useState(false)
   const [helpStep, setHelpStep] = useState(0)
 
+  // Action loading + shake
+  const [togglingReady, setTogglingReady] = useState(false)
+  const [togglingDone, setTogglingDone] = useState(false)
+  const [doneShakeKey, setDoneShakeKey] = useState(0)
+  const [togglingCorrectionId, setTogglingCorrectionId] = useState<string | null>(null)
+
   const loadProducts = useCallback(() => {
     api.get<ProofProduct[]>('/api/proof-corrections/products').then(setProducts).catch(console.error)
   }, [])
@@ -172,20 +182,34 @@ export default function CopyReviewPage() {
 
   async function toggleProductDone(product: ProofProduct) {
     if (!isAdmin) return
-    await api.put(`/api/proof-corrections/products/${product.id}`, { done: !product.done })
-    loadProducts()
+    // Block marking Done if not yet ready (Reopen is always allowed)
+    if (!product.done && !product.ready_for_revision) {
+      setDoneShakeKey(k => k + 1)
+      return
+    }
+    setTogglingDone(true)
+    try {
+      await api.put(`/api/proof-corrections/products/${product.id}`, { done: !product.done })
+      loadProducts()
+    } finally { setTogglingDone(false) }
   }
 
   async function toggleReadyForRevision(product: ProofProduct) {
     if (!isAdmin) return
-    await api.put(`/api/proof-corrections/products/${product.id}`, { ready_for_revision: !product.ready_for_revision })
-    loadProducts()
+    setTogglingReady(true)
+    try {
+      await api.put(`/api/proof-corrections/products/${product.id}`, { ready_for_revision: !product.ready_for_revision })
+      loadProducts()
+    } finally { setTogglingReady(false) }
   }
 
   async function toggleCorrectionDone(correction: ProofCorrection) {
     if (!isAdmin) return
-    await api.put(`/api/proof-corrections/corrections/${correction.id}`, { done: !correction.done })
-    loadCorrections(correction.product_id)
+    setTogglingCorrectionId(correction.id)
+    try {
+      await api.put(`/api/proof-corrections/corrections/${correction.id}`, { done: !correction.done })
+      loadCorrections(correction.product_id)
+    } finally { setTogglingCorrectionId(null) }
   }
 
   function openCreateProduct() {
@@ -318,6 +342,17 @@ export default function CopyReviewPage() {
   }
 
   return (
+    <>
+    <style>{`
+      @keyframes proof-shake {
+        0%,100%{transform:translateX(0) scale(1)}
+        20%{transform:translateX(-5px) scale(0.97)}
+        40%{transform:translateX(5px) scale(0.97)}
+        60%{transform:translateX(-3px) scale(0.99)}
+        80%{transform:translateX(2px)}
+      }
+      .animate-proof-shake { animation: proof-shake 0.42s ease-in-out; }
+    `}</style>
     <div className="flex flex-col md:h-[calc(100vh-4rem)]">
       <div className="shrink-0">
         <PageHeader
@@ -572,21 +607,39 @@ export default function CopyReviewPage() {
                       <div className="flex items-center gap-0.5 shrink-0">
                         <button
                           onClick={() => toggleReadyForRevision(selectedProduct)}
+                          disabled={togglingReady}
                           className={cn(
-                            'px-2 py-1.5 rounded text-xs transition-colors',
+                            'flex items-center gap-1 px-2 py-1.5 rounded text-xs transition-all active:scale-95',
                             selectedProduct.ready_for_revision
                               ? 'bg-green-500/10 text-green-400 hover:bg-green-500/20'
                               : 'text-text-muted hover:text-foreground hover:bg-surface-hover',
+                            togglingReady && 'opacity-60 cursor-wait',
                           )}
                         >
-                          {selectedProduct.ready_for_revision ? '↩ Unmark' : '✓ Ready'}
+                          {togglingReady
+                            ? <><Spinner />…</>
+                            : selectedProduct.ready_for_revision ? '↩ Unmark' : '✓ Ready'
+                          }
                         </button>
-                        <button
-                          onClick={() => toggleProductDone(selectedProduct)}
-                          className="px-2 py-1.5 rounded text-xs text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
-                        >
-                          {selectedProduct.done ? '↩ Reopen' : '✓ Done'}
-                        </button>
+                        <span key={doneShakeKey} className={cn('inline-block', doneShakeKey > 0 && 'animate-proof-shake')}>
+                          <button
+                            onClick={() => toggleProductDone(selectedProduct)}
+                            disabled={togglingDone}
+                            title={!selectedProduct.done && !selectedProduct.ready_for_revision ? 'Mark as Ready first' : undefined}
+                            className={cn(
+                              'flex items-center gap-1 px-2 py-1.5 rounded text-xs transition-all active:scale-95',
+                              !selectedProduct.done && !selectedProduct.ready_for_revision
+                                ? 'opacity-40 cursor-not-allowed text-text-muted'
+                                : 'text-text-muted hover:text-foreground hover:bg-surface-hover',
+                              togglingDone && 'opacity-60 cursor-wait',
+                            )}
+                          >
+                            {togglingDone
+                              ? <><Spinner />…</>
+                              : selectedProduct.done ? '↩ Reopen' : '✓ Done'
+                            }
+                          </button>
+                        </span>
                         <button
                           onClick={() => openEditProduct(selectedProduct)}
                           className="p-1.5 rounded text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
@@ -682,9 +735,10 @@ export default function CopyReviewPage() {
                                   key={c.id}
                                   className={cn(
                                     'rounded-xl border border-border-subtle bg-surface-elevated shadow-sm',
-                                    'border-l-[3px] px-4 py-4 transition-opacity',
+                                    'border-l-[3px] px-4 py-4 transition-all duration-300',
                                     severityBorder(c.severity),
-                                    c.done && 'opacity-50',
+                                    c.done && 'opacity-40',
+                                    togglingCorrectionId === c.id && 'scale-[0.99]',
                                   )}
                                 >
                                   {/* Card header: number, location, actions */}
@@ -701,10 +755,19 @@ export default function CopyReviewPage() {
                                       <div className="flex items-center gap-0.5 shrink-0">
                                         <button
                                           onClick={() => toggleCorrectionDone(c)}
-                                          className="p-1.5 rounded-md text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors text-xs"
+                                          disabled={togglingCorrectionId === c.id}
+                                          className={cn(
+                                            'flex items-center justify-center w-6 h-6 rounded-md text-xs transition-all active:scale-90',
+                                            togglingCorrectionId === c.id
+                                              ? 'text-text-muted opacity-60 cursor-wait'
+                                              : 'text-text-muted hover:text-foreground hover:bg-surface-hover',
+                                          )}
                                           title={c.done ? 'Reopen' : 'Mark resolved'}
                                         >
-                                          {c.done ? '↩' : '✓'}
+                                          {togglingCorrectionId === c.id
+                                            ? <Spinner />
+                                            : c.done ? '↩' : '✓'
+                                          }
                                         </button>
                                         <button
                                           onClick={() => openEditCorrection(c)}
@@ -1160,5 +1223,6 @@ export default function CopyReviewPage() {
         )
       })()}
     </div>
+    </>
   )
 }
