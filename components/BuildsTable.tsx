@@ -301,7 +301,9 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
       batchMap.get(b.batch_group)!.push(b)
     }
   }
-  const batchEntries = [...batchMap.entries()].sort(([a], [b]) => a - b)
+  const batchEntries = [...batchMap.entries()]
+    .filter(([, bb]) => bb.some(b => b.week_number === activeWeek))
+    .sort(([a], [b]) => a - b)
 
   function batchDisplayName(batchNum: number) {
     const batchBuilds = batchMap.get(batchNum)
@@ -313,6 +315,13 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
 
   // Clear selection when week or batch changes
   useEffect(() => { setSelectedIds(new Set()) }, [activeWeek, activeBatch])
+
+  // Clear active batch if it doesn't belong to the current week
+  useEffect(() => {
+    if (activeBatch !== null && !batchEntries.some(([n]) => n === activeBatch)) {
+      setActiveBatch(null)
+    }
+  }, [activeWeek])
 
   const buildAvg = avgNum(displayBuilds.map(b => b.build_days))
   const proofAvg = avgNum(displayBuilds.map(b => b.proof_days))
