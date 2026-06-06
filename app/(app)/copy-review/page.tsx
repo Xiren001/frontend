@@ -220,8 +220,18 @@ export default function CopyReviewPage() {
   }
 
   function openCreateCorrection(productId: string, source?: CorrectionSource | null) {
-    setEditCorrection(null); setCorrectionProductId(productId)
-    setCorrectionForm({ ...emptyCorrectionForm(), source: source ?? null }); setCorrectionModalOpen(true)
+    // Preserve the draft when re-opening for the same product in create mode.
+    // Reset only if switching products or coming out of an edit session.
+    const hasDraft = editCorrection === null && correctionProductId === productId
+    setEditCorrection(null)
+    setCorrectionProductId(productId)
+    if (!hasDraft) {
+      setCorrectionForm({ ...emptyCorrectionForm(), source: source ?? null })
+    } else if (source != null && source !== correctionForm.source) {
+      // Same product but opened from a different source tab — switch source, keep text
+      setCorrectionForm(f => ({ ...f, source }))
+    }
+    setCorrectionModalOpen(true)
   }
   function openEditCorrection(c: ProofCorrection) {
     setEditCorrection(c); setCorrectionProductId(c.product_id)
@@ -240,6 +250,7 @@ export default function CopyReviewPage() {
         loadProducts()
       }
       setCorrectionModalOpen(false)
+      setCorrectionForm(emptyCorrectionForm())
     } finally { setSavingCorrection(false) }
   }
 
@@ -858,7 +869,7 @@ export default function CopyReviewPage() {
         size="lg"
         footer={
           <>
-            <Button variant="ghost" size="sm" onClick={() => setCorrectionModalOpen(false)} disabled={savingCorrection}>Cancel</Button>
+            <Button variant="ghost" size="sm" onClick={() => { setCorrectionModalOpen(false); setCorrectionForm(emptyCorrectionForm()) }} disabled={savingCorrection}>Cancel</Button>
             <Button size="sm" onClick={handleSaveCorrection} disabled={savingCorrection}>
               {savingCorrection ? 'Saving…' : editCorrection ? 'Save changes' : 'Add'}
             </Button>
