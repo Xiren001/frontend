@@ -262,9 +262,11 @@ interface Props {
   month: string
   onRefresh: () => void
   isAdmin: boolean
+  canBatchManage?: boolean  // management: import/export/template/batch but not add/edit/delete builds
 }
 
-export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) {
+export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchManage = false }: Props) {
+  const showToolbar = isAdmin || canBatchManage
   const [activeWeek, setActiveWeek] = useState<1|2|3|4>(1)
   const [activeBatch, setActiveBatch] = useState<number | null>(null)
   const [renamingBatch, setRenamingBatch] = useState<number | null>(null)
@@ -610,7 +612,7 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
             </option>
           ))}
         </select>
-        {isAdmin && (
+        {showToolbar && (
           <details className="relative shrink-0">
             <summary className="flex items-center gap-1 rounded-md border border-border bg-surface-elevated px-3 py-2 text-sm text-foreground cursor-pointer list-none [&::-webkit-details-marker]:hidden">
               Actions
@@ -629,10 +631,12 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
                 onClick={e => { closeActionsMenu(e); handleExport() }}>
                 <Download className="h-3.5 w-3.5 text-text-muted" />Export
               </button>
-              <button type="button" className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-surface-hover border-t border-border-subtle mt-1 pt-2"
-                onClick={e => { closeActionsMenu(e); openCreate() }}>
-                + Add build
-              </button>
+              {isAdmin && (
+                <button type="button" className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-surface-hover border-t border-border-subtle mt-1 pt-2"
+                  onClick={e => { closeActionsMenu(e); openCreate() }}>
+                  + Add build
+                </button>
+              )}
               {selectedIds.size > 0 && activeBatch === null && (
                 <button type="button"
                   className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-surface-hover border-t border-border-subtle mt-1 pt-2"
@@ -640,7 +644,7 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
                   <Layers className="h-3.5 w-3.5 text-text-muted" />{grouping ? 'Grouping…' : `Batch ${selectedIds.size}`}
                 </button>
               )}
-              {selectedIds.size > 0 && activeBatch === null && (
+              {isAdmin && selectedIds.size > 0 && activeBatch === null && (
                 <button type="button" className="flex w-full items-center gap-2 px-3 py-2 text-sm text-danger hover:bg-danger-muted"
                   onClick={e => { closeActionsMenu(e); setBulkDeleteOpen(true) }}>
                   <Trash2 className="h-3.5 w-3.5" />Delete {selectedIds.size} selected
@@ -659,7 +663,7 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
           onChange={id => { setActiveWeek(Number(id) as 1|2|3|4); setActiveBatch(null) }}
           className="flex-1"
         />
-        {isAdmin && (
+        {showToolbar && (
           <div className="flex items-center gap-2 shrink-0">
             <Button variant="ghost" size="sm" onClick={handleTemplateDownload} title="Download import template">
               <FileDown className="h-3.5 w-3.5 mr-1.5" />Template
@@ -675,14 +679,16 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
                 <Layers className="h-3.5 w-3.5 mr-1.5" />{grouping ? 'Grouping…' : `Batch ${selectedIds.size}`}
               </Button>
             )}
-            {selectedIds.size > 0 && activeBatch === null && (
+            {isAdmin && selectedIds.size > 0 && activeBatch === null && (
               <Button variant="danger" size="sm" onClick={() => setBulkDeleteOpen(true)}>
                 <Trash2 className="h-3.5 w-3.5 mr-1.5" />Delete {selectedIds.size}
               </Button>
             )}
-            <Button variant="secondary" size="sm" onClick={openCreate}>
-              + Add build
-            </Button>
+            {isAdmin && (
+              <Button variant="secondary" size="sm" onClick={openCreate}>
+                + Add build
+              </Button>
+            )}
           </div>
         )}
       </div>

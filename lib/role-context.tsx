@@ -1,34 +1,32 @@
 'use client'
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import { api } from './api'
-import type { ApproverPermissions, ViewerPermissions, UserRole } from './types'
+import type { UserRole } from './types'
 
 interface RoleState {
   role: UserRole | null
-  permissions: ApproverPermissions | null
-  viewerPermissions: ViewerPermissions | null
   loading: boolean
 }
 
-const Ctx = createContext<RoleState>({ role: null, permissions: null, viewerPermissions: null, loading: true })
+const Ctx = createContext<RoleState>({ role: null, loading: true })
 
 export function RoleProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<RoleState>({ role: null, permissions: null, viewerPermissions: null, loading: true })
+  const [state, setState] = useState<RoleState>({ role: null, loading: true })
 
   useEffect(() => {
-    api.get<{ userRole: UserRole; approverPermissions: ApproverPermissions | null; viewerPermissions: ViewerPermissions | null }>('/api/me')
-      .then(d => setState({ role: d.userRole, permissions: d.approverPermissions, viewerPermissions: d.viewerPermissions, loading: false }))
+    api.get<{ userRole: UserRole }>('/api/me')
+      .then(d => setState({ role: d.userRole, loading: false }))
       .catch(async () => {
         // /api/me failed — fall back to querying Supabase directly on the client
         try {
           const { createClient } = await import('./supabase')
           const supabase = createClient()
           const { data: { session } } = await supabase.auth.getSession()
-          if (!session) { setState({ role: null, permissions: null, viewerPermissions: null, loading: false }); return }
+          if (!session) { setState({ role: null, loading: false }); return }
           const { data } = await supabase.from('profiles').select('role').eq('id', session.user.id).single()
-          setState({ role: (data?.role ?? 'viewer') as UserRole, permissions: null, viewerPermissions: null, loading: false })
+          setState({ role: (data?.role ?? 'website') as UserRole, loading: false })
         } catch {
-          setState({ role: 'viewer', permissions: null, viewerPermissions: null, loading: false })
+          setState({ role: 'website', loading: false })
         }
       })
   }, [])
@@ -38,45 +36,21 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
 export function useRole() { return useContext(Ctx) }
 
-export const PATH_PERMISSION: Record<string, keyof ApproverPermissions | null> = {
-  '/product-ranking':  null,
-  '/winning-products': null,
-  '/weekly-report':   null,
-  '/monthly-report':  null,
-  '/dashboard':       'dashboard',
-  '/jewelry-tracker': 'jewelry_tracker',
-  '/funnel-tracker':  'funnel_tracker',
-  '/proofread-queue': 'proofread_queue',
-  '/copy-review':     null,
-  '/team-tasks':      null,
-  '/mistake-log':     'mistake_log',
-  '/monthly-planner': 'monthly_planner',
-  '/decision-rights': 'decision_rights',
-  '/settings':        'settings',
-  '/qa-checklist':    'jewelry_tracker',
-}
-
-export function canAccessPath(
-  role: UserRole | null,
-  path: string,
-  permissions: ApproverPermissions | null,
-  viewerPermissions?: ViewerPermissions | null,
-): boolean {
-  if (!role) return true
+export function canAccessPath(role: UserRole | null, path: string): boolean {
+  if (!role) return false
   if (role === 'admin') return true
+
   const base = '/' + path.split('/').filter(Boolean)[0]
-  if (role === 'viewer') {
-    if (base === '/weekly-report' || base === '/monthly-report') return true
-    const key = PATH_PERMISSION[base]
-    if (key === undefined) return false
-    if (key === null) return true
-    return viewerPermissions?.[key] === true
+
+  // Proofreader and Ads: only proofread-queue and copy-review
+  if (role === 'proofreader' || role === 'ads') {
+    return base === '/proofread-queue' || base === '/copy-review'
   }
-  if (role === 'approver') {
-    const key = PATH_PERMISSION[base]
-    if (key === undefined) return false
-    if (key === null) return true
-    return permissions?.[key] === true
+
+  // Management and Website: all pages except settings
+  if (role === 'management' || role === 'website') {
+    return base !== '/settings'
   }
+
   return false
 }

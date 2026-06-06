@@ -81,6 +81,9 @@ function severityBorder(severity: string | null) {
 export default function CopyReviewPage() {
   const { role } = useRole()
   const isAdmin = role === 'admin'
+  const canManageProducts     = role === 'admin' || role === 'management'
+  const canUpdateLinks        = role === 'admin' || role === 'management' || role === 'website'
+  const canModifyCorrections  = role === 'admin' || role === 'management' || role === 'proofreader' || role === 'website'
 
   const [products, setProducts] = useState<ProofProduct[]>([])
   const [langFilter, setLangFilter] = useState<string>('all')
@@ -181,7 +184,7 @@ export default function CopyReviewPage() {
   }
 
   async function toggleProductDone(product: ProofProduct) {
-    if (!isAdmin) return
+    if (!canManageProducts) return
     // Block marking Done if not yet ready (Reopen is always allowed)
     if (!product.done && !product.ready_for_revision) {
       setDoneShakeKey(k => k + 1)
@@ -195,7 +198,7 @@ export default function CopyReviewPage() {
   }
 
   async function toggleReadyForRevision(product: ProofProduct) {
-    if (!isAdmin) return
+    if (!canManageProducts) return
     setTogglingReady(true)
     try {
       await api.put(`/api/proof-corrections/products/${product.id}`, { ready_for_revision: !product.ready_for_revision })
@@ -204,7 +207,7 @@ export default function CopyReviewPage() {
   }
 
   async function toggleCorrectionDone(correction: ProofCorrection) {
-    if (!isAdmin) return
+    if (!canModifyCorrections) return
     setTogglingCorrectionId(correction.id)
     try {
       await api.put(`/api/proof-corrections/corrections/${correction.id}`, { done: !correction.done })
@@ -367,7 +370,7 @@ export default function CopyReviewPage() {
                 <HelpCircle className="h-3.5 w-3.5" />
                 How to use
               </button>
-              {isAdmin && (
+              {canManageProducts && (
                 <Button variant="secondary" size="sm" onClick={openCreateProduct}>+ Add product</Button>
               )}
             </div>
@@ -386,7 +389,7 @@ export default function CopyReviewPage() {
 
       {visible.length === 0 ? (
         <p className="text-sm text-text-muted py-12 text-center">
-          No products yet.{isAdmin && (
+          No products yet.{canManageProducts && (
             <> <button onClick={openCreateProduct} className="text-accent hover:text-accent-bright">Add one</button></>
           )}
         </p>
@@ -545,7 +548,7 @@ export default function CopyReviewPage() {
               </div>
             )}
 
-            {selectedProduct && (!selectedProduct.pdp_url || !selectedProduct.drive_folder) && (
+            {selectedProduct && (!selectedProduct.pdp_url || !selectedProduct.drive_folder) && canUpdateLinks && (
               <div className="flex-1 flex flex-col items-center justify-center px-8">
                 <div className="w-full max-w-sm space-y-5">
                   <div className="space-y-1">
@@ -603,7 +606,7 @@ export default function CopyReviewPage() {
                       </div>
                     </div>
 
-                    {isAdmin && (
+                    {canManageProducts && (
                       <div className="flex items-center gap-0.5 shrink-0">
                         <button
                           onClick={() => toggleReadyForRevision(selectedProduct)}
@@ -702,7 +705,7 @@ export default function CopyReviewPage() {
                     <>
                       <div className="shrink-0 px-4 border-b border-border-subtle flex items-center justify-between bg-surface-elevated/20">
                         <Tabs tabs={tabItems} active={sourceTab} onChange={v => setSourceTab(v as CorrectionSource)} />
-                        {isAdmin && (
+                        {canModifyCorrections && (
                           <button
                             onClick={() => openCreateCorrection(selectedProduct.id, sourceTab)}
                             className="flex items-center gap-1.5 text-xs font-medium text-text-muted hover:text-foreground hover:bg-surface-hover px-2 py-1 rounded-md transition-colors"
@@ -718,7 +721,7 @@ export default function CopyReviewPage() {
                             <p className="text-sm text-text-muted">
                               {sourceTab === 'website' ? L.noWebsite : L.noAds}
                             </p>
-                            {isAdmin && (
+                            {canModifyCorrections && (
                               <Button variant="secondary" size="sm" onClick={() => openCreateCorrection(selectedProduct.id, sourceTab)}>
                                 <Plus className="h-3.5 w-3.5 mr-1" />{L.addCorrection}
                               </Button>
@@ -751,7 +754,7 @@ export default function CopyReviewPage() {
                                         <span className="text-xs font-semibold text-text-muted uppercase tracking-wide">{loc}</span>
                                       )}
                                     </div>
-                                    {isAdmin && (
+                                    {canModifyCorrections && (
                                       <div className="flex items-center gap-0.5 shrink-0">
                                         <button
                                           onClick={() => toggleCorrectionDone(c)}

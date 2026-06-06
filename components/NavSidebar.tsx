@@ -25,7 +25,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase'
-import { useRole, PATH_PERMISSION } from '@/lib/role-context'
+import { useRole } from '@/lib/role-context'
 import { useState, useEffect } from 'react'
 
 const NAV = [
@@ -48,7 +48,7 @@ const NAV = [
 export function NavSidebar() {
   const pathname = usePathname()
   const router = useRouter()
-  const { role, permissions, viewerPermissions } = useRole()
+  const { role } = useRole()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -73,16 +73,11 @@ export function NavSidebar() {
 
   const visibleNav = NAV.filter(item => {
     if (role === 'admin') return true
-    const key = PATH_PERMISSION[item.href]
-    if (role === 'viewer') {
-      if (key === null) return true
-      if (key === undefined) return false
-      return viewerPermissions?.[key] === true
+    if (role === 'proofreader' || role === 'ads') {
+      return item.href === '/proofread-queue' || item.href === '/copy-review'
     }
-    if (role === 'approver') {
-      if (key === null) return true
-      if (key === undefined) return false
-      return permissions?.[key] === true
+    if (role === 'management' || role === 'website') {
+      return item.href !== '/settings'
     }
     return false
   })

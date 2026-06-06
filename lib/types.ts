@@ -1,20 +1,7 @@
-export interface ApproverPermissions {
-  dashboard: boolean
-  jewelry_tracker: boolean
-  funnel_tracker: boolean
-  proofread_queue: boolean
-  mistake_log: boolean
-  monthly_planner: boolean
-  decision_rights: boolean
-  settings: boolean
-}
-
-export type ViewerPermissions = ApproverPermissions
-
 export type BuildType = 'jewelry' | 'funnel'
 export type BuildOutcome = 'stopped' | 'testing' | 'expanding' | null
 export type BuildPhase = 'pending' | 'building' | 'proofread' | 'testing' | 'decided'
-export type UserRole = 'admin' | 'approver' | 'viewer'
+export type UserRole = 'admin' | 'management' | 'proofreader' | 'ads' | 'website'
 
 export interface Build {
   id: string
@@ -77,8 +64,6 @@ export interface Settings {
   total_target_days: number
   tool_approval_threshold: number
   payment_approval_threshold: number
-  approver_permissions: ApproverPermissions
-  viewer_permissions: ViewerPermissions | null
 }
 
 export interface KPI {
