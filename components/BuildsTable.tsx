@@ -308,13 +308,16 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
     return batchBuilds?.[0]?.batch_name ?? `Batch ${batchNum}`
   }
 
+  // When a batch is active it overrides the week filter — show all builds in that batch
+  const displayBuilds = activeBatch !== null ? (batchMap.get(activeBatch) ?? []) : weekBuilds
+
   // Clear selection when week or batch changes
   useEffect(() => { setSelectedIds(new Set()) }, [activeWeek, activeBatch])
 
-  const buildAvg = avgNum(weekBuilds.map(b => b.build_days))
-  const proofAvg = avgNum(weekBuilds.map(b => b.proof_days))
-  const testAvg  = avgNum(weekBuilds.map(b => b.test_days))
-  const totalAvg = avgNum(weekBuilds.map(b => b.total_days))
+  const buildAvg = avgNum(displayBuilds.map(b => b.build_days))
+  const proofAvg = avgNum(displayBuilds.map(b => b.proof_days))
+  const testAvg  = avgNum(displayBuilds.map(b => b.test_days))
+  const totalAvg = avgNum(displayBuilds.map(b => b.total_days))
 
   const tabs = weeks.map(w => ({
     id: w,
@@ -399,9 +402,9 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
 
   function toggleSelectAll() {
     setSelectedIds(prev =>
-      prev.size === weekBuilds.length
+      prev.size === displayBuilds.length
         ? new Set()
-        : new Set(weekBuilds.map(b => b.id))
+        : new Set(displayBuilds.map(b => b.id))
     )
   }
 
@@ -656,90 +659,30 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
         <input ref={fileInputRef} type="file" accept=".xlsx" className="hidden" onChange={handleImport} />
       )}
 
-      {/* ── Batch view (when a batch tab is active) ── */}
-      {activeBatch !== null && (() => {
-        const batchBuilds = batchMap.get(activeBatch) ?? []
-        return (
-          <>
-            {/* Mobile */}
-            <div className="block md:hidden space-y-3">
-              {batchBuilds.length === 0 ? (
-                <p className="text-sm text-text-muted text-center py-10">This batch is empty.</p>
-              ) : batchBuilds.map(b => (
-                <button key={b.id} type="button" onClick={() => setNotesBuild(b)}
-                  className="w-full text-left px-3 py-3 border border-border-subtle rounded-lg hover:bg-surface-hover transition-colors">
-                  <p className="text-sm font-medium text-foreground">{b.product_name}</p>
-                  <p className="text-xs text-text-muted font-mono mt-0.5">{[b.language, `Wk ${b.week_number}`, b.phase].filter(Boolean).join(' · ')}</p>
-                </button>
-              ))}
-            </div>
-            {/* Desktop */}
-            <div className="hidden md:block border border-border-subtle rounded-xl overflow-hidden">
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableHeader>Product</TableHeader>
-                    <TableHeader>Lang</TableHeader>
-                    <TableHeader>Week</TableHeader>
-                    <TableHeader>Phase</TableHeader>
-                    <TableHeader>Outcome</TableHeader>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {batchBuilds.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center text-text-muted py-12">This batch is empty.</TableCell>
-                    </TableRow>
-                  ) : batchBuilds.map(b => (
-                    <TableRow key={b.id} className="cursor-pointer" onClick={() => setNotesBuild(b)}>
-                      <TableCell className="font-medium text-foreground">{b.product_name}</TableCell>
-                      <TableCell mono className="text-text-muted">{b.language ?? '—'}</TableCell>
-                      <TableCell mono className="text-text-muted">W{b.week_number}</TableCell>
-                      <TableCell>
-                        <span className={`text-xs px-2 py-0.5 rounded border font-medium ${PHASE_BADGE_CLS[b.phase] ?? PHASE_BADGE_CLS.pending}`}>
-                          {b.phase.charAt(0).toUpperCase() + b.phase.slice(1)}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        {b.outcome
-                          ? <Badge variant={OUTCOME_VARIANT[b.outcome]}>{b.outcome}</Badge>
-                          : <span className="text-text-muted">—</span>
-                        }
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </>
-        )
-      })()}
-
-      {/* ── Week view (when no batch is active) ── */}
-      {activeBatch === null && (
-        <>
-          {/* Mobile card layout */}
-          <div className="block md:hidden space-y-3">
-            {weekBuilds.length === 0 && (
-              <p className="text-sm text-text-muted text-center py-10">
-                No builds in Week {activeWeek}
-                {isAdmin && <> · <button onClick={openCreate} className="text-accent hover:text-accent-bright">Add one</button></>}
-              </p>
-            )}
-            {weekBuilds.map(b => (
-              <BuildCard
-                key={b.id}
-                b={b}
-                isAdmin={isAdmin}
-                advancing={advancing}
-                onOpenNotes={setNotesBuild}
-                onOpenEdit={openEdit}
-                onDelete={setDeleteId}
-                onPhaseSet={handlePhaseSet}
-                onOutcomeChange={handleOutcomeChange}
-              />
-            ))}
-          </div>
+      {/* ── Builds (filtered by batch pill or week tab) ── */}
+      <>
+        {/* Mobile card layout */}
+        <div className="block md:hidden space-y-3">
+          {displayBuilds.length === 0 && (
+            <p className="text-sm text-text-muted text-center py-10">
+              {activeBatch !== null ? 'No builds in this batch.' : `No builds in Week ${activeWeek}`}
+              {isAdmin && activeBatch === null && <> · <button onClick={openCreate} className="text-accent hover:text-accent-bright">Add one</button></>}
+            </p>
+          )}
+          {displayBuilds.map(b => (
+            <BuildCard
+              key={b.id}
+              b={b}
+              isAdmin={isAdmin}
+              advancing={advancing}
+              onOpenNotes={setNotesBuild}
+              onOpenEdit={openEdit}
+              onDelete={setDeleteId}
+              onPhaseSet={handlePhaseSet}
+              onOutcomeChange={handleOutcomeChange}
+            />
+          ))}
+        </div>
 
           {/* Desktop table layout */}
           <div className="hidden md:flex items-start gap-1">
@@ -751,8 +694,8 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
                       <TableHeader className="w-8 pr-0">
                         <input
                           type="checkbox"
-                          checked={weekBuilds.length > 0 && selectedIds.size === weekBuilds.length}
-                          ref={el => { if (el) el.indeterminate = selectedIds.size > 0 && selectedIds.size < weekBuilds.length }}
+                          checked={displayBuilds.length > 0 && selectedIds.size === displayBuilds.length}
+                          ref={el => { if (el) el.indeterminate = selectedIds.size > 0 && selectedIds.size < displayBuilds.length }}
                           onChange={toggleSelectAll}
                           className="cursor-pointer accent-accent"
                         />
@@ -774,7 +717,7 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {weekBuilds.map(b => (
+                  {displayBuilds.map(b => (
                     <TableRow
                       key={b.id}
                       className={cn('cursor-pointer', selectedIds.has(b.id) && 'bg-accent-muted/30')}
@@ -920,11 +863,11 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
                       )}
                     </TableRow>
                   ))}
-                  {weekBuilds.length === 0 && (
+                  {displayBuilds.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={99} className="text-center text-text-muted py-12">
-                        No builds in Week {activeWeek}
-                        {isAdmin && <> · <button onClick={openCreate} className="text-accent hover:text-accent-bright">Add one</button></>}
+                        {activeBatch !== null ? 'No builds in this batch.' : `No builds in Week ${activeWeek}`}
+                        {isAdmin && activeBatch === null && <> · <button onClick={openCreate} className="text-accent hover:text-accent-bright">Add one</button></>}
                       </TableCell>
                     </TableRow>
                   )}
@@ -983,7 +926,6 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
             </div>
           </div>
         </>
-      )}
 
       {/* ── Modals ── */}
       <BuildNoteModal
