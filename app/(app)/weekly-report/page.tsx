@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { MobileDataCard, MobileDataRow, ResponsiveCardList, ResponsiveDesktopTable } from '@/components/ui/responsive-table'
 import { Modal } from '@/components/ui/modal'
-import { TrendingUp, FlaskConical, Download, Target } from 'lucide-react'
+import { TrendingUp, FlaskConical, Download, Target, Trophy } from 'lucide-react'
 
 interface ReportNarrative { id: string; week_number: number; narrative_text: string }
 
@@ -61,6 +61,28 @@ function loadWinningTitles(): Set<string> {
   return result
 }
 
+interface CsvProduct { title: string; unitsSold?: number; unitGrowthPct?: number }
+
+function loadCsvWinners(): { demand: CsvProduct[]; momentum: CsvProduct[] } {
+  const parse = (filteredKey: string, rawKey: string): CsvProduct[] => {
+    try {
+      const filtered = localStorage.getItem(filteredKey)
+      if (filtered) {
+        const stored = JSON.parse(filtered) as { rows: CsvProduct[] }
+        return stored.rows ?? []
+      }
+      const raw = localStorage.getItem(rawKey)
+      if (!raw) return []
+      const stored = JSON.parse(raw) as { rows: CsvProduct[] }
+      return stored.rows ?? []
+    } catch { return [] }
+  }
+  return {
+    demand:   parse('wp-demand-filtered',   'wp-demand'),
+    momentum: parse('wp-momentum-filtered', 'wp-momentum'),
+  }
+}
+
 function esc(s: string | null | undefined): string {
   if (!s) return ''
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -71,6 +93,7 @@ function generateWeeklyHtml(
   weekStats: WeekStats[],
   narratives: ReportNarrative[],
   testingWinners: (BuildSummary & { week: number })[],
+  csvWinners: { demand: CsvProduct[]; momentum: CsvProduct[] },
 ): string {
   const dateLabel = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
   const monthLabel = (() => {
@@ -231,6 +254,7 @@ tr:nth-child(even) td{background:#fafbfd}
 .badge-funnel{background:#f0fdf4;color:#166534}
 .badge-week{background:#f8fafc;color:#94a3b8;border:1px solid #e2e8f0}
 .empty-note{font-size:12px;color:#cbd5e1;font-style:italic;padding:6px 0}
+.csv-lbl{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8;margin-bottom:14px}
 /* footer */
 .rfoot{padding:20px 48px;border-top:1px solid #f1f5f9;background:#f8fafc;display:flex;justify-content:space-between;align-items:center}
 .rfoot-brand{font-size:11px;font-weight:600;color:#94a3b8;letter-spacing:.05em}
@@ -356,6 +380,33 @@ tr:nth-child(even) td{background:#fafbfd}
       </div>
     </div>` : ''}
 
+    <!-- Winning Products -->
+    ${(csvWinners.demand.length > 0 || csvWinners.momentum.length > 0) ? `
+    <div class="section">
+      <div class="sec-label">Winning Products from Analysis</div>
+      <div class="sec-desc">Products from the Winning Products CSV upload that passed the demand and momentum thresholds.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        ${csvWinners.demand.length > 0 ? `
+        <div>
+          <div class="csv-lbl">Qualified Demand (${csvWinners.demand.length})</div>
+          ${csvWinners.demand.map(p => `
+            <div class="product-item">
+              <span class="product-name">${esc(p.title)}</span>
+              ${p.unitsSold != null ? `<span class="mono" style="color:#94a3b8;font-size:11px">${p.unitsSold} sold/wk</span>` : ''}
+            </div>`).join('')}
+        </div>` : ''}
+        ${csvWinners.momentum.length > 0 ? `
+        <div>
+          <div class="csv-lbl">Momentum (${csvWinners.momentum.length})</div>
+          ${csvWinners.momentum.map(p => `
+            <div class="product-item">
+              <span class="product-name">${esc(p.title)}</span>
+              ${p.unitGrowthPct != null ? `<span class="mono" style="color:#6366f1;font-size:11px">+${p.unitGrowthPct}%</span>` : ''}
+            </div>`).join('')}
+        </div>` : ''}
+      </div>
+    </div>` : ''}
+
     <!-- Stopped -->
     ${totalKilled > 0 ? `
     <div class="section">
@@ -390,6 +441,7 @@ export default function WeeklyReportPage() {
   const [editText, setEditText] = useState('')
   const [saving, setSaving] = useState(false)
   const [winningTitles, setWinningTitles] = useState<Set<string>>(new Set())
+  const [csvWinners, setCsvWinners] = useState<{ demand: CsvProduct[]; momentum: CsvProduct[] }>({ demand: [], momentum: [] })
 
   async function load() {
     const data = await api.get<{ weekStats: WeekStats[]; narratives: ReportNarrative[] }>(`/api/reports/weekly?month=${month}`)
@@ -400,6 +452,7 @@ export default function WeeklyReportPage() {
   useRealtimeRefresh(['builds', 'mistakes', 'report_narratives'], load)
   useEffect(() => { load() }, [month])
   useEffect(() => { setWinningTitles(loadWinningTitles()) }, [])
+  useEffect(() => { setCsvWinners(loadCsvWinners()) }, [])
 
   function getNarrative(week: number) {
     return narratives.find(n => n.week_number === week)?.narrative_text ?? ''
@@ -428,7 +481,7 @@ export default function WeeklyReportPage() {
   }
 
   function handleExport() {
-    const html = generateWeeklyHtml(month, weekStats, narratives, testingWinnersAll)
+    const html = generateWeeklyHtml(month, weekStats, narratives, testingWinnersAll, csvWinners)
     const win = window.open('', '_blank')
     if (!win) return
     win.document.write(html)
@@ -625,6 +678,53 @@ export default function WeeklyReportPage() {
               </ul>
             </CardBody>
           </Card>
+        </div>
+      )}
+
+      {/* Winning Products from CSV */}
+      {(csvWinners.demand.length > 0 || csvWinners.momentum.length > 0) && (
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Trophy className="h-4 w-4 text-yellow-400" />
+            <h2 className="text-sm font-semibold text-foreground uppercase tracking-widest">Winning Products from Analysis</h2>
+            <span className="text-xs text-text-muted">(from Winning Products CSV upload)</span>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {csvWinners.demand.length > 0 && (
+              <Card>
+                <CardBody>
+                  <p className="text-xs font-medium uppercase tracking-widest text-text-muted mb-3">Qualified Demand ({csvWinners.demand.length})</p>
+                  <div className="space-y-1.5">
+                    {csvWinners.demand.map((p, i) => (
+                      <div key={i} className="flex items-center justify-between py-1 border-b border-border-subtle last:border-0">
+                        <span className="text-sm text-foreground font-medium">{p.title}</span>
+                        {p.unitsSold != null && (
+                          <span className="text-xs text-text-muted font-mono shrink-0 ml-2">{p.unitsSold} sold/wk</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </CardBody>
+              </Card>
+            )}
+            {csvWinners.momentum.length > 0 && (
+              <Card>
+                <CardBody>
+                  <p className="text-xs font-medium uppercase tracking-widest text-text-muted mb-3">Momentum ({csvWinners.momentum.length})</p>
+                  <div className="space-y-1.5">
+                    {csvWinners.momentum.map((p, i) => (
+                      <div key={i} className="flex items-center justify-between py-1 border-b border-border-subtle last:border-0">
+                        <span className="text-sm text-foreground font-medium">{p.title}</span>
+                        {p.unitGrowthPct != null && (
+                          <span className="text-xs text-accent font-mono shrink-0 ml-2">+{p.unitGrowthPct}%</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </CardBody>
+              </Card>
+            )}
+          </div>
         </div>
       )}
 
