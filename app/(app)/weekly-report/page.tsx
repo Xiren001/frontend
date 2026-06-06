@@ -41,17 +41,24 @@ function isWinnerMatch(name: string, titles: Set<string>): boolean {
   return false
 }
 
+function loadTitleSet(filteredKey: string, rawKey: string): Set<string> {
+  const s = new Set<string>()
+  try {
+    const raw = localStorage.getItem(filteredKey) || localStorage.getItem(rawKey)
+    if (!raw) return s
+    const stored = JSON.parse(raw) as { rows: { title: string }[] }
+    for (const r of stored.rows ?? []) if (r.title) s.add(normTitle(r.title))
+  } catch {}
+  return s
+}
+
 function loadWinningTitles(): Set<string> {
-  const titles = new Set<string>()
-  for (const [fk, rk] of [['wp-demand-filtered', 'wp-demand'], ['wp-momentum-filtered', 'wp-momentum']] as [string, string][]) {
-    try {
-      const raw = localStorage.getItem(fk) || localStorage.getItem(rk)
-      if (!raw) continue
-      const stored = JSON.parse(raw) as { rows: { title: string }[] }
-      for (const r of stored.rows ?? []) if (r.title) titles.add(normTitle(r.title))
-    } catch {}
-  }
-  return titles
+  const demand   = loadTitleSet('wp-demand-filtered',   'wp-demand')
+  const momentum = loadTitleSet('wp-momentum-filtered', 'wp-momentum')
+  if (demand.size === 0 || momentum.size === 0) return new Set()
+  const result = new Set<string>()
+  for (const t of demand) if (momentum.has(t)) result.add(t)
+  return result
 }
 
 function esc(s: string | null | undefined): string {
@@ -337,7 +344,7 @@ tr:nth-child(even) td{background:#fafbfd}
     <!-- Testing × Winning Products cross-reference -->
     ${testingWinners.length > 0 ? `
     <div class="section">
-      <div class="sec-label">In Testing — Winning Product Match <span class="sec-count">(${testingWinners.length})</span></div>
+      <div class="sec-label">In Testing — Qualified &amp; Momentum Match <span class="sec-count">(${testingWinners.length})</span></div>
       <div class="sec-desc">Products currently in testing whose names match products highlighted in the Winning Products tab. These are proven market sellers actively being tested — they deserve the closest attention and fastest decision-making.</div>
       <div>
         ${testingWinners.map(b => `
@@ -597,7 +604,7 @@ export default function WeeklyReportPage() {
           <div className="flex items-center gap-2 mb-4">
             <Target className="h-4 w-4 text-accent" />
             <h2 className="text-sm font-semibold text-foreground uppercase tracking-widest">
-              In Testing — Winning Product Match
+              In Testing — Qualified & Momentum Match
               <span className="ml-2 text-xs font-normal text-text-muted normal-case tracking-normal">({testingWinnersAll.length})</span>
             </h2>
           </div>
