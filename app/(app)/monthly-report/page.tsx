@@ -38,15 +38,25 @@ interface MetricRow { label: string; value: string | number; description: string
 interface CsvProduct { title: string; unitsSold?: number; unitGrowthPct?: number }
 
 function loadCsvWinners(): { demand: CsvProduct[]; momentum: CsvProduct[] } {
-  const parse = (key: string): CsvProduct[] => {
+  const parse = (filteredKey: string, rawKey: string): CsvProduct[] => {
     try {
-      const raw = localStorage.getItem(key)
+      // Prefer the filtered snapshot saved by the Winning Products tab
+      const filtered = localStorage.getItem(filteredKey)
+      if (filtered) {
+        const stored = JSON.parse(filtered) as { rows: CsvProduct[] }
+        if (stored.rows?.length) return stored.rows
+      }
+      // Fall back to raw data if filtered snapshot isn't available
+      const raw = localStorage.getItem(rawKey)
       if (!raw) return []
       const stored = JSON.parse(raw) as { rows: CsvProduct[] }
       return stored.rows ?? []
     } catch { return [] }
   }
-  return { demand: parse('wp-demand'), momentum: parse('wp-momentum') }
+  return {
+    demand:   parse('wp-demand-filtered',   'wp-demand'),
+    momentum: parse('wp-momentum-filtered', 'wp-momentum'),
+  }
 }
 
 function BuildRow({ b }: { b: BuildSummary }) {
@@ -307,7 +317,7 @@ tr:nth-child(even) td{background:#fafbfd}
     ${hasCsv ? `
     <div class="section">
       <div class="sec-label">Winning Products from Analysis</div>
-      <div class="sec-desc">Products identified as winners from the Winning Products CSV upload. <em>Qualified Demand</em> = consistent weekly sales volume. <em>Momentum</em> = strong unit growth percentage.</div>
+      <div class="sec-desc">Products shown in the Winning Products tab after applying the current filter thresholds. <em>Qualified Demand</em> = meets minimum sales volume and gross margin. <em>Momentum</em> = selling well and growing vs. the prior 7 days.</div>
       <div class="csv-grid">
         ${csvWinners.demand.length > 0 ? `
         <div class="csv-card">

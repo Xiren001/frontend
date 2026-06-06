@@ -233,8 +233,10 @@ function readFile(file: File): Promise<string> {
   })
 }
 
-const STORAGE_DEMAND   = 'wp-demand'
-const STORAGE_MOMENTUM = 'wp-momentum'
+const STORAGE_DEMAND            = 'wp-demand'
+const STORAGE_MOMENTUM          = 'wp-momentum'
+const STORAGE_DEMAND_FILTERED   = 'wp-demand-filtered'
+const STORAGE_MOMENTUM_FILTERED = 'wp-momentum-filtered'
 
 interface Stored { fileName: string; rows: ProductRow[] }
 
@@ -290,6 +292,17 @@ export default function WinningProductsPage() {
   const demand = demandRows ? filterQualifiedDemand(demandRows, minPerDay, minMarginPct) : []
   const momentum = momentumRows ? filterMomentum(momentumRows, minPerDay) : []
   const hasAny = demandRows !== null || momentumRows !== null
+
+  // Keep filtered snapshots in sync so the report always reflects what's visible here
+  useEffect(() => {
+    if (demandRows !== null)
+      saveStored(STORAGE_DEMAND_FILTERED, { fileName: demandFileName ?? '', rows: demand })
+  }, [demand])
+
+  useEffect(() => {
+    if (momentumRows !== null)
+      saveStored(STORAGE_MOMENTUM_FILTERED, { fileName: momentumFileName ?? '', rows: momentum })
+  }, [momentum])
 
   const tabs = [
     {
@@ -410,7 +423,7 @@ export default function WinningProductsPage() {
           icon={<Trophy className="h-5 w-5" />}
           fileName={demandFileName}
           onFile={handleDemandFile}
-          onClear={() => { setDemandFileName(null); setDemandRows(null); clearStored(STORAGE_DEMAND) }}
+          onClear={() => { setDemandFileName(null); setDemandRows(null); clearStored(STORAGE_DEMAND); clearStored(STORAGE_DEMAND_FILTERED) }}
         />
         <UploadSlot
           label="Momentum Tracker"
@@ -418,7 +431,7 @@ export default function WinningProductsPage() {
           icon={<TrendingUp className="h-5 w-5" />}
           fileName={momentumFileName}
           onFile={handleMomentumFile}
-          onClear={() => { setMomentumFileName(null); setMomentumRows(null); clearStored(STORAGE_MOMENTUM) }}
+          onClear={() => { setMomentumFileName(null); setMomentumRows(null); clearStored(STORAGE_MOMENTUM); clearStored(STORAGE_MOMENTUM_FILTERED) }}
         />
       </div>
 
