@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Modal, FormField } from '@/components/ui/modal'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-import { Pencil, Trash2, Plus, ExternalLink, Languages, ArrowLeft, ChevronRight, HelpCircle } from 'lucide-react'
+import { Pencil, Trash2, Plus, ExternalLink, Languages, ArrowLeft, ChevronRight, HelpCircle, Search, X } from 'lucide-react'
 import { Tabs } from '@/components/ui/tabs'
 import { translateSeverity, translateIssueType, translateLocation, UI } from '@/lib/proof-translations'
 
@@ -109,6 +109,10 @@ export default function CopyReviewPage() {
   // Translation
   const [isTranslated, setIsTranslated] = useState(false)
 
+  // Search + sort
+  const [searchQuery, setSearchQuery] = useState('')
+  const [dateSort, setDateSort] = useState<'status' | 'newest' | 'oldest'>('status')
+
   // How to use
   const [howToUseOpen, setHowToUseOpen] = useState(false)
   const [helpStep, setHelpStep] = useState(0)
@@ -129,7 +133,7 @@ export default function CopyReviewPage() {
   })
 
   useEffect(() => { loadProducts() }, [loadProducts])
-  useEffect(() => { setMobileDetailOpen(false) }, [langFilter])
+  useEffect(() => { setMobileDetailOpen(false); setSearchQuery('') }, [langFilter])
 
   // Derive unique language tabs dynamically from all products
   const uniqueLangs = Array.from(new Set(products.map(p => p.language).filter(Boolean))).sort() as string[]
@@ -267,7 +271,11 @@ export default function CopyReviewPage() {
 
   function handleTranslate() { setIsTranslated(v => !v) }
 
-  const uiLang = isTranslated ? 'EN' : ((selectedProduct?.language === 'DE' ? 'DE' : 'ES') as 'ES' | 'DE' | 'EN')
+  const productLang = selectedProduct?.language ?? null
+  const hasNativeUI = productLang === 'ES' || productLang === 'DE'
+  const uiLang: 'ES' | 'DE' | 'EN' = hasNativeUI && !isTranslated
+    ? (productLang as 'ES' | 'DE')
+    : 'EN'
   const L = UI[uiLang]
 
   function productGroup(p: ProofProduct): 0 | 1 | 2 | 3 | 4 {
@@ -278,7 +286,14 @@ export default function CopyReviewPage() {
     return 1
   }
 
-  const sortedVisible = [...visible].sort((a, b) => {
+  const q = searchQuery.trim().toLowerCase()
+  const searchFiltered = q
+    ? visible.filter(p => p.product_name.toLowerCase().includes(q) || (p.proofreader ?? '').toLowerCase().includes(q))
+    : visible
+
+  const sortedVisible = [...searchFiltered].sort((a, b) => {
+    if (dateSort === 'newest') return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    if (dateSort === 'oldest') return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     const diff = productGroup(a) - productGroup(b)
     return diff !== 0 ? diff : a.product_name.localeCompare(b.product_name)
   })
@@ -338,7 +353,49 @@ export default function CopyReviewPage() {
             'w-full md:w-64 xl:md:w-72',
             mobileDetailOpen ? 'hidden md:flex' : 'flex',
           )}>
+            {/* Search + sort */}
+            <div className="shrink-0 px-3 py-2.5 border-b border-border-subtle space-y-2">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-muted pointer-events-none" />
+                <input
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Search products…"
+                  className="w-full rounded-md border border-border bg-surface pl-8 pr-7 py-1.5 text-xs text-foreground placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/40"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-foreground"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-0.5">
+                {(['status', 'newest', 'oldest'] as const).map(s => (
+                  <button
+                    key={s}
+                    onClick={() => setDateSort(s)}
+                    className={cn(
+                      'flex-1 text-[10px] font-medium px-1.5 py-1 rounded transition-colors',
+                      dateSort === s
+                        ? 'bg-accent-muted text-accent-bright'
+                        : 'text-text-muted hover:text-foreground hover:bg-surface-hover',
+                    )}
+                  >
+                    {s === 'status' ? 'By status' : s === 'newest' ? 'Newest' : 'Oldest'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <ul className="md:flex-1 md:overflow-y-auto">
+              {sortedVisible.length === 0 && (
+                <li className="px-4 py-8 text-center text-xs text-text-muted">
+                  {searchQuery ? `No products match "${searchQuery}"` : 'No products.'}
+                </li>
+              )}
               {sortedVisible.map((p, idx) => {
                 const isSelected = p.id === selectedId
                 const doneCnt    = corrections[p.id]?.filter(c => c.done).length ?? null
@@ -346,7 +403,7 @@ export default function CopyReviewPage() {
                 const isReady    = group === 2
                 const noLinks    = group === 3
                 const prevGroup  = idx > 0 ? productGroup(sortedVisible[idx - 1]) : -1
-                const showHeader = group !== prevGroup
+                const showHeader = dateSort === 'status' && group !== prevGroup
                 return (
                   <li key={p.id}>
                     {showHeader && (
@@ -386,6 +443,11 @@ export default function CopyReviewPage() {
                       </p>
                       {p.proofreader && (
                         <p className="text-xs text-text-muted mt-1 truncate">{p.proofreader}</p>
+                      )}
+                      {dateSort !== 'status' && (
+                        <p className="text-[10px] text-text-muted mt-0.5 font-mono">
+                          {new Date(p.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </p>
                       )}
                       <div className="flex items-center justify-between mt-2 gap-1">
                         <div className="flex items-center gap-1">
@@ -547,18 +609,20 @@ export default function CopyReviewPage() {
                     >
                       <ExternalLink className="h-3 w-3" />Drive folder
                     </a>
-                    <button
-                      onClick={handleTranslate}
-                      className={cn(
-                        'ml-auto flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md border transition-colors',
-                        isTranslated
-                          ? 'bg-accent-muted text-accent-bright border-accent-border/50'
-                          : 'text-text-muted border-border-subtle hover:text-foreground hover:border-border',
-                      )}
-                    >
-                      <Languages className="h-3.5 w-3.5" />
-                      {isTranslated ? 'EN' : L.translateBtn}
-                    </button>
+                    {hasNativeUI && (
+                      <button
+                        onClick={handleTranslate}
+                        className={cn(
+                          'ml-auto flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md border transition-colors',
+                          isTranslated
+                            ? 'bg-accent-muted text-accent-bright border-accent-border/50'
+                            : 'text-text-muted border-border-subtle hover:text-foreground hover:border-border',
+                        )}
+                      >
+                        <Languages className="h-3.5 w-3.5" />
+                        {isTranslated ? 'EN' : L.translateBtn}
+                      </button>
+                    )}
                   </div>
                 </div>
 
