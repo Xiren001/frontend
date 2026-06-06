@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Modal, FormField } from '@/components/ui/modal'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-import { Pencil, Trash2, Plus, ExternalLink, Languages, ArrowLeft, ChevronRight } from 'lucide-react'
+import { Pencil, Trash2, Plus, ExternalLink, Languages, ArrowLeft, ChevronRight, HelpCircle } from 'lucide-react'
 import { Tabs } from '@/components/ui/tabs'
 import { translateSeverity, translateIssueType, translateLocation, UI } from '@/lib/proof-translations'
 
@@ -108,6 +108,10 @@ export default function CopyReviewPage() {
 
   // Translation
   const [isTranslated, setIsTranslated] = useState(false)
+
+  // How to use
+  const [howToUseOpen, setHowToUseOpen] = useState(false)
+  const [helpStep, setHelpStep] = useState(0)
 
   const loadProducts = useCallback(() => {
     api.get<ProofProduct[]>('/api/proof-corrections/products').then(setProducts).catch(console.error)
@@ -293,9 +297,20 @@ export default function CopyReviewPage() {
         <PageHeader
           title="Proofreading"
           description="Proofreading corrections per product — text changes to product pages and ads."
-          actions={isAdmin ? (
-            <Button variant="secondary" size="sm" onClick={openCreateProduct}>+ Add product</Button>
-          ) : undefined}
+          actions={
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => { setHelpStep(0); setHowToUseOpen(true) }}
+                className="flex items-center gap-1.5 text-xs font-medium text-text-muted hover:text-foreground hover:bg-surface-hover px-2.5 py-1.5 rounded-md border border-border-subtle transition-colors"
+              >
+                <HelpCircle className="h-3.5 w-3.5" />
+                How to use
+              </button>
+              {isAdmin && (
+                <Button variant="secondary" size="sm" onClick={openCreateProduct}>+ Add product</Button>
+              )}
+            </div>
+          }
         />
       </div>
 
@@ -901,6 +916,174 @@ export default function CopyReviewPage() {
       >
         <p className="text-sm text-text-secondary">This correction will be permanently deleted.</p>
       </Modal>
+
+      {/* How to use guide */}
+      {(() => {
+        const STEPS = [
+          {
+            title: 'Browse products',
+            body: (
+              <div className="space-y-3 text-sm text-text-secondary">
+                <p>The left panel lists all products organized into groups:</p>
+                <div className="rounded-lg border border-border-subtle bg-surface overflow-hidden text-xs divide-y divide-border-subtle">
+                  {[
+                    { label: 'No corrections', color: 'text-text-muted', hint: 'Just added — nothing flagged yet' },
+                    { label: 'Has corrections', color: 'text-text-secondary', hint: 'Proofreader found issues' },
+                    { label: 'Ready for revision', color: 'text-green-400', hint: 'Writer can now apply the fixes' },
+                    { label: 'Needs links', color: 'text-yellow-400', hint: 'PDP or Drive folder URL is missing' },
+                    { label: 'Done', color: 'text-text-muted', hint: 'Fully resolved', strike: true },
+                  ].map(g => (
+                    <div key={g.label} className="flex items-center gap-3 px-3 py-2">
+                      <span className={cn('font-semibold uppercase tracking-widest text-[10px] w-36 shrink-0', g.color, g.strike && 'line-through')}>{g.label}</span>
+                      <span className="text-text-muted">{g.hint}</span>
+                    </div>
+                  ))}
+                </div>
+                <p>Click any product to open its corrections on the right.</p>
+              </div>
+            ),
+          },
+          {
+            title: 'Filter by language',
+            body: (
+              <div className="space-y-3 text-sm text-text-secondary">
+                <p>Use the language tabs at the top to narrow the list to a single language. The count on each tab shows how many products exist for it.</p>
+                <div className="flex gap-1 border-b border-border-subtle pb-2">
+                  {['All', 'ES', 'DE'].map((l, i) => (
+                    <div key={l} className={cn(
+                      'px-3 py-1.5 text-xs font-medium rounded-t border-b-2 -mb-[9px]',
+                      i === 0 ? 'border-accent text-accent' : 'border-transparent text-text-muted',
+                    )}>
+                      {l} <span className="text-[10px] opacity-60">{i === 0 ? '12' : i === 1 ? '7' : '5'}</span>
+                    </div>
+                  ))}
+                </div>
+                <p>Select <strong className="text-foreground">All</strong> to see every product. Language badges appear on each card so you can tell them apart.</p>
+              </div>
+            ),
+          },
+          {
+            title: 'Website vs ADS corrections',
+            body: (
+              <div className="space-y-3 text-sm text-text-secondary">
+                <p>Each product splits corrections into two sources:</p>
+                <div className="flex gap-2 flex-wrap">
+                  <div className="flex flex-col gap-1 flex-1 min-w-0 rounded-lg border border-blue-500/30 bg-blue-500/5 p-3">
+                    <span className="text-xs font-semibold text-blue-400">Website</span>
+                    <span className="text-xs text-text-muted">Product page copy — titles, bullets, descriptions, FAQs.</span>
+                  </div>
+                  <div className="flex flex-col gap-1 flex-1 min-w-0 rounded-lg border border-purple-500/30 bg-purple-500/5 p-3">
+                    <span className="text-xs font-semibold text-purple-400">ADS</span>
+                    <span className="text-xs text-text-muted">Ad creative copy — headlines, descriptions, image text.</span>
+                  </div>
+                </div>
+                <p>The count badge on each tab shows how many corrections are logged for that source. Switch tabs to review each type independently.</p>
+              </div>
+            ),
+          },
+          {
+            title: 'Reading a correction card',
+            body: (
+              <div className="space-y-3 text-sm text-text-secondary">
+                <p>Each card represents one specific correction the proofreader flagged:</p>
+                <div className="rounded-xl border border-border-subtle bg-surface border-l-[3px] border-l-yellow-500 px-4 py-3 space-y-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono bg-surface-elevated border border-border-subtle rounded px-1.5 py-0.5 text-text-muted">#1</span>
+                    <span className="font-semibold text-text-muted uppercase tracking-wide">Product title</span>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-0.5">BEFORE</p>
+                    <p className="text-text-secondary line-through decoration-text-muted/50">Original wording that was incorrect</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-0.5">AFTER</p>
+                    <p className="text-foreground font-medium">Corrected wording to replace it with</p>
+                  </div>
+                  <div className="flex gap-1.5 flex-wrap">
+                    <span className="bg-surface-elevated border border-border-subtle rounded px-1.5 py-0.5 text-text-muted">Mistranslation</span>
+                    <span className="bg-yellow-500/10 text-yellow-400 border border-yellow-500/30 rounded px-1.5 py-0.5">Medium</span>
+                  </div>
+                </div>
+                <p>The <strong className="text-foreground">left border color</strong> shows severity at a glance: <span className="text-danger font-medium">red</span> = Critical, <span className="text-yellow-400 font-medium">yellow</span> = Medium, <span className="text-text-muted font-medium">gray</span> = Minor.</p>
+              </div>
+            ),
+          },
+          {
+            title: 'Marking corrections resolved',
+            body: (
+              <div className="space-y-3 text-sm text-text-secondary">
+                <p>Once a correction has been applied to the copy, click <strong className="text-foreground font-mono bg-surface-elevated border border-border-subtle rounded px-1 py-0.5">✓</strong> on the card to mark it resolved. The card dims to confirm it&apos;s done.</p>
+                <p>When all corrections for a product are handled, use the buttons in the product header to update the product&apos;s status:</p>
+                <div className="flex gap-2 flex-wrap">
+                  <span className="px-2 py-1 rounded text-xs bg-green-500/10 text-green-400 border border-green-500/20">✓ Ready — writer can revise</span>
+                  <span className="px-2 py-1 rounded text-xs text-text-muted bg-surface-elevated border border-border-subtle">✓ Done — fully complete</span>
+                </div>
+                <p className="text-xs text-text-muted">Marking actions are admin-only. Non-admin users can view all corrections but cannot change statuses.</p>
+              </div>
+            ),
+          },
+          {
+            title: 'Translate button',
+            body: (
+              <div className="space-y-3 text-sm text-text-secondary">
+                <p>Proofreaders work in their native language. Location names, issue types, and severity labels are shown in ES or DE by default.</p>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md border border-border-subtle text-text-muted">
+                    <span>🌐</span> Translate
+                  </div>
+                  <span className="text-text-muted text-xs">→</span>
+                  <div className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md border border-accent-border/50 bg-accent-muted text-accent-bright">
+                    <span>🌐</span> EN
+                  </div>
+                </div>
+                <p>Click the <strong className="text-foreground">Translate</strong> button in the product header to toggle all labels to English — useful for reviewers who don&apos;t speak the proofreader&apos;s language.</p>
+              </div>
+            ),
+          },
+        ]
+
+        const step = STEPS[helpStep]
+        return (
+          <Modal
+            open={howToUseOpen}
+            onClose={() => { setHowToUseOpen(false); setHelpStep(0) }}
+            title="How to use Proofreading"
+            description={`Step ${helpStep + 1} of ${STEPS.length}`}
+            size="xl"
+            footer={
+              <div className="flex items-center justify-between w-full">
+                <div className="flex gap-1.5">
+                  {STEPS.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setHelpStep(i)}
+                      className={cn(
+                        'w-2 h-2 rounded-full transition-colors',
+                        i === helpStep ? 'bg-accent' : 'bg-border hover:bg-border-subtle',
+                      )}
+                    />
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  {helpStep > 0 && (
+                    <Button variant="ghost" size="sm" onClick={() => setHelpStep(s => s - 1)}>Back</Button>
+                  )}
+                  {helpStep < STEPS.length - 1 ? (
+                    <Button size="sm" onClick={() => setHelpStep(s => s + 1)}>Next</Button>
+                  ) : (
+                    <Button size="sm" onClick={() => { setHowToUseOpen(false); setHelpStep(0) }}>Got it</Button>
+                  )}
+                </div>
+              </div>
+            }
+          >
+            <div className="space-y-4">
+              <h3 className="text-base font-semibold text-foreground">{step.title}</h3>
+              {step.body}
+            </div>
+          </Modal>
+        )
+      })()}
     </div>
   )
 }
