@@ -19,6 +19,8 @@ import {
   PanelLeftOpen,
   Trophy,
   Star,
+  Menu,
+  X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase'
@@ -30,10 +32,10 @@ const NAV = [
   { href: '/jewelry-tracker', label: 'Jewelry Tracker',  icon: Gem },
   { href: '/funnel-tracker',  label: 'Funnel Tracker',   icon: Filter },
   { href: '/proofread-queue', label: 'Proofread Queue',  icon: ListChecks },
-  { href: '/copy-review',     label: 'Proofreading',       icon: FileCheck },
+  { href: '/copy-review',     label: 'Proofreading',     icon: FileCheck },
   { href: '/mistake-log',     label: 'Mistake Log',      icon: AlertTriangle },
-  { href: '/product-ranking',  label: 'Product Ranking',   icon: Star },
-  { href: '/winning-products', label: 'Winning Products',  icon: Trophy },
+  { href: '/product-ranking', label: 'Product Ranking',  icon: Star },
+  { href: '/winning-products',label: 'Winning Products', icon: Trophy },
   { href: '/weekly-report',   label: 'Weekly Report',    icon: CalendarDays },
   { href: '/monthly-report',  label: 'Monthly Report',   icon: BarChart3 },
   { href: '/monthly-planner', label: 'Monthly Planner',  icon: Calendar },
@@ -46,6 +48,7 @@ export function NavSidebar() {
   const router = useRouter()
   const { role, permissions, viewerPermissions } = useRole()
   const [collapsed, setCollapsed] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
 
   useEffect(() => {
     const saved = localStorage.getItem('sidebar-collapsed')
@@ -55,6 +58,9 @@ export function NavSidebar() {
       setCollapsed(window.innerWidth < 768)
     }
   }, [])
+
+  // Close mobile drawer on route change
+  useEffect(() => { setMobileOpen(false) }, [pathname])
 
   function toggleCollapse() {
     setCollapsed(prev => {
@@ -86,21 +92,56 @@ export function NavSidebar() {
   }
 
   return (
-    <aside
-      className={cn(
-        'shrink-0 flex flex-col border-r border-border-subtle bg-surface-elevated h-screen sticky top-0 transition-[width] duration-200 overflow-hidden shadow-sm',
-        collapsed ? 'w-14' : 'w-60',
-      )}
-    >
-      {/* ── Header ── */}
+    <>
+      {/* ── Mobile top bar (hidden on desktop) ── */}
+      <div className="fixed top-0 left-0 right-0 z-40 flex items-center gap-3 h-14 px-4 bg-surface-elevated border-b border-border-subtle md:hidden">
+        <button
+          onClick={() => setMobileOpen(true)}
+          aria-label="Open menu"
+          className="flex items-center justify-center w-8 h-8 rounded-md text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+        <div className="flex items-center gap-2">
+          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-accent text-white">
+            <Terminal className="h-3.5 w-3.5" />
+          </div>
+          <span className="text-sm font-semibold text-foreground">Myko Ops</span>
+        </div>
+      </div>
+
+      {/* ── Mobile backdrop ── */}
       <div
         className={cn(
-          'flex items-center border-b border-border-subtle h-16 px-3',
-          collapsed ? 'justify-center' : 'justify-between gap-2',
+          'fixed inset-0 z-40 bg-black/50 md:hidden transition-opacity duration-200',
+          mobileOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none',
+        )}
+        onClick={() => setMobileOpen(false)}
+      />
+
+      {/* ── Sidebar ── */}
+      <aside
+        className={cn(
+          'flex flex-col border-r border-border-subtle bg-surface-elevated overflow-hidden',
+          // Mobile: fixed overlay, always 256px wide, slides in from left
+          'fixed inset-y-0 left-0 z-50 w-64 shadow-xl',
+          'transition-transform duration-200 ease-in-out',
+          mobileOpen ? 'translate-x-0' : '-translate-x-full',
+          // Desktop: static, sticky, variable width, no translate
+          'md:static md:inset-auto md:z-auto md:translate-x-0 md:shrink-0 md:sticky md:top-0 md:h-screen md:shadow-sm',
+          'md:transition-[width] md:duration-200',
+          collapsed ? 'md:w-14' : 'md:w-60',
         )}
       >
-        {!collapsed && (
-          <div className="flex items-center gap-2.5 min-w-0">
+        {/* ── Header ── */}
+        <div
+          className={cn(
+            'flex items-center border-b border-border-subtle h-16 px-3',
+            collapsed ? 'md:justify-center' : 'justify-between gap-2',
+          )}
+        >
+          {/* Logo — always shown on mobile, hidden when collapsed on desktop */}
+          <div className={cn('flex items-center gap-2.5 min-w-0', collapsed && 'md:hidden')}>
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-white shadow-sm">
               <Terminal className="h-4 w-4" />
             </div>
@@ -109,62 +150,74 @@ export function NavSidebar() {
               <p className="text-xs text-text-muted mt-0.5">Hub</p>
             </div>
           </div>
-        )}
 
-        <button
-          onClick={toggleCollapse}
-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          className={cn(
-            'shrink-0 flex items-center justify-center rounded-md w-7 h-7 text-text-muted',
-            'hover:bg-surface-hover hover:text-foreground transition-colors',
-          )}
-        >
-          {collapsed
-            ? <PanelLeftOpen className="h-4 w-4" />
-            : <PanelLeftClose className="h-4 w-4" />}
-        </button>
-      </div>
+          {/* Mobile: close button */}
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="flex items-center justify-center w-7 h-7 rounded-md text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors md:hidden"
+          >
+            <X className="h-4 w-4" />
+          </button>
 
-      {/* ── Nav ── */}
-      <nav className="flex-1 overflow-y-auto py-4 px-2">
-        {visibleNav.map(item => {
-          const active = pathname === item.href || pathname.startsWith(item.href + '/')
-          const Icon = item.icon
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              title={collapsed ? item.label : undefined}
-              className={cn(
-                'flex items-center rounded-lg py-2 text-sm mb-0.5 transition-colors',
-                collapsed ? 'justify-center px-2' : 'gap-2.5 px-3',
-                active
-                  ? 'bg-accent-muted text-accent font-medium'
-                  : 'text-text-secondary hover:bg-surface-hover hover:text-foreground',
-              )}
-            >
-              <Icon className={cn('h-4 w-4 shrink-0', active ? 'text-accent' : 'text-text-muted')} />
-              {!collapsed && item.label}
-            </Link>
-          )
-        })}
-      </nav>
+          {/* Desktop: collapse toggle */}
+          <button
+            onClick={toggleCollapse}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            className={cn(
+              'shrink-0 hidden md:flex items-center justify-center rounded-md w-7 h-7 text-text-muted',
+              'hover:bg-surface-hover hover:text-foreground transition-colors',
+            )}
+          >
+            {collapsed
+              ? <PanelLeftOpen className="h-4 w-4" />
+              : <PanelLeftClose className="h-4 w-4" />}
+          </button>
+        </div>
 
-      {/* ── Sign out ── */}
-      <div className="px-2 py-3 border-t border-border-subtle">
-        <button
-          onClick={handleLogout}
-          title={collapsed ? 'Sign out' : undefined}
-          className={cn(
-            'flex w-full items-center rounded-md py-2 text-sm text-text-muted',
-            'hover:bg-surface-hover hover:text-foreground transition-colors',
-            collapsed ? 'justify-center px-2' : 'gap-2.5 px-3',
-          )}
-        >
-          <LogOut className="h-4 w-4 shrink-0" />
-          {!collapsed && 'Sign out'}
-        </button>
-      </div>
-    </aside>
+        {/* ── Nav ── */}
+        <nav className="flex-1 overflow-y-auto py-4 px-2">
+          {visibleNav.map(item => {
+            const active = pathname === item.href || pathname.startsWith(item.href + '/')
+            const Icon = item.icon
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                title={collapsed ? item.label : undefined}
+                onClick={() => setMobileOpen(false)}
+                className={cn(
+                  'flex items-center gap-2.5 px-3 rounded-lg py-2 text-sm mb-0.5 transition-colors',
+                  // Desktop collapsed: center icon only
+                  collapsed && 'md:justify-center md:px-2',
+                  active
+                    ? 'bg-accent-muted text-accent font-medium'
+                    : 'text-text-secondary hover:bg-surface-hover hover:text-foreground',
+                )}
+              >
+                <Icon className={cn('h-4 w-4 shrink-0', active ? 'text-accent' : 'text-text-muted')} />
+                {/* Mobile: always show label. Desktop: hide when collapsed */}
+                <span className={cn(collapsed && 'md:hidden')}>{item.label}</span>
+              </Link>
+            )
+          })}
+        </nav>
+
+        {/* ── Sign out ── */}
+        <div className="px-2 py-3 border-t border-border-subtle">
+          <button
+            onClick={handleLogout}
+            title={collapsed ? 'Sign out' : undefined}
+            className={cn(
+              'flex w-full items-center gap-2.5 px-3 rounded-md py-2 text-sm text-text-muted',
+              'hover:bg-surface-hover hover:text-foreground transition-colors',
+              collapsed && 'md:justify-center md:px-2',
+            )}
+          >
+            <LogOut className="h-4 w-4 shrink-0" />
+            <span className={cn(collapsed && 'md:hidden')}>Sign out</span>
+          </button>
+        </div>
+      </aside>
+    </>
   )
 }
