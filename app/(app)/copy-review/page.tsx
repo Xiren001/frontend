@@ -336,7 +336,7 @@ export default function CopyReviewPage() {
                   <li key={p.id}>
                     {showHeader && (
                       <div className={cn(
-                        'px-3 py-1.5 border-y border-border-subtle',
+                        'px-4 py-2 border-y border-border-subtle',
                         isReady  ? 'bg-green-500/5'  :
                         noLinks  ? 'bg-yellow-500/5' : 'bg-surface-elevated/30',
                       )}>
@@ -353,7 +353,7 @@ export default function CopyReviewPage() {
                       type="button"
                       onClick={() => { selectProduct(p.id); setMobileDetailOpen(true) }}
                       className={cn(
-                        'w-full text-left px-3 py-3 transition-colors border-l-2',
+                        'w-full text-left px-4 py-3.5 transition-colors border-l-2',
                         isSelected
                           ? 'bg-accent-muted/40 border-l-accent'
                           : isReady
@@ -370,9 +370,9 @@ export default function CopyReviewPage() {
                         {p.product_name}
                       </p>
                       {p.proofreader && (
-                        <p className="text-xs text-text-muted mt-0.5 truncate">{p.proofreader}</p>
+                        <p className="text-xs text-text-muted mt-1 truncate">{p.proofreader}</p>
                       )}
-                      <div className="flex items-center justify-between mt-1.5 gap-1">
+                      <div className="flex items-center justify-between mt-2 gap-1">
                         <div className="flex items-center gap-1">
                           {langFilter === 'all' && p.language && <Badge variant="accent">{p.language}</Badge>}
                           {p.done && <Badge variant="muted">Done</Badge>}
@@ -462,13 +462,13 @@ export default function CopyReviewPage() {
 
             {selectedProduct && selectedProduct.pdp_url && selectedProduct.drive_folder && (
               <>
-                <div className="shrink-0 px-5 py-4 border-b border-border-subtle">
+                <div className="shrink-0 px-5 py-4 border-b border-border-subtle bg-surface-elevated/30">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <h2 className="text-base font-semibold text-foreground leading-snug">
                         {selectedProduct.product_name}
                       </h2>
-                      <div className="flex items-center gap-2 flex-wrap mt-1.5">
+                      <div className="flex items-center gap-2 flex-wrap mt-2">
                         {selectedProduct.language && <Badge variant="accent">{selectedProduct.language}</Badge>}
                         {selectedProduct.proofreader && (
                           <span className="text-xs text-text-muted">{selectedProduct.proofreader}</span>
@@ -515,7 +515,7 @@ export default function CopyReviewPage() {
                     )}
                   </div>
 
-                  <div className="flex items-center gap-3 mt-3">
+                  <div className="flex items-center gap-3 mt-3.5">
                     <a
                       href={selectedProduct.pdp_url}
                       target="_blank"
@@ -557,12 +557,12 @@ export default function CopyReviewPage() {
                   const tabCorrections = selectedCorrections.filter(c => c.source === sourceTab)
                   return (
                     <>
-                      <div className="shrink-0 px-5 border-b border-border-subtle flex items-center justify-between">
+                      <div className="shrink-0 px-4 border-b border-border-subtle flex items-center justify-between bg-surface-elevated/20">
                         <Tabs tabs={tabItems} active={sourceTab} onChange={v => setSourceTab(v as CorrectionSource)} />
                         {isAdmin && (
                           <button
                             onClick={() => openCreateCorrection(selectedProduct.id, sourceTab)}
-                            className="flex items-center gap-1 text-xs text-text-muted hover:text-foreground transition-colors pb-1"
+                            className="flex items-center gap-1.5 text-xs font-medium text-text-muted hover:text-foreground hover:bg-surface-hover px-2 py-1 rounded-md transition-colors"
                           >
                             <Plus className="h-3.5 w-3.5" />Add
                           </button>
@@ -582,7 +582,7 @@ export default function CopyReviewPage() {
                             )}
                           </div>
                         ) : (
-                          <div className="divide-y divide-border-subtle">
+                          <div className="p-4 space-y-3">
                             {tabCorrections.map((c, i) => {
                               const loc      = isTranslated ? translateLocation(c.location)    : c.location
                               const issueTyp = isTranslated ? translateIssueType(c.issue_type) : c.issue_type
@@ -591,77 +591,80 @@ export default function CopyReviewPage() {
                                 <div
                                   key={c.id}
                                   className={cn(
-                                    'px-5 py-4 border-l-[3px] transition-opacity',
+                                    'rounded-xl border border-border-subtle bg-surface-elevated shadow-sm',
+                                    'border-l-[3px] px-4 py-4 transition-opacity',
                                     severityBorder(c.severity),
                                     c.done && 'opacity-50',
                                   )}
                                 >
-                                  <div className="flex items-start gap-3">
-                                    <div className="flex-1 min-w-0 space-y-2.5">
-                                      <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="text-[10px] font-mono text-text-muted bg-surface-elevated border border-border-subtle rounded px-1.5 py-0.5">
-                                          #{i + 1}
-                                        </span>
-                                        {loc && (
-                                          <span className="text-xs font-medium text-text-muted uppercase tracking-wide">{loc}</span>
-                                        )}
-                                      </div>
-
-                                      {c.original_text && (
-                                        <div className="space-y-0.5">
-                                          <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">{L.before}</p>
-                                          <p className="text-sm text-text-secondary leading-relaxed line-through decoration-text-muted/50">
-                                            {c.original_text}
-                                          </p>
-                                        </div>
-                                      )}
-
-                                      {c.corrected_text && (
-                                        <div className="space-y-0.5">
-                                          <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">{L.after}</p>
-                                          <p className="text-sm text-foreground font-medium leading-relaxed">
-                                            {c.corrected_text}
-                                          </p>
-                                        </div>
-                                      )}
-
-                                      <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-                                        {issueTyp && <Badge variant="default">{issueTyp}</Badge>}
-                                        <SeverityBadge severity={sev} />
-                                        {c.done && <Badge variant="muted">{L.resolved}</Badge>}
-                                      </div>
-
-                                      {c.notes && (
-                                        <p className="text-xs text-text-muted italic border-l-2 border-border-subtle pl-2">
-                                          {c.notes}
-                                        </p>
+                                  {/* Card header: number, location, actions */}
+                                  <div className="flex items-center justify-between gap-2 mb-3">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="text-[10px] font-mono text-text-muted bg-surface border border-border-subtle rounded px-1.5 py-0.5">
+                                        #{i + 1}
+                                      </span>
+                                      {loc && (
+                                        <span className="text-xs font-semibold text-text-muted uppercase tracking-wide">{loc}</span>
                                       )}
                                     </div>
-
                                     {isAdmin && (
-                                      <div className="flex items-center gap-0.5 shrink-0 -mt-0.5">
+                                      <div className="flex items-center gap-0.5 shrink-0">
                                         <button
                                           onClick={() => toggleCorrectionDone(c)}
-                                          className="p-1.5 rounded text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors text-xs"
+                                          className="p-1.5 rounded-md text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors text-xs"
                                           title={c.done ? 'Reopen' : 'Mark resolved'}
                                         >
                                           {c.done ? '↩' : '✓'}
                                         </button>
                                         <button
                                           onClick={() => openEditCorrection(c)}
-                                          className="p-1.5 rounded text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                                          className="p-1.5 rounded-md text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
                                         >
                                           <Pencil className="h-3.5 w-3.5" />
                                         </button>
                                         <button
                                           onClick={() => setDeleteCorrectionId(c.id)}
-                                          className="p-1.5 rounded text-text-muted hover:text-danger hover:bg-danger-muted transition-colors"
+                                          className="p-1.5 rounded-md text-text-muted hover:text-danger hover:bg-danger-muted transition-colors"
                                         >
                                           <Trash2 className="h-3.5 w-3.5" />
                                         </button>
                                       </div>
                                     )}
                                   </div>
+
+                                  {/* Before / After */}
+                                  <div className="space-y-3">
+                                    {c.original_text && (
+                                      <div className="space-y-1">
+                                        <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">{L.before}</p>
+                                        <p className="text-sm text-text-secondary leading-relaxed line-through decoration-text-muted/50">
+                                          {c.original_text}
+                                        </p>
+                                      </div>
+                                    )}
+
+                                    {c.corrected_text && (
+                                      <div className="space-y-1">
+                                        <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">{L.after}</p>
+                                        <p className="text-sm text-foreground font-medium leading-relaxed">
+                                          {c.corrected_text}
+                                        </p>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Badges + notes */}
+                                  <div className="mt-3 flex items-center gap-1.5 flex-wrap">
+                                    {issueTyp && <Badge variant="default">{issueTyp}</Badge>}
+                                    <SeverityBadge severity={sev} />
+                                    {c.done && <Badge variant="muted">{L.resolved}</Badge>}
+                                  </div>
+
+                                  {c.notes && (
+                                    <p className="mt-2.5 text-xs text-text-muted italic border-l-2 border-border-subtle pl-2.5 leading-relaxed">
+                                      {c.notes}
+                                    </p>
+                                  )}
                                 </div>
                               )
                             })}
