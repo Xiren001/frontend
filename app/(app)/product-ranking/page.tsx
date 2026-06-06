@@ -8,6 +8,8 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Badge } from '@/components/ui/badge'
 import { Tabs } from '@/components/ui/tabs'
 import { ResponsiveTable, type ResponsiveColumn } from '@/components/ui/responsive-table'
+import { Search, X } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 function daysSince(dateStr: string | null | undefined): number | null {
   if (!dateStr) return null
@@ -165,6 +167,9 @@ export default function ProductRankingPage() {
   const [builds, setBuilds] = useState<Build[]>([])
   const [tab, setTab] = useState<TabId>('testing')
   const [winningTitles, setWinningTitles] = useState<Set<string>>(new Set())
+  const [searchQuery, setSearchQuery] = useState('')
+  const [typeFilter, setTypeFilter] = useState<'all' | 'jewelry' | 'funnel'>('all')
+  const [langFilter, setLangFilter] = useState('all')
 
   async function load() {
     const data = await api.get<Build[]>('/api/builds')
@@ -177,17 +182,31 @@ export default function ProductRankingPage() {
     setWinningTitles(loadWinningTitles())
   }, [])
 
-  const testing = builds
+  const uniqueLangs = Array.from(new Set(builds.map(b => b.language).filter(Boolean))).sort() as string[]
+
+  function applyFilters(list: Build[]) {
+    const q = searchQuery.trim().toLowerCase()
+    return list.filter(b => {
+      if (typeFilter !== 'all' && b.type !== typeFilter) return false
+      if (langFilter !== 'all' && b.language !== langFilter) return false
+      if (q && !b.product_name.toLowerCase().includes(q)) return false
+      return true
+    })
+  }
+
+  const allTesting = builds
     .filter(b => b.outcome === 'testing')
     .sort((a, b) => (a.into_testing ?? '').localeCompare(b.into_testing ?? ''))
-
-  const expanding = builds
+  const allExpanding = builds
     .filter(b => b.outcome === 'expanding')
     .sort((a, b) => (b.outcome_decided ?? '').localeCompare(a.outcome_decided ?? ''))
 
+  const testing  = applyFilters(allTesting)
+  const expanding = applyFilters(allExpanding)
+
   const tabs = [
-    { id: 'testing' as TabId, label: 'Testing', count: testing.length },
-    { id: 'expanding' as TabId, label: 'Expanding', count: expanding.length },
+    { id: 'testing' as TabId,   label: 'Testing',   count: allTesting.length  },
+    { id: 'expanding' as TabId, label: 'Expanding', count: allExpanding.length },
   ]
 
   return (
@@ -198,16 +217,64 @@ export default function ProductRankingPage() {
       />
 
       <div className="border border-border-subtle rounded-xl bg-surface-elevated overflow-hidden">
-        <div className="px-4 pt-4">
+        <div className="px-4 pt-4 flex items-end justify-between gap-3 flex-wrap">
           <Tabs tabs={tabs} active={tab} onChange={id => setTab(id as TabId)} />
         </div>
+
+        {/* Search + filters */}
+        <div className="px-4 pb-3 pt-3 border-b border-border-subtle flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 min-w-48">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-muted pointer-events-none" />
+            <input
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search products…"
+              className="w-full rounded-md border border-border bg-surface pl-8 pr-7 py-1.5 text-xs text-foreground placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/40"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-foreground">
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
+            {(['all', 'jewelry', 'funnel'] as const).map(t => (
+              <button
+                key={t}
+                onClick={() => setTypeFilter(t)}
+                className={cn(
+                  'px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors border capitalize',
+                  typeFilter === t
+                    ? 'bg-accent-muted text-accent-bright border-accent-border/50'
+                    : 'text-text-secondary border-transparent hover:bg-surface-hover',
+                )}
+              >{t === 'all' ? 'All types' : t}</button>
+            ))}
+          </div>
+          {uniqueLangs.length > 1 && (
+            <select
+              value={langFilter}
+              onChange={e => setLangFilter(e.target.value)}
+              className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-accent/40"
+            >
+              <option value="all">All langs</option>
+              {uniqueLangs.map(l => <option key={l} value={l}>{l}</option>)}
+            </select>
+          )}
+          {(searchQuery || typeFilter !== 'all' || langFilter !== 'all') && (
+            <span className="text-xs text-text-muted ml-auto">
+              {(tab === 'testing' ? testing : expanding).length} result{(tab === 'testing' ? testing : expanding).length !== 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+
         <div className="p-4">
           {tab === 'testing' && (
             <ResponsiveTable
               columns={makeTestingColumns(winningTitles)}
               data={testing}
               rowKey={b => b.id}
-              emptyMessage="No products currently in testing."
+              emptyMessage={searchQuery || typeFilter !== 'all' || langFilter !== 'all' ? 'No matching products.' : 'No products currently in testing.'}
               rowClassName={b =>
                 isWinner(b.product_name, winningTitles)
                   ? 'bg-accent-muted/40'
@@ -220,7 +287,7 @@ export default function ProductRankingPage() {
               columns={expandingColumns}
               data={expanding}
               rowKey={b => b.id}
-              emptyMessage="No products currently expanding."
+              emptyMessage={searchQuery || typeFilter !== 'all' || langFilter !== 'all' ? 'No matching products.' : 'No products currently expanding.'}
             />
           )}
         </div>

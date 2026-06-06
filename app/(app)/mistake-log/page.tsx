@@ -13,7 +13,7 @@ import { ResponsiveTable, type ResponsiveColumn } from '@/components/ui/responsi
 import { Badge } from '@/components/ui/badge'
 import { MistakeFormModal, CATEGORIES, ConfirmModal } from '@/components/MistakeFormModal'
 import { MistakeBulkModal } from '@/components/MistakeBulkModal'
-import { Plus, X, Layers } from 'lucide-react'
+import { Plus, X, Layers, Search } from 'lucide-react'
 
 const SOP_THRESHOLD = 3
 
@@ -31,6 +31,10 @@ export default function MistakeLogPage() {
   const [saving, setSaving]       = useState(false)
   const [deleting, setDeleting]   = useState(false)
   const [bulkOpen, setBulkOpen]   = useState(false)
+
+  // search + filter
+  const [searchQuery, setSearchQuery]     = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('all')
 
   // custom patterns
   const [customPatterns, setCustomPatterns] = useState<string[]>([])
@@ -110,6 +114,18 @@ export default function MistakeLogPage() {
 
   const allPatterns = [...CATEGORIES, ...customPatterns]
 
+  const mq = searchQuery.trim().toLowerCase()
+  const filtered = mistakes.filter(m => {
+    if (categoryFilter !== 'all' && m.category !== categoryFilter) return false
+    if (!mq) return true
+    return (
+      (m.product_name ?? '').toLowerCase().includes(mq) ||
+      (m.category ?? '').toLowerCase().includes(mq) ||
+      (m.description ?? '').toLowerCase().includes(mq) ||
+      (m.caught_where ?? '').toLowerCase().includes(mq)
+    )
+  })
+
   const columns: ResponsiveColumn<Mistake>[] = [
     { key: 'date',     header: 'Date',        mono: true,  render: m => formatDate(m.date) },
     { key: 'product',  header: 'Product',                   render: m => <span className="text-foreground">{m.product_name ?? '—'}</span> },
@@ -148,14 +164,45 @@ export default function MistakeLogPage() {
         }
       />
 
+      {/* Search + category filter */}
+      <div className="flex flex-wrap items-center gap-2 mb-6">
+        <div className="relative flex-1 min-w-48">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-muted pointer-events-none" />
+          <input
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search product, category, description…"
+            className="w-full rounded-md border border-border bg-surface pl-8 pr-7 py-1.5 text-xs text-foreground placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/40"
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-foreground">
+              <X className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+        <select
+          value={categoryFilter}
+          onChange={e => setCategoryFilter(e.target.value)}
+          className="rounded-md border border-border bg-surface px-3 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-accent/40"
+        >
+          <option value="all">All categories</option>
+          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+        {(searchQuery || categoryFilter !== 'all') && (
+          <span className="text-xs text-text-muted">
+            {filtered.length} of {mistakes.length}
+          </span>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         {/* ── Mistake table ── */}
         <div className="lg:col-span-2">
           <ResponsiveTable
             columns={columns}
-            data={mistakes}
+            data={filtered}
             rowKey={m => m.id}
-            emptyMessage="No mistakes logged this month"
+            emptyMessage={searchQuery || categoryFilter !== 'all' ? 'No matching mistakes.' : 'No mistakes logged this month'}
             mobileTitle={m => m.product_name ?? 'Unknown product'}
             mobileSubtitle={m => formatDate(m.date)}
             mobileActions={isAdmin ? m => (

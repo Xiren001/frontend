@@ -9,6 +9,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { createClient } from '@/lib/supabase'
+import { Search, X } from 'lucide-react'
 
 type TypeFilter = 'all' | 'jewelry' | 'funnel'
 
@@ -21,6 +22,7 @@ function daysInProofread(b: Build): number | null {
 export default function ProofreadQueuePage() {
   const [builds, setBuilds] = useState<Build[]>([])
   const [filter, setFilter] = useState<TypeFilter>('all')
+  const [searchQuery, setSearchQuery] = useState('')
   const [isAdmin, setIsAdmin] = useState(false)
   const [advancing, setAdvancing] = useState<string | null>(null)
 
@@ -51,7 +53,15 @@ export default function ProofreadQueuePage() {
       setAdvancing(null) }
   }
 
-  const visible = builds.filter(b => filter === 'all' || b.type === filter)
+  const byType = builds.filter(b => filter === 'all' || b.type === filter)
+  const q = searchQuery.trim().toLowerCase()
+  const visible = q
+    ? byType.filter(b =>
+        b.product_name.toLowerCase().includes(q) ||
+        (b.proofreader ?? '').toLowerCase().includes(q) ||
+        (b.language ?? '').toLowerCase().includes(q)
+      )
+    : byType
   const jewelryCount = builds.filter(b => b.type === 'jewelry').length
   const funnelCount  = builds.filter(b => b.type === 'funnel').length
 
@@ -68,23 +78,39 @@ export default function ProofreadQueuePage() {
         description="Builds currently in the Proofread phase. Items flagged red exceed the 3-day target."
       />
 
-      <div className="flex items-center gap-1 mb-6">
-        {FILTERS.map(f => (
-          <button
-            key={f.key}
-            onClick={() => setFilter(f.key)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors
-              ${filter === f.key
-                ? 'bg-accent-muted text-accent-bright border border-accent-border/50'
-                : 'text-text-secondary hover:bg-surface-hover border border-transparent'
-              }`}
-          >
-            {f.label}
-            <span className={`text-[10px] font-mono px-1 rounded ${filter === f.key ? 'text-accent' : 'text-text-muted'}`}>
-              {f.count}
-            </span>
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center gap-2 mb-6">
+        <div className="flex items-center gap-1">
+          {FILTERS.map(f => (
+            <button
+              key={f.key}
+              onClick={() => setFilter(f.key)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors
+                ${filter === f.key
+                  ? 'bg-accent-muted text-accent-bright border border-accent-border/50'
+                  : 'text-text-secondary hover:bg-surface-hover border border-transparent'
+                }`}
+            >
+              {f.label}
+              <span className={`text-[10px] font-mono px-1 rounded ${filter === f.key ? 'text-accent' : 'text-text-muted'}`}>
+                {f.count}
+              </span>
+            </button>
+          ))}
+        </div>
+        <div className="relative ml-auto">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-muted pointer-events-none" />
+          <input
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search product or proofreader…"
+            className="rounded-md border border-border bg-surface pl-8 pr-7 py-1.5 text-xs text-foreground placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/40 w-64"
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-foreground">
+              <X className="h-3 w-3" />
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="overflow-x-auto">
@@ -106,7 +132,7 @@ export default function ProofreadQueuePage() {
             {visible.length === 0 && (
               <TableRow>
                 <TableCell colSpan={isAdmin ? 9 : 8} className="text-center text-text-muted py-12">
-                  Queue is empty — all clear.
+                  {searchQuery ? `No results for "${searchQuery}"` : 'Queue is empty — all clear.'}
                 </TableCell>
               </TableRow>
             )}

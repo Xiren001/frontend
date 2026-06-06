@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Modal, FormField } from '@/components/ui/modal'
 import { useRole } from '@/lib/role-context'
 import { cn } from '@/lib/utils'
-import { Plus, Trash2, Copy, UserPlus, CheckCircle2, Circle, Check, ArrowRightLeft } from 'lucide-react'
+import { Plus, Trash2, Copy, UserPlus, CheckCircle2, Circle, Check, ArrowRightLeft, Search, X } from 'lucide-react'
 
 interface TeamMember {
   id: string
@@ -46,6 +46,7 @@ export default function TeamTasksPage() {
 
   const [copied, setCopied] = useState(false)
   const [transferTaskId, setTransferTaskId] = useState<string | null>(null)
+  const [taskSearch, setTaskSearch] = useState('')
 
   const loadMembers = useCallback(async () => {
     try {
@@ -73,6 +74,7 @@ export default function TeamTasksPage() {
   useEffect(() => {
     if (activeMemberId) loadTasks(activeMemberId)
     else setTasks([])
+    setTaskSearch('')
   }, [activeMemberId, loadTasks])
 
   async function addTask() {
@@ -141,9 +143,11 @@ export default function TeamTasksPage() {
   }
 
   const otherMembers = members.filter(m => m.id !== activeMemberId)
-  const pendingTasks = tasks.filter(t => !t.done)
-  const doneTasks    = tasks
-    .filter(t => t.done)
+  const tq = taskSearch.trim().toLowerCase()
+  const pendingTasks = tasks
+    .filter(t => !t.done && (!tq || t.text.toLowerCase().includes(tq)))
+  const doneTasks = tasks
+    .filter(t => t.done && (!tq || t.text.toLowerCase().includes(tq)))
     .sort((a, b) => (b.done_at ?? b.created_at).localeCompare(a.done_at ?? a.created_at))
 
   return (
@@ -206,7 +210,7 @@ export default function TeamTasksPage() {
           {activeMemberId && (
             <div className="max-w-2xl">
               {/* Add task input */}
-              <div className="flex gap-2 mb-6">
+              <div className="flex gap-2 mb-3">
                 <Input
                   value={newTask}
                   onChange={e => setNewTask(e.target.value)}
@@ -218,6 +222,24 @@ export default function TeamTasksPage() {
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
+
+              {/* Search tasks */}
+              {tasks.length > 0 && (
+                <div className="relative mb-6">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-muted pointer-events-none" />
+                  <input
+                    value={taskSearch}
+                    onChange={e => setTaskSearch(e.target.value)}
+                    placeholder="Search tasks…"
+                    className="w-full rounded-md border border-border bg-surface pl-8 pr-7 py-1.5 text-xs text-foreground placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/40"
+                  />
+                  {taskSearch && (
+                    <button onClick={() => setTaskSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-foreground">
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* Pending tasks */}
               {pendingTasks.length > 0 && (
@@ -354,9 +376,10 @@ export default function TeamTasksPage() {
               )}
 
               {tasks.length === 0 && (
-                <p className="text-sm text-text-muted text-center py-10">
-                  No tasks yet — add one above.
-                </p>
+                <p className="text-sm text-text-muted text-center py-10">No tasks yet — add one above.</p>
+              )}
+              {tasks.length > 0 && pendingTasks.length === 0 && doneTasks.length === 0 && taskSearch && (
+                <p className="text-sm text-text-muted text-center py-10">No tasks match &ldquo;{taskSearch}&rdquo;</p>
               )}
             </div>
           )}

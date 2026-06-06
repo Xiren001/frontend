@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { Tabs } from '@/components/ui/tabs'
 import { ConfirmModal } from '@/components/ui/modal'
-import { ClipboardList, Layers, Pencil, Trash2, Download, Upload, FileDown, ChevronDown } from 'lucide-react'
+import { ClipboardList, Layers, Pencil, Trash2, Download, Upload, FileDown, ChevronDown, Search, X } from 'lucide-react'
 import * as XLSX from 'xlsx'
 
 // ── Phase config ─────────────────────────────────────────────────────────────
@@ -280,6 +280,7 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
   const [settings, setSettings] = useState<Settings | null>(null)
   const [importing, setImporting] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [searchQuery, setSearchQuery] = useState('')
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
   const [bulkDeleting, setBulkDeleting] = useState(false)
   const [grouping, setGrouping] = useState(false)
@@ -313,8 +314,8 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
   // When a batch is active it overrides the week filter — show all builds in that batch
   const displayBuilds = activeBatch !== null ? (batchMap.get(activeBatch) ?? []) : weekBuilds
 
-  // Clear selection when week or batch changes
-  useEffect(() => { setSelectedIds(new Set()) }, [activeWeek, activeBatch])
+  // Clear selection and search when week or batch changes
+  useEffect(() => { setSelectedIds(new Set()); setSearchQuery('') }, [activeWeek, activeBatch])
 
   // Clear active batch if it doesn't belong to the current week
   useEffect(() => {
@@ -322,6 +323,15 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
       setActiveBatch(null)
     }
   }, [activeWeek])
+
+  const bq = searchQuery.trim().toLowerCase()
+  const filteredBuilds = bq
+    ? displayBuilds.filter(b =>
+        b.product_name.toLowerCase().includes(bq) ||
+        (b.language ?? '').toLowerCase().includes(bq) ||
+        (b.proofreader ?? '').toLowerCase().includes(bq)
+      )
+    : displayBuilds
 
   const buildAvg = avgNum(displayBuilds.map(b => b.build_days))
   const proofAvg = avgNum(displayBuilds.map(b => b.proof_days))
@@ -411,9 +421,9 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
 
   function toggleSelectAll() {
     setSelectedIds(prev =>
-      prev.size === displayBuilds.length
+      prev.size === filteredBuilds.length
         ? new Set()
-        : new Set(displayBuilds.map(b => b.id))
+        : new Set(filteredBuilds.map(b => b.id))
     )
   }
 
@@ -570,6 +580,22 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
 
   return (
     <div className="space-y-4">
+      {/* ── Mobile: search ── */}
+      <div className="relative md:hidden">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-muted pointer-events-none" />
+        <input
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          placeholder="Search products…"
+          className="w-full rounded-md border border-border bg-surface pl-8 pr-7 py-1.5 text-xs text-foreground placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/40"
+        />
+        {searchQuery && (
+          <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-foreground">
+            <X className="h-3 w-3" />
+          </button>
+        )}
+      </div>
+
       {/* ── Mobile: week select + actions menu ── */}
       <div className="flex items-center gap-2 md:hidden">
         <select
@@ -661,6 +687,22 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
         )}
       </div>
 
+      {/* ── Desktop: search bar ── */}
+      <div className="hidden md:block relative">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-muted pointer-events-none" />
+        <input
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          placeholder="Search by product, language, or proofreader…"
+          className="w-full rounded-md border border-border bg-surface pl-8 pr-7 py-1.5 text-xs text-foreground placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/40"
+        />
+        {searchQuery && (
+          <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-foreground">
+            <X className="h-3 w-3" />
+          </button>
+        )}
+      </div>
+
       {/* ── Batch sub-tabs (below week tabs, both mobile + desktop) ── */}
       <BatchSubTabs />
 
@@ -672,13 +714,15 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
       <>
         {/* Mobile card layout */}
         <div className="block md:hidden space-y-3">
-          {displayBuilds.length === 0 && (
+          {filteredBuilds.length === 0 && (
             <p className="text-sm text-text-muted text-center py-10">
-              {activeBatch !== null ? 'No builds in this batch.' : `No builds in Week ${activeWeek}`}
-              {isAdmin && activeBatch === null && <> · <button onClick={openCreate} className="text-accent hover:text-accent-bright">Add one</button></>}
+              {searchQuery
+                ? `No results for "${searchQuery}"`
+                : activeBatch !== null ? 'No builds in this batch.' : `No builds in Week ${activeWeek}`}
+              {isAdmin && !searchQuery && activeBatch === null && <> · <button onClick={openCreate} className="text-accent hover:text-accent-bright">Add one</button></>}
             </p>
           )}
-          {displayBuilds.map(b => (
+          {filteredBuilds.map(b => (
             <BuildCard
               key={b.id}
               b={b}
@@ -703,8 +747,8 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
                       <TableHeader className="w-8 pr-0">
                         <input
                           type="checkbox"
-                          checked={displayBuilds.length > 0 && selectedIds.size === displayBuilds.length}
-                          ref={el => { if (el) el.indeterminate = selectedIds.size > 0 && selectedIds.size < displayBuilds.length }}
+                          checked={filteredBuilds.length > 0 && selectedIds.size === filteredBuilds.length}
+                          ref={el => { if (el) el.indeterminate = selectedIds.size > 0 && selectedIds.size < filteredBuilds.length }}
                           onChange={toggleSelectAll}
                           className="cursor-pointer accent-accent"
                         />
@@ -726,7 +770,14 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin }: Props) 
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {displayBuilds.map(b => (
+                  {filteredBuilds.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={99} className="text-center text-text-muted py-12">
+                        {searchQuery ? `No results for "${searchQuery}"` : activeBatch !== null ? 'No builds in this batch.' : `No builds in Week ${activeWeek}`}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {filteredBuilds.map(b => (
                     <TableRow
                       key={b.id}
                       className={cn('cursor-pointer', selectedIds.has(b.id) && 'bg-accent-muted/30')}
