@@ -11,7 +11,7 @@ import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ResponsiveTable, type ResponsiveColumn } from '@/components/ui/responsive-table'
 import { Modal } from '@/components/ui/modal'
-import { TrendingUp, FlaskConical, Trophy } from 'lucide-react'
+import { TrendingUp, FlaskConical, Trophy, Download } from 'lucide-react'
 
 interface MonthlyReport {
   totalCompleted: number
@@ -21,6 +21,7 @@ interface MonthlyReport {
   winners: number
   killed: number
   winRate: string
+  testWinRate: string
   avgBuildDays: number | null
   avgTotalDays: number | null
   mistakesTotal: number
@@ -32,7 +33,7 @@ interface MonthlyReport {
   narrative: { narrative_text: string } | null
 }
 
-interface MetricRow { label: string; value: string | number }
+interface MetricRow { label: string; value: string | number; description: string }
 
 interface CsvProduct { title: string; unitsSold?: number; unitGrowthPct?: number }
 
@@ -59,6 +60,286 @@ function BuildRow({ b }: { b: BuildSummary }) {
       </div>
     </div>
   )
+}
+
+function esc(s: string | null | undefined): string {
+  if (!s) return ''
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+function generateMonthlyHtml(
+  month: string,
+  report: MonthlyReport,
+  csvWinners: { demand: CsvProduct[]; momentum: CsvProduct[] },
+): string {
+  const dateLabel = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+  const monthLabel = (() => {
+    const [y, m] = month.split('-')
+    return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })
+  })()
+
+  const categoryBreakdown = Object.entries(report.mistakesByCategory)
+    .sort((a, b) => b[1] - a[1])
+    .map(([cat, count]) => `${cat} (${count})`)
+    .join(', ') || '—'
+
+  const METRICS: { label: string; value: string | number; description: string }[] = [
+    { label: 'Builds completed (went live)',        value: report.totalCompleted,       description: 'Total builds that reached a final decision — expanding or stopped.' },
+    { label: '  · Jewelry (Shopify)',               value: report.jewelryCompleted,     description: 'Jewelry builds on Shopify that completed this month.' },
+    { label: '  · Funnel (Funnelish)',              value: report.funnelCompleted,      description: 'Funnel builds on Funnelish that completed this month.' },
+    { label: 'By week — W1 / W2 / W3 / W4',        value: report.byWeek.join(' / '),   description: 'Distribution of completed builds across the four weeks of the month.' },
+    { label: 'Expanding (decided)',                 value: report.winners,              description: 'Products approved for scale-up after passing testing.' },
+    { label: 'Stopped',                             value: report.killed,               description: 'Products discontinued after testing did not meet targets.' },
+    { label: 'Win rate (all decided)',              value: report.winRate,              description: 'Expanding ÷ all decided builds. Includes products stopped without entering testing.' },
+    { label: 'Test → Winner (%)',                   value: report.testWinRate,          description: 'Of all products that entered the testing phase, the percentage that became expanding. This is the true quality signal.' },
+    { label: 'Build cycle avg (days)',              value: report.avgBuildDays ?? '—',  description: 'Average days from Phase 1 start to build complete (went live).' },
+    { label: 'Total pipeline avg (days)',           value: report.avgTotalDays ?? '—',  description: 'Average days from approval through testing to a final outcome decision.' },
+    { label: 'Issues logged',                       value: report.mistakesTotal,        description: 'Total mistakes or quality issues recorded in the Issue Log.' },
+    { label: '  · Repeating issues',               value: report.mistakesRepeating,    description: 'Issues that appeared in more than one build — signals a systematic gap.' },
+    { label: '  · By category',                    value: categoryBreakdown,           description: 'Issue breakdown by category, sorted by frequency.' },
+    { label: '  · SOPs updated',                   value: report.sopUpdated,           description: 'Issues where the SOP was updated to prevent recurrence.' },
+  ]
+
+  const metricRows = METRICS.map(m => `
+    <tr>
+      <td class="td-label">
+        <div class="ml">${esc(m.label)}</div>
+        <div class="md">${esc(m.description)}</div>
+      </td>
+      <td class="td-val">${esc(String(m.value))}</td>
+    </tr>`).join('')
+
+  const buildRows = (list: BuildSummary[]) =>
+    list.map(b => `
+      <div class="product-item">
+        <span class="product-name">${esc(b.product_name)}</span>
+        <span class="badges">
+          ${b.language ? `<span class="badge badge-lang">${esc(b.language)}</span>` : ''}
+          <span class="badge ${b.type === 'jewelry' ? 'badge-jewelry' : 'badge-funnel'}">${b.type === 'jewelry' ? 'Jewelry' : 'Funnel'}</span>
+          ${b.week_number ? `<span class="badge badge-week">W${b.week_number}</span>` : ''}
+        </span>
+      </div>`).join('')
+
+  const hasCsv = csvWinners.demand.length > 0 || csvWinners.momentum.length > 0
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Monthly Performance Report — ${esc(monthLabel)}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:#0f172a;background:#f1f5f9;line-height:1.5}
+.page{max-width:900px;margin:0 auto;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.06),0 16px 48px rgba(0,0,0,.08)}
+/* toolbar */
+.toolbar{display:flex;align-items:center;justify-content:space-between;padding:12px 40px;background:#f8fafc;border-bottom:1px solid #e2e8f0}
+.toolbar-brand{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#94a3b8}
+.toolbar-actions{display:flex;gap:8px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;border:none;font-family:inherit}
+.btn-primary{background:#6366f1;color:#fff}
+.btn-ghost{background:#fff;color:#475569;border:1px solid #e2e8f0}
+/* report header */
+.rh{padding:40px 48px 36px;border-bottom:1px solid #e2e8f0}
+.rh-top{display:flex;justify-content:space-between;align-items:flex-start}
+.rh-brand{font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:#94a3b8;margin-bottom:8px}
+.rh-title{font-size:30px;font-weight:700;letter-spacing:-.02em;color:#0f172a}
+.rh-period{font-size:14px;color:#64748b;margin-top:4px}
+.rh-right{text-align:right}
+.rh-date{font-size:11px;color:#94a3b8}
+.rh-note{font-size:10px;color:#cbd5e1;margin-top:3px}
+/* content */
+.content{padding:40px 48px}
+/* section */
+.section{margin-bottom:44px}
+.sec-label{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#94a3b8;margin-bottom:6px;padding-bottom:8px;border-bottom:1px solid #f1f5f9}
+.sec-count{font-weight:normal;color:#cbd5e1;letter-spacing:0}
+.sec-desc{font-size:12px;color:#94a3b8;margin-bottom:16px;line-height:1.5}
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.kpi{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:18px 20px}
+.kpi-lbl{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8;margin-bottom:6px}
+.kpi-val{font-size:26px;font-weight:700;color:#0f172a;font-variant-numeric:tabular-nums;line-height:1}
+.kpi-sub{font-size:11px;color:#94a3b8;margin-top:4px}
+.kpi-accent .kpi-val{color:#6366f1}
+/* metric table */
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead{background:#f8fafc}
+th{text-align:left;padding:10px 14px;font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8;border-bottom:1px solid #e2e8f0}
+th:last-child{text-align:right}
+td{padding:10px 14px;color:#334155;border-bottom:1px solid #f8fafc}
+.td-label{width:70%}
+.td-val{text-align:right;font-weight:600;color:#0f172a;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ml{font-size:13px;color:#334155}
+.md{font-size:11px;color:#94a3b8;margin-top:2px;line-height:1.4}
+tr:nth-child(even) td{background:#fafbfd}
+/* narrative */
+.nar-card{border:1px solid #e2e8f0;border-radius:10px;padding:20px 24px}
+.nar-text{font-size:13px;line-height:1.7;color:#475569;white-space:pre-wrap}
+.nar-empty{font-size:12px;color:#cbd5e1;font-style:italic}
+/* products */
+.product-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid #f8fafc}
+.product-item:last-child{border-bottom:none}
+.product-name{font-size:13px;font-weight:500;color:#0f172a;flex:1;line-height:1.4}
+.badges{display:flex;gap:4px;flex-wrap:wrap;flex-shrink:0}
+.badge{font-size:10px;font-weight:600;letter-spacing:.03em;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.badge-lang{background:#ede9fe;color:#6d28d9}
+.badge-jewelry{background:#e0e7ff;color:#4338ca}
+.badge-funnel{background:#f0fdf4;color:#166534}
+.badge-week{background:#f8fafc;color:#94a3b8;border:1px solid #e2e8f0}
+.empty-note{font-size:12px;color:#cbd5e1;font-style:italic;padding:8px 0}
+/* CSV / winners grid */
+.csv-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.csv-card{border:1px solid #e2e8f0;border-radius:10px;padding:20px 24px}
+.csv-lbl{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8;margin-bottom:14px}
+.csv-item{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f8fafc;font-size:13px}
+.csv-item:last-child{border-bottom:none}
+.csv-name{font-weight:500;color:#0f172a;flex:1}
+.csv-stat{font-size:11px;color:#94a3b8;font-variant-numeric:tabular-nums;margin-left:8px;white-space:nowrap}
+/* footer */
+.rfoot{padding:20px 48px;border-top:1px solid #f1f5f9;background:#f8fafc;display:flex;justify-content:space-between;align-items:center}
+.rfoot-brand{font-size:11px;font-weight:600;color:#94a3b8;letter-spacing:.05em}
+.rfoot-note{font-size:10px;color:#cbd5e1}
+@media print{
+  body{background:#fff}
+  .page{box-shadow:none;max-width:100%}
+  .toolbar{display:none}
+  @page{margin:15mm 18mm;size:A4}
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="toolbar">
+    <span class="toolbar-brand">Myko Hub &middot; Monthly Report</span>
+    <div class="toolbar-actions">
+      <button class="btn btn-ghost" onclick="window.close()">Close</button>
+      <button class="btn btn-primary" onclick="window.print()">&#x1F5A8;&nbsp; Print / Save PDF</button>
+    </div>
+  </div>
+
+  <div class="rh">
+    <div class="rh-top">
+      <div>
+        <div class="rh-brand">Myko Hub &middot; Build &amp; Product Tracker</div>
+        <div class="rh-title">Monthly Performance Report</div>
+        <div class="rh-period">${esc(monthLabel)}</div>
+      </div>
+      <div class="rh-right">
+        <div class="rh-date">Generated ${esc(dateLabel)}</div>
+        <div class="rh-note">Auto-populated from Jewelry Tracker &amp; Issue Log</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- KPI summary -->
+    <div class="section">
+      <div class="sec-label">Executive Summary</div>
+      <div class="sec-desc">Top-line numbers for the month. Use these in the opening paragraph of your report email to Abigél.</div>
+      <div class="kpi-grid">
+        <div class="kpi">
+          <div class="kpi-lbl">Builds Completed</div>
+          <div class="kpi-val">${report.totalCompleted}</div>
+          <div class="kpi-sub">${report.jewelryCompleted} jewelry · ${report.funnelCompleted} funnel</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-lbl">Expanding</div>
+          <div class="kpi-val">${report.winners}</div>
+          <div class="kpi-sub">approved for scale-up</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-lbl">Win Rate</div>
+          <div class="kpi-val">${esc(report.winRate)}</div>
+          <div class="kpi-sub">of all decided builds</div>
+        </div>
+        <div class="kpi kpi-accent">
+          <div class="kpi-lbl">Test → Winner</div>
+          <div class="kpi-val">${esc(report.testWinRate)}</div>
+          <div class="kpi-sub">quality signal</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Narrative -->
+    ${report.narrative?.narrative_text ? `
+    <div class="section">
+      <div class="sec-label">Monthly Narrative</div>
+      <div class="sec-desc">Written summary for Abigél — the qualitative context behind the numbers.</div>
+      <div class="nar-card">
+        <div class="nar-text">${esc(report.narrative.narrative_text)}</div>
+      </div>
+    </div>` : ''}
+
+    <!-- Metrics table -->
+    <div class="section">
+      <div class="sec-label">Full Metrics Breakdown</div>
+      <div class="sec-desc">
+        Complete data for the month. <em>Test → Winner (%)</em> is the strongest quality signal — it isolates products that actually entered testing and measures how many succeeded.
+        <em>Win rate</em> includes all decided builds and can be skewed by early stops before testing.
+      </div>
+      <table>
+        <thead><tr><th>Metric</th><th>Value</th></tr></thead>
+        <tbody>${metricRows}</tbody>
+      </table>
+    </div>
+
+    <!-- Expanding products -->
+    <div class="section">
+      <div class="sec-label">Expanding Products <span class="sec-count">(${report.expandingList.length})</span></div>
+      <div class="sec-desc">Products that passed testing and were approved for scale-up. These are the wins of the month — include this list in your report as-is.</div>
+      ${report.expandingList.length === 0
+        ? `<p class="empty-note">No products decided as expanding this month.</p>`
+        : `<div>${buildRows(report.expandingList)}</div>`}
+    </div>
+
+    <!-- Still testing -->
+    ${report.testingList.length > 0 ? `
+    <div class="section">
+      <div class="sec-label">Still in Testing <span class="sec-count">(${report.testingList.length})</span></div>
+      <div class="sec-desc">Products that entered testing but have not yet received a final decision. Follow up on these in the next cycle.</div>
+      <div>${buildRows(report.testingList)}</div>
+    </div>` : ''}
+
+    <!-- CSV winners -->
+    ${hasCsv ? `
+    <div class="section">
+      <div class="sec-label">Winning Products from Analysis</div>
+      <div class="sec-desc">Products identified as winners from the Winning Products CSV upload. <em>Qualified Demand</em> = consistent weekly sales volume. <em>Momentum</em> = strong unit growth percentage.</div>
+      <div class="csv-grid">
+        ${csvWinners.demand.length > 0 ? `
+        <div class="csv-card">
+          <div class="csv-lbl">Qualified Demand (${csvWinners.demand.length})</div>
+          ${csvWinners.demand.map(p => `
+            <div class="csv-item">
+              <span class="csv-name">${esc(p.title)}</span>
+              ${p.unitsSold != null ? `<span class="csv-stat">${p.unitsSold} sold/wk</span>` : ''}
+            </div>`).join('')}
+        </div>` : ''}
+        ${csvWinners.momentum.length > 0 ? `
+        <div class="csv-card">
+          <div class="csv-lbl">Momentum (${csvWinners.momentum.length})</div>
+          ${csvWinners.momentum.map(p => `
+            <div class="csv-item">
+              <span class="csv-name">${esc(p.title)}</span>
+              ${p.unitGrowthPct != null ? `<span class="csv-stat" style="color:#16a34a">+${p.unitGrowthPct}%</span>` : ''}
+            </div>`).join('')}
+        </div>` : ''}
+      </div>
+    </div>` : ''}
+
+  </div><!-- /content -->
+
+  <div class="rfoot">
+    <span class="rfoot-brand">MYKO HUB</span>
+    <span class="rfoot-note">Auto-generated &middot; ${esc(dateLabel)} &middot; Data from Build &amp; Product Tracker</span>
+  </div>
+
+</div>
+</body>
+</html>`
 }
 
 export default function MonthlyReportPage() {
@@ -100,6 +381,15 @@ export default function MonthlyReportPage() {
     }
   }
 
+  function handleExport() {
+    if (!report) return
+    const html = generateMonthlyHtml(month, report, csvWinners)
+    const win = window.open('', '_blank')
+    if (!win) return
+    win.document.write(html)
+    win.document.close()
+  }
+
   const categoryBreakdown = report
     ? Object.entries(report.mistakesByCategory)
         .sort((a, b) => b[1] - a[1])
@@ -108,24 +398,25 @@ export default function MonthlyReportPage() {
     : '—'
 
   const rows: MetricRow[] = report ? [
-    { label: 'Builds completed (went live)', value: report.totalCompleted },
-    { label: '  · Jewelry (Shopify)', value: report.jewelryCompleted },
-    { label: '  · Funnel (Funnelish)', value: report.funnelCompleted },
-    { label: 'Completed by week — W1/W2/W3/W4', value: report.byWeek.join(' / ') },
-    { label: 'Expanding (decided)', value: report.winners },
-    { label: 'Stopped', value: report.killed },
-    { label: 'Win rate (decided)', value: report.winRate },
-    { label: 'Build cycle avg (days)', value: report.avgBuildDays ?? '—' },
-    { label: 'Total pipeline avg (days)', value: report.avgTotalDays ?? '—' },
-    { label: 'Issues logged', value: report.mistakesTotal },
-    { label: '  · Repeating', value: report.mistakesRepeating },
-    { label: '  · By category', value: categoryBreakdown },
-    { label: '  · SOP updated', value: report.sopUpdated },
+    { label: 'Builds completed (went live)',      value: report.totalCompleted,      description: 'Total builds that reached a final decision.' },
+    { label: '  · Jewelry (Shopify)',             value: report.jewelryCompleted,    description: 'Jewelry builds on Shopify.' },
+    { label: '  · Funnel (Funnelish)',            value: report.funnelCompleted,     description: 'Funnel builds on Funnelish.' },
+    { label: 'By week — W1/W2/W3/W4',            value: report.byWeek.join(' / '), description: 'Completed builds per week.' },
+    { label: 'Expanding (decided)',               value: report.winners,             description: 'Products approved for scale-up.' },
+    { label: 'Stopped',                           value: report.killed,              description: 'Products discontinued after testing.' },
+    { label: 'Win rate (decided)',                value: report.winRate,             description: 'Expanding ÷ all decided builds.' },
+    { label: 'Test → Winner (%)',                 value: report.testWinRate,         description: 'Of builds that entered testing, % that became expanding.' },
+    { label: 'Build cycle avg (days)',            value: report.avgBuildDays ?? '—', description: 'Avg days from Phase 1 start to live.' },
+    { label: 'Total pipeline avg (days)',         value: report.avgTotalDays ?? '—', description: 'Avg days from approval to decision.' },
+    { label: 'Issues logged',                     value: report.mistakesTotal,       description: 'Quality issues in Issue Log.' },
+    { label: '  · Repeating',                    value: report.mistakesRepeating,   description: 'Issues appearing in more than one build.' },
+    { label: '  · By category',                  value: categoryBreakdown,          description: 'Breakdown by category.' },
+    { label: '  · SOP updated',                  value: report.sopUpdated,          description: 'Issues with SOP updates.' },
   ] : []
 
   const columns: ResponsiveColumn<MetricRow>[] = [
     { key: 'metric', header: 'Metric', render: r => <span className="text-foreground">{r.label}</span> },
-    { key: 'value', header: 'Value', align: 'right', mono: true, render: r => <span className="font-medium text-foreground">{r.value}</span> },
+    { key: 'value',  header: 'Value',  align: 'right', mono: true, render: r => <span className="font-medium text-foreground">{r.value}</span> },
   ]
 
   const narrative = report?.narrative?.narrative_text ?? ''
@@ -137,11 +428,17 @@ export default function MonthlyReportPage() {
         title="Monthly Report"
         description="End-of-month summary for Abigél. Metrics auto-populated from trackers."
         actions={
-          <Input type="month" value={month} onChange={e => setMonth(e.target.value)} className="w-auto" mono />
+          <div className="flex items-center gap-2">
+            <Input type="month" value={month} onChange={e => setMonth(e.target.value)} className="w-auto" mono />
+            <Button variant="secondary" size="sm" onClick={handleExport} disabled={!report}>
+              <Download className="h-3.5 w-3.5 mr-1.5" />
+              Export
+            </Button>
+          </div>
         }
       />
 
-      {/* ── Metrics + narrative ── */}
+      {/* Metrics + narrative */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {!report ? (
           <p className="text-sm text-text-muted font-mono py-8">Loading…</p>
@@ -166,7 +463,7 @@ export default function MonthlyReportPage() {
         </Card>
       </div>
 
-      {/* ── Expanding products ── */}
+      {/* Expanding products */}
       {report && (
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-4">
@@ -192,7 +489,7 @@ export default function MonthlyReportPage() {
         </div>
       )}
 
-      {/* ── Products in testing ── */}
+      {/* Products in testing */}
       {report && report.testingList.length > 0 && (
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-4">
@@ -212,7 +509,7 @@ export default function MonthlyReportPage() {
         </div>
       )}
 
-      {/* ── Winning products from CSV analysis ── */}
+      {/* CSV winners */}
       {hasCsv && (
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-4">

@@ -111,6 +111,9 @@ export interface WeekStats {
   mistakes: number
   avgBuildDays: number | null
   avgTotalDays: number | null
+  testedCount?: number
+  testedWon?: number
+  testWinRate?: string
   expandingBuilds?: BuildSummary[]
   testingBuilds?: BuildSummary[]
 }
