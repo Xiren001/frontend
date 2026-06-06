@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Modal, FormField } from '@/components/ui/modal'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-import { Pencil, Trash2, Plus, ExternalLink, Languages } from 'lucide-react'
+import { Pencil, Trash2, Plus, ExternalLink, Languages, ArrowLeft, ChevronRight } from 'lucide-react'
 import { Tabs } from '@/components/ui/tabs'
 import { translateSeverity, translateIssueType, translateLocation, UI } from '@/lib/proof-translations'
 
@@ -100,6 +100,7 @@ export default function CopyReviewPage() {
   const [deleteCorrectionId, setDeleteCorrectionId] = useState<string | null>(null)
   const [deletingCorrection, setDeletingCorrection] = useState(false)
   const [sourceTab, setSourceTab] = useState<CorrectionSource>('website')
+  const [mobileDetailOpen, setMobileDetailOpen] = useState(false)
 
   // Setup gate
   const [setupForm, setSetupForm] = useState({ pdp_url: '', drive_folder: '' })
@@ -124,6 +125,7 @@ export default function CopyReviewPage() {
   })
 
   useEffect(() => { loadProducts() }, [loadProducts])
+  useEffect(() => { setMobileDetailOpen(false) }, [langFilter])
 
   // Derive unique language tabs dynamically from all products
   const uniqueLangs = Array.from(new Set(products.map(p => p.language).filter(Boolean))).sort() as string[]
@@ -286,7 +288,7 @@ export default function CopyReviewPage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)]">
+    <div className="flex flex-col md:h-[calc(100vh-4rem)]">
       <div className="shrink-0">
         <PageHeader
           title="Proofreading"
@@ -313,11 +315,15 @@ export default function CopyReviewPage() {
           )}
         </p>
       ) : (
-        <div className="flex-1 flex overflow-hidden border border-border-subtle rounded-b-lg border-t-0">
+        <div className="md:flex-1 md:flex md:overflow-hidden border border-border-subtle rounded-b-lg border-t-0">
 
           {/* ── Left: product list ── */}
-          <aside className="w-64 xl:w-72 shrink-0 flex flex-col border-r border-border-subtle bg-surface-elevated/20">
-            <ul className="flex-1 overflow-y-auto">
+          <aside className={cn(
+            'shrink-0 flex-col md:border-r border-border-subtle bg-surface-elevated/20',
+            'w-full md:w-64 xl:md:w-72',
+            mobileDetailOpen ? 'hidden md:flex' : 'flex',
+          )}>
+            <ul className="md:flex-1 md:overflow-y-auto">
               {sortedVisible.map((p, idx) => {
                 const isSelected = p.id === selectedId
                 const doneCnt    = corrections[p.id]?.filter(c => c.done).length ?? null
@@ -345,7 +351,7 @@ export default function CopyReviewPage() {
                     )}
                     <button
                       type="button"
-                      onClick={() => selectProduct(p.id)}
+                      onClick={() => { selectProduct(p.id); setMobileDetailOpen(true) }}
                       className={cn(
                         'w-full text-left px-3 py-3 transition-colors border-l-2',
                         isSelected
@@ -371,15 +377,18 @@ export default function CopyReviewPage() {
                           {langFilter === 'all' && p.language && <Badge variant="accent">{p.language}</Badge>}
                           {p.done && <Badge variant="muted">Done</Badge>}
                         </div>
-                        <span className={cn(
-                          'text-[10px] font-mono shrink-0',
-                          p.correction_count > 0 ? 'text-text-secondary' : 'text-text-muted',
-                        )}>
-                          {doneCnt !== null
-                            ? `${doneCnt}/${p.correction_count}`
-                            : `${p.correction_count}`
-                          }
-                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className={cn(
+                            'text-[10px] font-mono',
+                            p.correction_count > 0 ? 'text-text-secondary' : 'text-text-muted',
+                          )}>
+                            {doneCnt !== null
+                              ? `${doneCnt}/${p.correction_count}`
+                              : `${p.correction_count}`
+                            }
+                          </span>
+                          <ChevronRight className="h-3.5 w-3.5 text-text-muted md:hidden" />
+                        </div>
                       </div>
                     </button>
                   </li>
@@ -389,7 +398,23 @@ export default function CopyReviewPage() {
           </aside>
 
           {/* ── Right: selected product ── */}
-          <section className="flex-1 flex flex-col min-w-0 bg-background overflow-hidden">
+          <section className={cn(
+            'flex-1 flex-col min-w-0 bg-background md:overflow-hidden',
+            mobileDetailOpen ? 'flex' : 'hidden md:flex',
+          )}>
+
+            {/* Mobile: back to list */}
+            <div className="shrink-0 flex items-center gap-3 h-12 px-4 border-b border-border-subtle bg-surface-elevated/20 md:hidden">
+              <button
+                onClick={() => setMobileDetailOpen(false)}
+                className="flex items-center justify-center w-8 h-8 -ml-1 rounded-md text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </button>
+              <span className="text-sm font-semibold text-foreground truncate">
+                {selectedProduct?.product_name ?? ''}
+              </span>
+            </div>
 
             {!selectedProduct && (
               <div className="flex items-center justify-center h-full">
