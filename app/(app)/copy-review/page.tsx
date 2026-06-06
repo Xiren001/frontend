@@ -86,6 +86,10 @@ export default function CopyReviewPage() {
   const canMarkDone          = role === 'admin' || role === 'management' || role === 'ads' || role === 'website'
   const canUpdateLinks       = role === 'admin' || role === 'management' || role === 'website'
   const canModifyCorrections = role === 'admin' || role === 'management' || role === 'proofreader' || role === 'website'
+  // ads + website can toggle correction done only once product is marked Ready
+  const canToggleCorrectionDone = (product: ProofProduct | null) =>
+    role === 'admin' || role === 'management' || role === 'proofreader' ||
+    (!!product?.ready_for_revision && (role === 'ads' || role === 'website'))
 
   const [products, setProducts] = useState<ProofProduct[]>([])
   const [langFilter, setLangFilter] = useState<string>('all')
@@ -209,7 +213,7 @@ export default function CopyReviewPage() {
   }
 
   async function toggleCorrectionDone(correction: ProofCorrection) {
-    if (!canModifyCorrections) return
+    if (!canToggleCorrectionDone(selectedProduct)) return
     setTogglingCorrectionId(correction.id)
     try {
       await api.put(`/api/proof-corrections/corrections/${correction.id}`, { done: !correction.done })
@@ -764,36 +768,42 @@ export default function CopyReviewPage() {
                                         <span className="text-xs font-semibold text-text-muted uppercase tracking-wide">{loc}</span>
                                       )}
                                     </div>
-                                    {canModifyCorrections && (
+                                    {(canToggleCorrectionDone(selectedProduct) || canModifyCorrections) && (
                                       <div className="flex items-center gap-0.5 shrink-0">
-                                        <button
-                                          onClick={() => toggleCorrectionDone(c)}
-                                          disabled={togglingCorrectionId === c.id}
-                                          className={cn(
-                                            'flex items-center justify-center w-6 h-6 rounded-md text-xs transition-all active:scale-90',
-                                            togglingCorrectionId === c.id
-                                              ? 'text-text-muted opacity-60 cursor-wait'
-                                              : 'text-text-muted hover:text-foreground hover:bg-surface-hover',
-                                          )}
-                                          title={c.done ? 'Reopen' : 'Mark resolved'}
-                                        >
-                                          {togglingCorrectionId === c.id
-                                            ? <Spinner />
-                                            : c.done ? '↩' : '✓'
-                                          }
-                                        </button>
-                                        <button
-                                          onClick={() => openEditCorrection(c)}
-                                          className="p-1.5 rounded-md text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
-                                        >
-                                          <Pencil className="h-3.5 w-3.5" />
-                                        </button>
-                                        <button
-                                          onClick={() => setDeleteCorrectionId(c.id)}
-                                          className="p-1.5 rounded-md text-text-muted hover:text-danger hover:bg-danger-muted transition-colors"
-                                        >
-                                          <Trash2 className="h-3.5 w-3.5" />
-                                        </button>
+                                        {canToggleCorrectionDone(selectedProduct) && (
+                                          <button
+                                            onClick={() => toggleCorrectionDone(c)}
+                                            disabled={togglingCorrectionId === c.id}
+                                            className={cn(
+                                              'flex items-center justify-center w-6 h-6 rounded-md text-xs transition-all active:scale-90',
+                                              togglingCorrectionId === c.id
+                                                ? 'text-text-muted opacity-60 cursor-wait'
+                                                : 'text-text-muted hover:text-foreground hover:bg-surface-hover',
+                                            )}
+                                            title={c.done ? 'Reopen' : 'Mark resolved'}
+                                          >
+                                            {togglingCorrectionId === c.id
+                                              ? <Spinner />
+                                              : c.done ? '↩' : '✓'
+                                            }
+                                          </button>
+                                        )}
+                                        {canModifyCorrections && (
+                                          <>
+                                            <button
+                                              onClick={() => openEditCorrection(c)}
+                                              className="p-1.5 rounded-md text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                                            >
+                                              <Pencil className="h-3.5 w-3.5" />
+                                            </button>
+                                            <button
+                                              onClick={() => setDeleteCorrectionId(c.id)}
+                                              className="p-1.5 rounded-md text-text-muted hover:text-danger hover:bg-danger-muted transition-colors"
+                                            >
+                                              <Trash2 className="h-3.5 w-3.5" />
+                                            </button>
+                                          </>
+                                        )}
                                       </div>
                                     )}
                                   </div>
