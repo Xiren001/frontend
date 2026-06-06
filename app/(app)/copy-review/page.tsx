@@ -81,9 +81,11 @@ function severityBorder(severity: string | null) {
 export default function CopyReviewPage() {
   const { role } = useRole()
   const isAdmin = role === 'admin'
-  const canManageProducts     = role === 'admin' || role === 'management'
-  const canUpdateLinks        = role === 'admin' || role === 'management' || role === 'website'
-  const canModifyCorrections  = role === 'admin' || role === 'management' || role === 'proofreader' || role === 'website'
+  const canManageProducts    = role === 'admin' || role === 'management'
+  const canMarkReady         = role === 'admin' || role === 'management' || role === 'proofreader'
+  const canMarkDone          = role === 'admin' || role === 'management' || role === 'ads' || role === 'website'
+  const canUpdateLinks       = role === 'admin' || role === 'management' || role === 'website'
+  const canModifyCorrections = role === 'admin' || role === 'management' || role === 'proofreader' || role === 'website'
 
   const [products, setProducts] = useState<ProofProduct[]>([])
   const [langFilter, setLangFilter] = useState<string>('all')
@@ -184,7 +186,7 @@ export default function CopyReviewPage() {
   }
 
   async function toggleProductDone(product: ProofProduct) {
-    if (!canManageProducts) return
+    if (!canMarkDone) return
     // Block marking Done if not yet ready (Reopen is always allowed)
     if (!product.done && !product.ready_for_revision) {
       setDoneShakeKey(k => k + 1)
@@ -198,7 +200,7 @@ export default function CopyReviewPage() {
   }
 
   async function toggleReadyForRevision(product: ProofProduct) {
-    if (!canManageProducts) return
+    if (!canMarkReady) return
     setTogglingReady(true)
     try {
       await api.put(`/api/proof-corrections/products/${product.id}`, { ready_for_revision: !product.ready_for_revision })
@@ -606,55 +608,63 @@ export default function CopyReviewPage() {
                       </div>
                     </div>
 
-                    {canManageProducts && (
+                    {(canMarkReady || canMarkDone || canManageProducts) && (
                       <div className="flex items-center gap-0.5 shrink-0">
-                        <button
-                          onClick={() => toggleReadyForRevision(selectedProduct)}
-                          disabled={togglingReady}
-                          className={cn(
-                            'flex items-center gap-1 px-2 py-1.5 rounded text-xs transition-all active:scale-95',
-                            selectedProduct.ready_for_revision
-                              ? 'bg-green-500/10 text-green-400 hover:bg-green-500/20'
-                              : 'text-text-muted hover:text-foreground hover:bg-surface-hover',
-                            togglingReady && 'opacity-60 cursor-wait',
-                          )}
-                        >
-                          {togglingReady
-                            ? <><Spinner />…</>
-                            : selectedProduct.ready_for_revision ? '↩ Unmark' : '✓ Ready'
-                          }
-                        </button>
-                        <span key={doneShakeKey} className={cn('inline-block', doneShakeKey > 0 && 'animate-proof-shake')}>
+                        {canMarkReady && (
                           <button
-                            onClick={() => toggleProductDone(selectedProduct)}
-                            disabled={togglingDone}
-                            title={!selectedProduct.done && !selectedProduct.ready_for_revision ? 'Mark as Ready first' : undefined}
+                            onClick={() => toggleReadyForRevision(selectedProduct)}
+                            disabled={togglingReady}
                             className={cn(
                               'flex items-center gap-1 px-2 py-1.5 rounded text-xs transition-all active:scale-95',
-                              !selectedProduct.done && !selectedProduct.ready_for_revision
-                                ? 'opacity-40 cursor-not-allowed text-text-muted'
+                              selectedProduct.ready_for_revision
+                                ? 'bg-green-500/10 text-green-400 hover:bg-green-500/20'
                                 : 'text-text-muted hover:text-foreground hover:bg-surface-hover',
-                              togglingDone && 'opacity-60 cursor-wait',
+                              togglingReady && 'opacity-60 cursor-wait',
                             )}
                           >
-                            {togglingDone
+                            {togglingReady
                               ? <><Spinner />…</>
-                              : selectedProduct.done ? '↩ Reopen' : '✓ Done'
+                              : selectedProduct.ready_for_revision ? '↩ Unmark' : '✓ Ready'
                             }
                           </button>
-                        </span>
-                        <button
-                          onClick={() => openEditProduct(selectedProduct)}
-                          className="p-1.5 rounded text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={() => setDeleteProductId(selectedProduct.id)}
-                          className="p-1.5 rounded text-text-muted hover:text-danger hover:bg-danger-muted transition-colors"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        )}
+                        {canMarkDone && (
+                          <span key={doneShakeKey} className={cn('inline-block', doneShakeKey > 0 && 'animate-proof-shake')}>
+                            <button
+                              onClick={() => toggleProductDone(selectedProduct)}
+                              disabled={togglingDone}
+                              title={!selectedProduct.done && !selectedProduct.ready_for_revision ? 'Mark as Ready first' : undefined}
+                              className={cn(
+                                'flex items-center gap-1 px-2 py-1.5 rounded text-xs transition-all active:scale-95',
+                                !selectedProduct.done && !selectedProduct.ready_for_revision
+                                  ? 'opacity-40 cursor-not-allowed text-text-muted'
+                                  : 'text-text-muted hover:text-foreground hover:bg-surface-hover',
+                                togglingDone && 'opacity-60 cursor-wait',
+                              )}
+                            >
+                              {togglingDone
+                                ? <><Spinner />…</>
+                                : selectedProduct.done ? '↩ Reopen' : '✓ Done'
+                              }
+                            </button>
+                          </span>
+                        )}
+                        {canManageProducts && (
+                          <>
+                            <button
+                              onClick={() => openEditProduct(selectedProduct)}
+                              className="p-1.5 rounded text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => setDeleteProductId(selectedProduct.id)}
+                              className="p-1.5 rounded text-text-muted hover:text-danger hover:bg-danger-muted transition-colors"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>
