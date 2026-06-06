@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Modal, FormField } from '@/components/ui/modal'
 import { useRole } from '@/lib/role-context'
 import { cn } from '@/lib/utils'
-import { Plus, Trash2, Copy, UserPlus, CheckCircle2, Circle, Check } from 'lucide-react'
+import { Plus, Trash2, Copy, UserPlus, CheckCircle2, Circle, Check, ArrowRightLeft } from 'lucide-react'
 
 interface TeamMember {
   id: string
@@ -45,6 +45,7 @@ export default function TeamTasksPage() {
   const [deletingMember, setDeletingMember]   = useState(false)
 
   const [copied, setCopied] = useState(false)
+  const [transferTaskId, setTransferTaskId] = useState<string | null>(null)
 
   const loadMembers = useCallback(async () => {
     try {
@@ -116,6 +117,19 @@ export default function TeamTasksPage() {
     } finally { setDeletingMember(false) }
   }
 
+  async function transferTask(taskId: string, toMemberId: string) {
+    await api.put(`/api/team-tasks/tasks/${taskId}`, { member_id: toMemberId })
+    setTransferTaskId(null)
+    if (activeMemberId) loadTasks(activeMemberId)
+  }
+
+  useEffect(() => {
+    if (!transferTaskId) return
+    function close() { setTransferTaskId(null) }
+    document.addEventListener('click', close)
+    return () => document.removeEventListener('click', close)
+  }, [transferTaskId])
+
   function copyDoneTasks() {
     const done = tasks.filter(t => t.done)
     if (done.length === 0) return
@@ -126,6 +140,7 @@ export default function TeamTasksPage() {
     })
   }
 
+  const otherMembers = members.filter(m => m.id !== activeMemberId)
   const pendingTasks = tasks.filter(t => !t.done)
   const doneTasks    = tasks
     .filter(t => t.done)
@@ -222,13 +237,39 @@ export default function TeamTasksPage() {
                       <span className="flex-1 text-sm text-foreground leading-snug">
                         {task.text}
                       </span>
-                      <button
-                        onClick={() => deleteTask(task.id)}
-                        className="shrink-0 opacity-0 group-hover/task:opacity-100 text-text-muted hover:text-danger transition-all p-1 rounded-md hover:bg-danger-muted"
-                        title="Delete"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      <div className="flex items-center gap-0.5 opacity-0 group-hover/task:opacity-100 transition-opacity shrink-0">
+                        {otherMembers.length > 0 && (
+                          <div className="relative" onClick={e => e.stopPropagation()}>
+                            <button
+                              onClick={() => setTransferTaskId(transferTaskId === task.id ? null : task.id)}
+                              className="p-1 rounded-md text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                              title="Transfer to…"
+                            >
+                              <ArrowRightLeft className="h-3.5 w-3.5" />
+                            </button>
+                            {transferTaskId === task.id && (
+                              <div className="absolute right-0 top-full mt-1 z-30 bg-surface-elevated border border-border-subtle rounded-xl shadow-lg overflow-hidden min-w-[120px]">
+                                {otherMembers.map(m => (
+                                  <button
+                                    key={m.id}
+                                    onClick={() => transferTask(task.id, m.id)}
+                                    className="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-surface-hover hover:text-foreground transition-colors"
+                                  >
+                                    {m.name}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        <button
+                          onClick={() => deleteTask(task.id)}
+                          className="p-1 rounded-md text-text-muted hover:text-danger hover:bg-danger-muted transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -273,13 +314,39 @@ export default function TeamTasksPage() {
                         <span className="flex-1 text-sm text-text-muted line-through leading-snug">
                           {task.text}
                         </span>
-                        <button
-                          onClick={() => deleteTask(task.id)}
-                          className="shrink-0 opacity-0 group-hover/task:opacity-100 text-text-muted hover:text-danger transition-all p-1 rounded-md hover:bg-danger-muted"
-                          title="Delete"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        <div className="flex items-center gap-0.5 opacity-0 group-hover/task:opacity-100 transition-opacity shrink-0">
+                          {otherMembers.length > 0 && (
+                            <div className="relative" onClick={e => e.stopPropagation()}>
+                              <button
+                                onClick={() => setTransferTaskId(transferTaskId === task.id ? null : task.id)}
+                                className="p-1 rounded-md text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                                title="Transfer to…"
+                              >
+                                <ArrowRightLeft className="h-3.5 w-3.5" />
+                              </button>
+                              {transferTaskId === task.id && (
+                                <div className="absolute right-0 top-full mt-1 z-30 bg-surface-elevated border border-border-subtle rounded-xl shadow-lg overflow-hidden min-w-[120px]">
+                                  {otherMembers.map(m => (
+                                    <button
+                                      key={m.id}
+                                      onClick={() => transferTask(task.id, m.id)}
+                                      className="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-surface-hover hover:text-foreground transition-colors"
+                                    >
+                                      {m.name}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          <button
+                            onClick={() => deleteTask(task.id)}
+                            className="p-1 rounded-md text-text-muted hover:text-danger hover:bg-danger-muted transition-colors"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
