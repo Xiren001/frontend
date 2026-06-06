@@ -11,7 +11,7 @@ import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ResponsiveTable, type ResponsiveColumn } from '@/components/ui/responsive-table'
 import { Modal } from '@/components/ui/modal'
-import { TrendingUp, FlaskConical, Trophy, Download } from 'lucide-react'
+import { TrendingUp, FlaskConical, Trophy, Download, Target } from 'lucide-react'
 
 interface MonthlyReport {
   totalCompleted: number
@@ -36,6 +36,29 @@ interface MonthlyReport {
 interface MetricRow { label: string; value: string | number; description: string }
 
 interface CsvProduct { title: string; unitsSold?: number; unitGrowthPct?: number }
+
+function normTitle(s: string) { return s.toLowerCase().trim() }
+
+function isWinnerMatch(name: string, titles: Set<string>): boolean {
+  const n = normTitle(name)
+  for (const t of titles) {
+    if (n === t || n.includes(t) || t.includes(n)) return true
+  }
+  return false
+}
+
+function loadWinningTitles(): Set<string> {
+  const titles = new Set<string>()
+  for (const [fk, rk] of [['wp-demand-filtered', 'wp-demand'], ['wp-momentum-filtered', 'wp-momentum']] as [string, string][]) {
+    try {
+      const raw = localStorage.getItem(fk) || localStorage.getItem(rk)
+      if (!raw) continue
+      const stored = JSON.parse(raw) as { rows: { title: string }[] }
+      for (const r of stored.rows ?? []) if (r.title) titles.add(normTitle(r.title))
+    } catch {}
+  }
+  return titles
+}
 
 function loadCsvWinners(): { demand: CsvProduct[]; momentum: CsvProduct[] } {
   const parse = (filteredKey: string, rawKey: string): CsvProduct[] => {
@@ -81,6 +104,7 @@ function generateMonthlyHtml(
   month: string,
   report: MonthlyReport,
   csvWinners: { demand: CsvProduct[]; momentum: CsvProduct[] },
+  testingWinners: BuildSummary[],
 ): string {
   const dateLabel = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
   const monthLabel = (() => {
@@ -313,6 +337,14 @@ tr:nth-child(even) td{background:#fafbfd}
       <div>${buildRows(report.testingList)}</div>
     </div>` : ''}
 
+    <!-- Testing × Winning Products cross-reference -->
+    ${testingWinners.length > 0 ? `
+    <div class="section">
+      <div class="sec-label">In Testing — Winning Product Match <span class="sec-count">(${testingWinners.length})</span></div>
+      <div class="sec-desc">Products currently in testing whose names match products highlighted in the Winning Products tab. These are the highest-priority testing builds — they are already proven market sellers. Monitor closely and prioritize decision-making.</div>
+      <div>${buildRows(testingWinners)}</div>
+    </div>` : ''}
+
     <!-- CSV winners -->
     ${hasCsv ? `
     <div class="section">
@@ -359,6 +391,7 @@ export default function MonthlyReportPage() {
   const [narrativeText, setNarrativeText] = useState('')
   const [saving, setSaving] = useState(false)
   const [csvWinners, setCsvWinners] = useState<{ demand: CsvProduct[]; momentum: CsvProduct[] }>({ demand: [], momentum: [] })
+  const [winningTitles, setWinningTitles] = useState<Set<string>>(new Set())
 
   async function load() {
     const data = await api.get<MonthlyReport>(`/api/reports/monthly?month=${month}`)
@@ -369,6 +402,7 @@ export default function MonthlyReportPage() {
   useRealtimeRefresh(['builds', 'mistakes', 'report_narratives'], load)
   useEffect(() => { load() }, [month])
   useEffect(() => { setCsvWinners(loadCsvWinners()) }, [])
+  useEffect(() => { setWinningTitles(loadWinningTitles()) }, [])
 
   function openEdit() {
     setNarrativeText(report?.narrative?.narrative_text ?? '')
@@ -393,7 +427,7 @@ export default function MonthlyReportPage() {
 
   function handleExport() {
     if (!report) return
-    const html = generateMonthlyHtml(month, report, csvWinners)
+    const html = generateMonthlyHtml(month, report, csvWinners, testingWinners)
     const win = window.open('', '_blank')
     if (!win) return
     win.document.write(html)
@@ -431,6 +465,9 @@ export default function MonthlyReportPage() {
 
   const narrative = report?.narrative?.narrative_text ?? ''
   const hasCsv = csvWinners.demand.length > 0 || csvWinners.momentum.length > 0
+  const testingWinners = report && winningTitles.size > 0
+    ? report.testingList.filter(b => isWinnerMatch(b.product_name, winningTitles))
+    : []
 
   return (
     <div>
@@ -513,6 +550,29 @@ export default function MonthlyReportPage() {
             <CardBody>
               <div>
                 {report.testingList.map((b, i) => <BuildRow key={i} b={b} />)}
+              </div>
+            </CardBody>
+          </Card>
+        </div>
+      )}
+
+      {/* Testing × Winning Products cross-reference */}
+      {testingWinners.length > 0 && (
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Target className="h-4 w-4 text-accent" />
+            <h2 className="text-sm font-semibold text-foreground uppercase tracking-widest">
+              In Testing — Winning Product Match
+              <span className="ml-2 text-xs font-normal text-text-muted normal-case tracking-normal">({testingWinners.length})</span>
+            </h2>
+          </div>
+          <Card>
+            <CardBody>
+              <p className="text-xs text-text-muted mb-3 leading-relaxed">
+                Products currently in testing whose names match products shown in the Winning Products tab. These are the highest-priority testing builds to watch.
+              </p>
+              <div>
+                {testingWinners.map((b, i) => <BuildRow key={i} b={b} />)}
               </div>
             </CardBody>
           </Card>

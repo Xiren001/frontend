@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { MobileDataCard, MobileDataRow, ResponsiveCardList, ResponsiveDesktopTable } from '@/components/ui/responsive-table'
 import { Modal } from '@/components/ui/modal'
-import { TrendingUp, FlaskConical, Download } from 'lucide-react'
+import { TrendingUp, FlaskConical, Download, Target } from 'lucide-react'
 
 interface ReportNarrative { id: string; week_number: number; narrative_text: string }
 
@@ -31,6 +31,29 @@ function BuildList({ builds, emptyText }: { builds: BuildSummary[]; emptyText: s
   )
 }
 
+function normTitle(s: string) { return s.toLowerCase().trim() }
+
+function isWinnerMatch(name: string, titles: Set<string>): boolean {
+  const n = normTitle(name)
+  for (const t of titles) {
+    if (n === t || n.includes(t) || t.includes(n)) return true
+  }
+  return false
+}
+
+function loadWinningTitles(): Set<string> {
+  const titles = new Set<string>()
+  for (const [fk, rk] of [['wp-demand-filtered', 'wp-demand'], ['wp-momentum-filtered', 'wp-momentum']] as [string, string][]) {
+    try {
+      const raw = localStorage.getItem(fk) || localStorage.getItem(rk)
+      if (!raw) continue
+      const stored = JSON.parse(raw) as { rows: { title: string }[] }
+      for (const r of stored.rows ?? []) if (r.title) titles.add(normTitle(r.title))
+    } catch {}
+  }
+  return titles
+}
+
 function esc(s: string | null | undefined): string {
   if (!s) return ''
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -40,6 +63,7 @@ function generateWeeklyHtml(
   month: string,
   weekStats: WeekStats[],
   narratives: ReportNarrative[],
+  testingWinners: (BuildSummary & { week: number })[],
 ): string {
   const dateLabel = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
   const monthLabel = (() => {
@@ -198,6 +222,7 @@ tr:nth-child(even) td{background:#fafbfd}
 .badge-lang{background:#ede9fe;color:#6d28d9}
 .badge-jewelry{background:#e0e7ff;color:#4338ca}
 .badge-funnel{background:#f0fdf4;color:#166534}
+.badge-week{background:#f8fafc;color:#94a3b8;border:1px solid #e2e8f0}
 .empty-note{font-size:12px;color:#cbd5e1;font-style:italic;padding:6px 0}
 /* footer */
 .rfoot{padding:20px 48px;border-top:1px solid #f1f5f9;background:#f8fafc;display:flex;justify-content:space-between;align-items:center}
@@ -309,6 +334,21 @@ tr:nth-child(even) td{background:#fafbfd}
       <div class="week-grid">${productsByWeek(allTesting)}</div>
     </div>` : ''}
 
+    <!-- Testing × Winning Products cross-reference -->
+    ${testingWinners.length > 0 ? `
+    <div class="section">
+      <div class="sec-label">In Testing — Winning Product Match <span class="sec-count">(${testingWinners.length})</span></div>
+      <div class="sec-desc">Products currently in testing whose names match products highlighted in the Winning Products tab. These are proven market sellers actively being tested — they deserve the closest attention and fastest decision-making.</div>
+      <div>
+        ${testingWinners.map(b => `
+          <div class="product-item">
+            <span class="badge badge-week" style="margin-right:4px">W${b.week}</span>
+            <span class="product-name">${esc(b.product_name)}</span>
+            <span class="badges">${productBadges(b)}</span>
+          </div>`).join('')}
+      </div>
+    </div>` : ''}
+
     <!-- Stopped -->
     ${totalKilled > 0 ? `
     <div class="section">
@@ -342,6 +382,7 @@ export default function WeeklyReportPage() {
   const [editWeek, setEditWeek] = useState<number | null>(null)
   const [editText, setEditText] = useState('')
   const [saving, setSaving] = useState(false)
+  const [winningTitles, setWinningTitles] = useState<Set<string>>(new Set())
 
   async function load() {
     const data = await api.get<{ weekStats: WeekStats[]; narratives: ReportNarrative[] }>(`/api/reports/weekly?month=${month}`)
@@ -351,6 +392,7 @@ export default function WeeklyReportPage() {
 
   useRealtimeRefresh(['builds', 'mistakes', 'report_narratives'], load)
   useEffect(() => { load() }, [month])
+  useEffect(() => { setWinningTitles(loadWinningTitles()) }, [])
 
   function getNarrative(week: number) {
     return narratives.find(n => n.week_number === week)?.narrative_text ?? ''
@@ -379,7 +421,7 @@ export default function WeeklyReportPage() {
   }
 
   function handleExport() {
-    const html = generateWeeklyHtml(month, weekStats, narratives)
+    const html = generateWeeklyHtml(month, weekStats, narratives, testingWinnersAll)
     const win = window.open('', '_blank')
     if (!win) return
     win.document.write(html)
@@ -414,6 +456,15 @@ export default function WeeklyReportPage() {
 
   const hasAnyExpanding = weekStats.some(w => (w.expandingBuilds?.length ?? 0) > 0)
   const hasAnyTesting   = weekStats.some(w => (w.testingBuilds?.length ?? 0) > 0)
+
+  // Testing builds that also match a winning product — across all weeks
+  const testingWinnersAll = winningTitles.size > 0
+    ? weekStats.flatMap(w =>
+        (w.testingBuilds ?? [])
+          .filter(b => isWinnerMatch(b.product_name, winningTitles))
+          .map(b => ({ ...b, week: w.week }))
+      )
+    : []
 
   return (
     <div>
@@ -537,6 +588,36 @@ export default function WeeklyReportPage() {
               </Card>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Testing × Winning Products cross-reference */}
+      {testingWinnersAll.length > 0 && (
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Target className="h-4 w-4 text-accent" />
+            <h2 className="text-sm font-semibold text-foreground uppercase tracking-widest">
+              In Testing — Winning Product Match
+              <span className="ml-2 text-xs font-normal text-text-muted normal-case tracking-normal">({testingWinnersAll.length})</span>
+            </h2>
+          </div>
+          <Card>
+            <CardBody>
+              <p className="text-xs text-text-muted mb-3 leading-relaxed">
+                Products currently in testing that also appear in the Winning Products tab. Highest priority to watch.
+              </p>
+              <ul className="space-y-1.5">
+                {testingWinnersAll.map((b, i) => (
+                  <li key={i} className="flex items-center gap-2">
+                    <span className="text-xs text-text-muted font-mono shrink-0">W{b.week}</span>
+                    <span className="text-sm text-foreground font-medium leading-snug">{b.product_name}</span>
+                    {b.language && <Badge variant="accent">{b.language}</Badge>}
+                    <Badge variant={b.type === 'jewelry' ? 'default' : 'muted'}>{b.type === 'jewelry' ? 'Jewelry' : 'Funnel'}</Badge>
+                  </li>
+                ))}
+              </ul>
+            </CardBody>
+          </Card>
         </div>
       )}
 
