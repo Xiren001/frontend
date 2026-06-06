@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Modal, FormField } from '@/components/ui/modal'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-import { Pencil, Trash2, Plus, ExternalLink, Languages, ArrowLeft, ChevronRight, HelpCircle, Search, X } from 'lucide-react'
+import { Pencil, Trash2, Plus, ExternalLink, Languages, ArrowLeft, ChevronRight, HelpCircle, Search, X, Check, RotateCcw } from 'lucide-react'
 import { Tabs } from '@/components/ui/tabs'
 import { translateSeverity, translateIssueType, translateLocation, UI } from '@/lib/proof-translations'
 
@@ -775,16 +775,20 @@ export default function CopyReviewPage() {
                                             onClick={() => toggleCorrectionDone(c)}
                                             disabled={togglingCorrectionId === c.id}
                                             className={cn(
-                                              'flex items-center justify-center w-6 h-6 rounded-md text-xs transition-all active:scale-90',
+                                              'flex items-center justify-center w-7 h-7 rounded-md transition-all active:scale-90',
                                               togglingCorrectionId === c.id
-                                                ? 'text-text-muted opacity-60 cursor-wait'
-                                                : 'text-text-muted hover:text-foreground hover:bg-surface-hover',
+                                                ? 'opacity-60 cursor-wait bg-surface-elevated border border-border-subtle text-text-muted'
+                                                : c.done
+                                                  ? 'bg-surface-elevated border border-border-subtle text-text-muted hover:bg-surface-hover'
+                                                  : 'bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20',
                                             )}
                                             title={c.done ? 'Reopen' : 'Mark resolved'}
                                           >
                                             {togglingCorrectionId === c.id
                                               ? <Spinner />
-                                              : c.done ? '↩' : '✓'
+                                              : c.done
+                                                ? <RotateCcw className="h-3.5 w-3.5" />
+                                                : <Check className="h-3.5 w-3.5" />
                                             }
                                           </button>
                                         )}
