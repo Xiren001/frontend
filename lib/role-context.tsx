@@ -48,6 +48,7 @@ export const PATH_PERMISSION: Record<string, keyof ApproverPermissions | null> =
   '/funnel-tracker':  'funnel_tracker',
   '/proofread-queue': 'proofread_queue',
   '/copy-review':     null,
+  '/team-tasks':      null,
   '/mistake-log':     'mistake_log',
   '/monthly-planner': 'monthly_planner',
   '/decision-rights': 'decision_rights',

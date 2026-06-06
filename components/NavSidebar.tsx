@@ -21,6 +21,7 @@ import {
   Star,
   Menu,
   X,
+  ClipboardList,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase'
@@ -40,6 +41,7 @@ const NAV = [
   { href: '/monthly-report',  label: 'Monthly Report',   icon: BarChart3 },
   { href: '/monthly-planner', label: 'Monthly Planner',  icon: Calendar },
   { href: '/decision-rights', label: 'Decision Rights',  icon: Scale },
+  { href: '/team-tasks',      label: 'Team Tasks',       icon: ClipboardList },
   { href: '/settings',        label: 'Settings',         icon: Settings },
 ]
 
