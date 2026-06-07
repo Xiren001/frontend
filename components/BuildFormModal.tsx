@@ -123,13 +123,15 @@ export function BuildFormModal({
               <option value="expanding">Expanding</option>
             </select>
           </FormField>
-          <FormField label="Proofreader">
-            <Input
-              value={form.proofreader ?? ''}
-              onChange={e => setField('proofreader', e.target.value || null)}
-              placeholder="Proofreader"
-            />
-          </FormField>
+          {type !== 'funnel' && (
+            <FormField label="Proofreader">
+              <Input
+                value={form.proofreader ?? ''}
+                onChange={e => setField('proofreader', e.target.value || null)}
+                placeholder="Proofreader"
+              />
+            </FormField>
+          )}
         </div>
 
         {/* Phase dates — edit mode only */}
@@ -138,7 +140,7 @@ export function BuildFormModal({
             <p className="text-xs text-text-muted uppercase tracking-wide font-medium">Phase dates</p>
             {([
               { label: 'Phase 1',  start: 'phase1_start',  end: 'phase1_end'      },
-              { label: 'Proofread',start: 'into_proofread', end: 'proof_end'       },
+              ...(type !== 'funnel' ? [{ label: 'Proofread', start: 'into_proofread' as keyof Build, end: 'proof_end' as keyof Build }] : []),
               { label: 'Testing',  start: 'into_testing',  end: 'outcome_decided'  },
             ] as { label: string; start: keyof Build; end: keyof Build }[]).map(row => (
               <div key={row.label} className="space-y-2 sm:space-y-0 sm:grid sm:grid-cols-[80px_1fr_1fr] sm:items-center sm:gap-3">

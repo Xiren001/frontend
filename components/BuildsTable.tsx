@@ -20,6 +20,10 @@ const PHASE_SEQUENCE: (keyof Build)[] = [
   'phase1_start', 'phase1_end', 'into_proofread', 'proof_end', 'into_testing', 'outcome_decided',
 ]
 
+const FUNNEL_PHASE_SEQUENCE: (keyof Build)[] = [
+  'phase1_start', 'phase1_end', 'into_testing', 'outcome_decided',
+]
+
 const PHASE_COLS: {
   label:       string
   startKey:    keyof Build
@@ -32,6 +36,12 @@ const PHASE_COLS: {
   { label: 'Phase 1',  startKey: 'phase1_start',   endKey: 'phase1_end',      endBtnLabel: 'End Build', prereq: null,           variant: 'default' },
   { label: 'Proofread',startKey: 'into_proofread',  endKey: 'proof_end',       endBtnLabel: 'End Proof', prereq: 'phase1_end',   variant: 'warn',   showFrom: 'md' },
   { label: 'Testing',  startKey: 'into_testing',    endKey: 'outcome_decided', endBtnLabel: 'Decided',   prereq: 'proof_end',    variant: 'default', showFrom: 'md' },
+  { label: 'Decided',  startKey: 'outcome_decided', endKey: null,              endBtnLabel: null,         prereq: 'into_testing', variant: 'accent', showFrom: 'md' },
+]
+
+const FUNNEL_PHASE_COLS: typeof PHASE_COLS = [
+  { label: 'Phase 1',  startKey: 'phase1_start',   endKey: 'phase1_end',      endBtnLabel: 'End Build', prereq: null,           variant: 'default' },
+  { label: 'Testing',  startKey: 'into_testing',    endKey: 'outcome_decided', endBtnLabel: 'Decided',   prereq: 'phase1_end',   variant: 'default', showFrom: 'md' },
   { label: 'Decided',  startKey: 'outcome_decided', endKey: null,              endBtnLabel: null,         prereq: 'into_testing', variant: 'accent', showFrom: 'md' },
 ]
 
@@ -64,8 +74,8 @@ const PHASE_BADGE_CLS: Record<string, string> = {
   decided:  'text-accent bg-accent-muted border-accent-border',
 }
 
-function getNextPhaseKey(b: Build): keyof Build | null {
-  for (const key of PHASE_SEQUENCE) if (!b[key]) return key
+function getNextPhaseKey(b: Build, sequence: (keyof Build)[]): keyof Build | null {
+  for (const key of sequence) if (!b[key]) return key
   return null
 }
 
@@ -131,6 +141,7 @@ interface CardProps {
   b: Build
   isAdmin: boolean
   advancing: string | null
+  phaseSequence: (keyof Build)[]
   onOpenNotes: (b: Build) => void
   onOpenEdit: (b: Build) => void
   onDelete: (id: string) => void
@@ -138,8 +149,8 @@ interface CardProps {
   onOutcomeChange: (id: string, outcome: BuildOutcome) => void
 }
 
-function BuildCard({ b, isAdmin, advancing, onOpenNotes, onOpenEdit, onDelete, onPhaseSet, onOutcomeChange }: CardProps) {
-  const nextKey = getNextPhaseKey(b)
+function BuildCard({ b, isAdmin, advancing, phaseSequence, onOpenNotes, onOpenEdit, onDelete, onPhaseSet, onOutcomeChange }: CardProps) {
+  const nextKey = getNextPhaseKey(b, phaseSequence)
   const nextInfo = nextKey ? PHASE_KEY_INFO[String(nextKey)] : null
 
   return (
@@ -266,6 +277,9 @@ interface Props {
 }
 
 export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchManage = false }: Props) {
+  const isFunnel = type === 'funnel'
+  const phaseSequence = isFunnel ? FUNNEL_PHASE_SEQUENCE : PHASE_SEQUENCE
+  const phaseCols     = isFunnel ? FUNNEL_PHASE_COLS     : PHASE_COLS
   const showToolbar = isAdmin || canBatchManage
   const [activeWeek, setActiveWeek] = useState<1|2|3|4>(1)
   const [activeBatch, setActiveBatch] = useState<number | null>(null)
@@ -734,6 +748,7 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchM
               b={b}
               isAdmin={isAdmin}
               advancing={advancing}
+              phaseSequence={phaseSequence}
               onOpenNotes={setNotesBuild}
               onOpenEdit={openEdit}
               onDelete={setDeleteId}
@@ -762,14 +777,14 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchM
                     )}
                     <TableHeader>Product</TableHeader>
                     <TableHeader className={`${showClass('md')} whitespace-nowrap`}>Approved</TableHeader>
-                    {PHASE_COLS.map(col => (
+                    {phaseCols.map(col => (
                       <TableHeader key={col.label} className={`whitespace-nowrap ${showClass(col.showFrom)}`}>
                         {col.label}
                       </TableHeader>
                     ))}
                     <TableHeader>Outcome</TableHeader>
                     <TableHeader className={`${showClass('lg')} text-right whitespace-nowrap`}>Build d</TableHeader>
-                    <TableHeader className={`${showClass('lg')} text-right whitespace-nowrap`}>Proof d</TableHeader>
+                    {!isFunnel && <TableHeader className={`${showClass('lg')} text-right whitespace-nowrap`}>Proof d</TableHeader>}
                     <TableHeader className={`${showClass('lg')} text-right whitespace-nowrap`}>Test d</TableHeader>
                     <TableHeader className="text-right whitespace-nowrap">Total d</TableHeader>
                     {isAdmin && <TableHeader />}
@@ -811,7 +826,7 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchM
                         {formatDate(b.approved_date)}
                       </TableCell>
 
-                      {PHASE_COLS.map(col => {
+                      {phaseCols.map(col => {
                         const hide = showClass(col.showFrom)
                         const startVal = b[col.startKey] as string | null
                         const endVal = col.endKey ? b[col.endKey] as string | null : null
@@ -896,7 +911,7 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchM
                       </TableCell>
 
                       <TableCell mono className={`${showClass('lg')} text-right text-text-muted`}>{b.build_days ?? '—'}</TableCell>
-                      <TableCell mono className={`${showClass('lg')} text-right text-text-muted`}>{b.proof_days ?? '—'}</TableCell>
+                      {!isFunnel && <TableCell mono className={`${showClass('lg')} text-right text-text-muted`}>{b.proof_days ?? '—'}</TableCell>}
                       <TableCell mono className={`${showClass('lg')} text-right text-text-muted`}>{b.test_days ?? '—'}</TableCell>
                       <TableCell mono className="text-right text-text-muted">{b.total_days ?? '—'}</TableCell>
 
@@ -953,7 +968,7 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchM
                 <tbody className="divide-y divide-border-subtle">
                   {([
                     ['Building',  buildAvg, settings?.build_target_days],
-                    ['Proofread', proofAvg, settings?.proof_target_days],
+                    ...(!isFunnel ? [['Proofread', proofAvg, settings?.proof_target_days] as [string, number | null, number | undefined]] : []),
                     ['Testing',   testAvg,  settings?.test_target_days],
                   ] as [string, number | null, number | undefined][]).map(([label, val, tgt]) => (
                     <tr key={label}>
@@ -976,7 +991,7 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchM
                       </tr>
                       {([
                         ['Building',  settings.build_target_days],
-                        ['Proofread', settings.proof_target_days],
+                        ...(!isFunnel ? [['Proofread', settings.proof_target_days] as [string, number]] : []),
                         ['Testing',   settings.test_target_days],
                         ['Total',     settings.total_target_days],
                       ] as [string, number][]).map(([label, val]) => (

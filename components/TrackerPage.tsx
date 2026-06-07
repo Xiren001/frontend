@@ -19,8 +19,8 @@ export function TrackerPage({ type, title }: Props) {
   const [month, setMonth] = useState(currentMonth())
   const { role } = useRole()
 
-  const isAdmin = role === 'admin'
-  const canBatchManage = role === 'admin' || role === 'management'
+  const isAdmin = role === 'admin' || (type === 'funnel' && role === 'website')
+  const canBatchManage = role === 'admin' || role === 'management' || (type === 'funnel' && role === 'website')
 
   async function loadBuilds() {
     const data = await api.get<Build[]>(`/api/builds?type=${type}&month=${month}`)
