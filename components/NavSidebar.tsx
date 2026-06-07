@@ -57,7 +57,7 @@ export function NavSidebar() {
     if (saved !== null) {
       setCollapsed(saved === 'true')
     } else {
-      setCollapsed(window.innerWidth < 768)
+      setCollapsed(window.innerWidth < 1024)
     }
   }, [])
 
@@ -91,7 +91,7 @@ export function NavSidebar() {
   return (
     <>
       {/* ── Mobile top bar (hidden on desktop) ── */}
-      <div className="fixed top-0 left-0 right-0 z-40 flex items-center gap-3 h-14 px-4 bg-surface-elevated border-b border-border-subtle md:hidden">
+      <div className="fixed top-0 left-0 right-0 z-40 flex items-center gap-3 h-14 px-4 bg-surface-elevated border-b border-border-subtle lg:hidden">
         <button
           onClick={() => setMobileOpen(true)}
           aria-label="Open menu"
@@ -110,7 +110,7 @@ export function NavSidebar() {
       {/* ── Mobile backdrop ── */}
       <div
         className={cn(
-          'fixed inset-0 z-40 bg-black/50 md:hidden transition-opacity duration-200',
+          'fixed inset-0 z-40 bg-black/50 lg:hidden transition-opacity duration-200',
           mobileOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none',
         )}
         onClick={() => setMobileOpen(false)}
@@ -125,9 +125,9 @@ export function NavSidebar() {
           'transition-transform duration-200 ease-in-out',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
           // Desktop: static, sticky, variable width, no translate
-          'md:static md:inset-auto md:z-auto md:translate-x-0 md:shrink-0 md:sticky md:top-0 md:h-screen md:shadow-sm',
-          'md:transition-[width] md:duration-200',
-          collapsed ? 'md:w-14' : 'md:w-60',
+          'lg:static lg:inset-auto lg:z-auto lg:translate-x-0 lg:shrink-0 lg:sticky lg:top-0 lg:h-screen lg:shadow-sm',
+          'lg:transition-[width] lg:duration-200',
+          collapsed ? 'lg:w-14' : 'lg:w-60',
         )}
       >
         {/* ── Header ── */}
@@ -138,7 +138,7 @@ export function NavSidebar() {
           )}
         >
           {/* Logo — always shown on mobile, hidden when collapsed on desktop */}
-          <div className={cn('flex items-center gap-2.5 min-w-0', collapsed && 'md:hidden')}>
+          <div className={cn('flex items-center gap-2.5 min-w-0', collapsed && 'lg:hidden')}>
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-white shadow-sm">
               <Terminal className="h-4 w-4" />
             </div>
@@ -151,7 +151,7 @@ export function NavSidebar() {
           {/* Mobile: close button */}
           <button
             onClick={() => setMobileOpen(false)}
-            className="flex items-center justify-center w-7 h-7 rounded-md text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors md:hidden"
+            className="flex items-center justify-center w-7 h-7 rounded-md text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors lg:hidden"
           >
             <X className="h-4 w-4" />
           </button>
@@ -161,7 +161,7 @@ export function NavSidebar() {
             onClick={toggleCollapse}
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             className={cn(
-              'shrink-0 hidden md:flex items-center justify-center rounded-md w-7 h-7 text-text-muted',
+              'shrink-0 hidden lg:flex items-center justify-center rounded-md w-7 h-7 text-text-muted',
               'hover:bg-surface-hover hover:text-foreground transition-colors',
             )}
           >
@@ -185,7 +185,7 @@ export function NavSidebar() {
                 className={cn(
                   'flex items-center gap-2.5 px-3 rounded-lg py-2 text-sm mb-0.5 transition-colors',
                   // Desktop collapsed: center icon only
-                  collapsed && 'md:justify-center md:px-2',
+                  collapsed && 'lg:justify-center lg:px-2',
                   active
                     ? 'bg-accent-muted text-accent font-medium'
                     : 'text-text-secondary hover:bg-surface-hover hover:text-foreground',
@@ -193,7 +193,7 @@ export function NavSidebar() {
               >
                 <Icon className={cn('h-4 w-4 shrink-0', active ? 'text-accent' : 'text-text-muted')} />
                 {/* Mobile: always show label. Desktop: hide when collapsed */}
-                <span className={cn(collapsed && 'md:hidden')}>{item.label}</span>
+                <span className={cn(collapsed && 'lg:hidden')}>{item.label}</span>
               </Link>
             )
           })}
@@ -207,11 +207,11 @@ export function NavSidebar() {
             className={cn(
               'flex w-full items-center gap-2.5 px-3 rounded-md py-2 text-sm text-text-muted',
               'hover:bg-surface-hover hover:text-foreground transition-colors',
-              collapsed && 'md:justify-center md:px-2',
+              collapsed && 'lg:justify-center lg:px-2',
             )}
           >
             <LogOut className="h-4 w-4 shrink-0" />
-            <span className={cn(collapsed && 'md:hidden')}>Sign out</span>
+            <span className={cn(collapsed && 'lg:hidden')}>Sign out</span>
           </button>
         </div>
       </aside>
