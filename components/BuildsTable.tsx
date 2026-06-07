@@ -411,6 +411,20 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchM
     onRefresh()
   }
 
+  async function handleRemoveFromBatch() {
+    if (activeBatch === null) return
+    setGrouping(true)
+    try {
+      await Promise.all([...selectedIds].map(id =>
+        api.put(`/api/builds/${id}`, { batch_group: null, batch_name: null })
+      ))
+      setSelectedIds(new Set())
+      const remaining = builds.filter(b => b.batch_group === activeBatch && !selectedIds.has(b.id))
+      if (remaining.length === 0) setActiveBatch(null)
+      onRefresh()
+    } finally { setGrouping(false) }
+  }
+
   async function handleRenameCommit() {
     if (renamingBatch === null) return
     const toRename = builds.filter(b => b.batch_group === renamingBatch)
@@ -552,7 +566,7 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchM
             const isActive = activeBatch === batchNum
             const isRenaming = renamingBatch === batchNum
             return (
-              <div key={batchNum}>
+              <div key={batchNum} className="flex items-center gap-0.5">
                 {isRenaming ? (
                   <input
                     ref={renameInputRef}
@@ -567,19 +581,28 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchM
                     className="text-xs px-2 py-1 rounded border border-accent/60 bg-surface-elevated text-foreground w-28 focus:outline-none focus:ring-1 focus:ring-accent/40"
                   />
                 ) : (
-                  <button
-                    onClick={() => setActiveBatch(isActive ? null : batchNum)}
-                    onDoubleClick={() => startRename(batchNum)}
-                    title={isAdmin ? 'Double-click to rename' : undefined}
-                    className={cn(
-                      'text-xs px-2.5 py-1 rounded-md border font-medium transition-colors select-none',
-                      isActive
-                        ? 'bg-accent-muted text-accent border-accent-border'
-                        : 'text-text-secondary border-border-subtle hover:text-foreground hover:border-border hover:bg-surface-hover',
+                  <>
+                    <button
+                      onClick={() => setActiveBatch(isActive ? null : batchNum)}
+                      className={cn(
+                        'text-xs px-2.5 py-1 rounded-md border font-medium transition-colors select-none',
+                        isActive
+                          ? 'bg-accent-muted text-accent border-accent-border'
+                          : 'text-text-secondary border-border-subtle hover:text-foreground hover:border-border hover:bg-surface-hover',
+                      )}
+                    >
+                      {name}
+                    </button>
+                    {isAdmin && (
+                      <button
+                        onClick={() => startRename(batchNum)}
+                        title="Rename batch"
+                        className="p-1 rounded text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </button>
                     )}
-                  >
-                    {name}
-                  </button>
+                  </>
                 )}
               </div>
             )
@@ -658,6 +681,13 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchM
                   <Layers className="h-3.5 w-3.5 text-text-muted" />{grouping ? 'Grouping…' : `Batch ${selectedIds.size}`}
                 </button>
               )}
+              {selectedIds.size > 0 && activeBatch !== null && (
+                <button type="button"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-surface-hover border-t border-border-subtle mt-1 pt-2"
+                  disabled={grouping} onClick={e => { closeActionsMenu(e); handleRemoveFromBatch() }}>
+                  <Layers className="h-3.5 w-3.5 text-text-muted" />{grouping ? 'Removing…' : `Remove from ${batchDisplayName(activeBatch)}`}
+                </button>
+              )}
               {isAdmin && selectedIds.size > 0 && activeBatch === null && (
                 <button type="button" className="flex w-full items-center gap-2 px-3 py-2 text-sm text-danger hover:bg-danger-muted"
                   onClick={e => { closeActionsMenu(e); setBulkDeleteOpen(true) }}>
@@ -691,6 +721,11 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchM
             {selectedIds.size > 0 && activeBatch === null && (
               <Button variant="secondary" size="sm" onClick={handleGroupAsBatch} disabled={grouping}>
                 <Layers className="h-3.5 w-3.5 mr-1.5" />{grouping ? 'Grouping…' : `Batch ${selectedIds.size}`}
+              </Button>
+            )}
+            {selectedIds.size > 0 && activeBatch !== null && (
+              <Button variant="secondary" size="sm" onClick={handleRemoveFromBatch} disabled={grouping}>
+                {grouping ? 'Removing…' : `Remove from ${batchDisplayName(activeBatch)}`}
               </Button>
             )}
             {isAdmin && selectedIds.size > 0 && activeBatch === null && (
