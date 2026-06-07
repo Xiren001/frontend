@@ -95,6 +95,8 @@ export interface WeekStats {
   killed: number
   mistakes: number
   avgBuildDays: number | null
+  avgBuildDaysJewelry?: number | null
+  avgBuildDaysFunnel?: number | null
   avgTotalDays: number | null
   testedCount?: number
   testedWon?: number

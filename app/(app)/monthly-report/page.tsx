@@ -13,12 +13,9 @@ import { ResponsiveTable, type ResponsiveColumn } from '@/components/ui/responsi
 import { Modal } from '@/components/ui/modal'
 import { TrendingUp, FlaskConical, Trophy, Download, Target } from 'lucide-react'
 import {
-  type WinningStore,
-  loadStores,
-  loadActiveStoreId,
-  saveActiveStoreId,
-  loadWinningTitles,
-  loadCsvWinners,
+  type StoreCsvWinners,
+  loadAllStoresWinningTitles,
+  loadAllStoresCsvWinners,
   isWinnerMatch,
 } from '@/lib/winning-products'
 
@@ -32,6 +29,8 @@ interface MonthlyReport {
   winRate: string
   testWinRate: string
   avgBuildDays: number | null
+  avgBuildDaysJewelry: number | null
+  avgBuildDaysFunnel: number | null
   avgTotalDays: number | null
   mistakesTotal: number
   mistakesRepeating: number
@@ -67,7 +66,7 @@ function esc(s: string | null | undefined): string {
 function generateMonthlyHtml(
   month: string,
   report: MonthlyReport,
-  csvWinners: { demand: CsvProduct[]; momentum: CsvProduct[] },
+  allStoreCsvWinners: StoreCsvWinners[],
   testingWinners: BuildSummary[],
 ): string {
   const dateLabel = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
@@ -90,8 +89,10 @@ function generateMonthlyHtml(
     { label: 'Stopped',                             value: report.killed,               description: 'Products discontinued after testing did not meet targets.' },
     { label: 'Win rate (all decided)',              value: report.winRate,              description: 'Expanding ÷ all decided builds. Includes products stopped without entering testing.' },
     { label: 'Test → Winner (%)',                   value: report.testWinRate,          description: 'Of all products that entered the testing phase, the percentage that became expanding. This is the true quality signal.' },
-    { label: 'Build cycle avg (days)',              value: report.avgBuildDays ?? '—',  description: 'Average days from Phase 1 start to build complete (went live).' },
-    { label: 'Total pipeline avg (days)',           value: report.avgTotalDays ?? '—',  description: 'Average days from approval through testing to a final outcome decision.' },
+    { label: 'Build cycle avg (days)',              value: report.avgBuildDays ?? '—',          description: 'Average days from Phase 1 start to build complete (went live).' },
+    { label: '  · Avg build — PDP (days)',          value: report.avgBuildDaysJewelry ?? '—',   description: 'Avg build days for Shopify / jewelry (PDP) builds.' },
+    { label: '  · Avg build — Funnel (days)',       value: report.avgBuildDaysFunnel ?? '—',    description: 'Avg build days for funnel builds.' },
+    { label: 'Total pipeline avg (days)',           value: report.avgTotalDays ?? '—',          description: 'Average days from approval through testing to a final outcome decision.' },
     { label: 'Issues logged',                       value: report.mistakesTotal,        description: 'Total mistakes or quality issues recorded in the Issue Log.' },
     { label: '  · Repeating issues',               value: report.mistakesRepeating,    description: 'Issues that appeared in more than one build — signals a systematic gap.' },
     { label: '  · By category',                    value: categoryBreakdown,           description: 'Issue breakdown by category, sorted by frequency.' },
@@ -118,7 +119,7 @@ function generateMonthlyHtml(
         </span>
       </div>`).join('')
 
-  const hasCsv = csvWinners.demand.length > 0 || csvWinners.momentum.length > 0
+  const hasCsv = allStoreCsvWinners.length > 0
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -314,26 +315,28 @@ tr:nth-child(even) td{background:#fafbfd}
     <div class="section">
       <div class="sec-label">Winning Products from Analysis</div>
       <div class="sec-desc">Products shown in the Winning Products tab after applying the current filter thresholds. <em>Qualified Demand</em> = meets minimum sales volume and gross margin. <em>Momentum</em> = selling well and growing vs. the prior 7 days.</div>
-      <div class="csv-grid">
-        ${csvWinners.demand.length > 0 ? `
-        <div class="csv-card">
-          <div class="csv-lbl">Qualified Demand (${csvWinners.demand.length})</div>
-          ${csvWinners.demand.map(p => `
-            <div class="csv-item">
-              <span class="csv-name">${esc(p.title)}</span>
-              ${p.unitsSold != null ? `<span class="csv-stat">${p.unitsSold} sold/wk</span>` : ''}
-            </div>`).join('')}
-        </div>` : ''}
-        ${csvWinners.momentum.length > 0 ? `
-        <div class="csv-card">
-          <div class="csv-lbl">Momentum (${csvWinners.momentum.length})</div>
-          ${csvWinners.momentum.map(p => `
-            <div class="csv-item">
-              <span class="csv-name">${esc(p.title)}</span>
-              ${p.unitGrowthPct != null ? `<span class="csv-stat" style="color:#16a34a">+${p.unitGrowthPct}%</span>` : ''}
-            </div>`).join('')}
-        </div>` : ''}
-      </div>
+      ${allStoreCsvWinners.map(s => `
+        ${allStoreCsvWinners.length > 1 ? `<div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#475569;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #e2e8f0">${esc(s.storeName)}</div>` : ''}
+        <div class="csv-grid" style="margin-bottom:${allStoreCsvWinners.length > 1 ? '20' : '0'}px">
+          ${s.demand.length > 0 ? `
+          <div class="csv-card">
+            <div class="csv-lbl">Qualified Demand (${s.demand.length})</div>
+            ${s.demand.map(p => `
+              <div class="csv-item">
+                <span class="csv-name">${esc(p.title)}</span>
+                ${p.unitsSold != null ? `<span class="csv-stat">${p.unitsSold} sold/wk</span>` : ''}
+              </div>`).join('')}
+          </div>` : ''}
+          ${s.momentum.length > 0 ? `
+          <div class="csv-card">
+            <div class="csv-lbl">Momentum (${s.momentum.length})</div>
+            ${s.momentum.map(p => `
+              <div class="csv-item">
+                <span class="csv-name">${esc(p.title)}</span>
+                ${p.unitGrowthPct != null ? `<span class="csv-stat" style="color:#16a34a">+${p.unitGrowthPct}%</span>` : ''}
+              </div>`).join('')}
+          </div>` : ''}
+        </div>`).join('')}
     </div>` : ''}
 
   </div><!-- /content -->
@@ -354,10 +357,8 @@ export default function MonthlyReportPage() {
   const [editOpen, setEditOpen] = useState(false)
   const [narrativeText, setNarrativeText] = useState('')
   const [saving, setSaving] = useState(false)
-  const [csvWinners, setCsvWinners] = useState<{ demand: CsvProduct[]; momentum: CsvProduct[] }>({ demand: [], momentum: [] })
+  const [allStoreCsvWinners, setAllStoreCsvWinners] = useState<StoreCsvWinners[]>([])
   const [winningTitles, setWinningTitles] = useState<Set<string>>(new Set())
-  const [stores, setStores] = useState<WinningStore[]>([])
-  const [activeStoreId, setActiveStoreId] = useState<string | null>(null)
 
   async function load() {
     const data = await api.get<MonthlyReport>(`/api/reports/monthly?month=${month}`)
@@ -369,16 +370,9 @@ export default function MonthlyReportPage() {
   useEffect(() => { load() }, [month])
 
   useEffect(() => {
-    const s = loadStores()
-    setStores(s)
-    setActiveStoreId(loadActiveStoreId(s))
+    setAllStoreCsvWinners(loadAllStoresCsvWinners())
+    setWinningTitles(loadAllStoresWinningTitles())
   }, [])
-
-  useEffect(() => {
-    if (activeStoreId === null) return
-    setCsvWinners(loadCsvWinners(activeStoreId))
-    setWinningTitles(loadWinningTitles(activeStoreId))
-  }, [activeStoreId])
 
   function openEdit() {
     setNarrativeText(report?.narrative?.narrative_text ?? '')
@@ -403,7 +397,7 @@ export default function MonthlyReportPage() {
 
   function handleExport() {
     if (!report) return
-    const html = generateMonthlyHtml(month, report, csvWinners, testingWinners)
+    const html = generateMonthlyHtml(month, report, allStoreCsvWinners, testingWinners)
     const win = window.open('', '_blank')
     if (!win) return
     win.document.write(html)
@@ -426,8 +420,10 @@ export default function MonthlyReportPage() {
     { label: 'Stopped',                           value: report.killed,              description: 'Products discontinued after testing.' },
     { label: 'Win rate (decided)',                value: report.winRate,             description: 'Expanding ÷ all decided builds.' },
     { label: 'Test → Winner (%)',                 value: report.testWinRate,         description: 'Of builds that entered testing, % that became expanding.' },
-    { label: 'Build cycle avg (days)',            value: report.avgBuildDays ?? '—', description: 'Avg days from Phase 1 start to live.' },
-    { label: 'Total pipeline avg (days)',         value: report.avgTotalDays ?? '—', description: 'Avg days from approval to decision.' },
+    { label: 'Build cycle avg (days)',              value: report.avgBuildDays ?? '—',        description: 'Avg days from Phase 1 start to live.' },
+    { label: '  · Avg build — PDP (days)',          value: report.avgBuildDaysJewelry ?? '—', description: 'Avg build days for Shopify / jewelry (PDP) builds.' },
+    { label: '  · Avg build — Funnel (days)',       value: report.avgBuildDaysFunnel ?? '—',  description: 'Avg build days for funnel builds.' },
+    { label: 'Total pipeline avg (days)',           value: report.avgTotalDays ?? '—',        description: 'Avg days from approval to decision.' },
     { label: 'Issues logged',                     value: report.mistakesTotal,       description: 'Quality issues in Issue Log.' },
     { label: '  · Repeating',                    value: report.mistakesRepeating,   description: 'Issues appearing in more than one build.' },
     { label: '  · By category',                  value: categoryBreakdown,          description: 'Breakdown by category.' },
@@ -440,7 +436,7 @@ export default function MonthlyReportPage() {
   ]
 
   const narrative = report?.narrative?.narrative_text ?? ''
-  const hasCsv = csvWinners.demand.length > 0 || csvWinners.momentum.length > 0
+  const hasCsv = allStoreCsvWinners.length > 0
   const testingWinners = report && winningTitles.size > 0
     ? report.testingList.filter(b => isWinnerMatch(b.product_name, winningTitles))
     : []
@@ -452,20 +448,6 @@ export default function MonthlyReportPage() {
         description="End-of-month summary for Abigél. Metrics auto-populated from trackers."
         actions={
           <div className="flex items-center gap-2">
-            {stores.length > 1 && activeStoreId && (
-              <select
-                value={activeStoreId}
-                onChange={e => {
-                  setActiveStoreId(e.target.value)
-                  saveActiveStoreId(e.target.value)
-                }}
-                className="rounded-lg border border-border bg-surface-elevated px-3 py-2.5 text-xs text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent-border"
-              >
-                {stores.map(s => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-            )}
             <Input type="month" value={month} onChange={e => setMonth(e.target.value)} className="w-auto" mono />
             <Button variant="secondary" size="sm" onClick={handleExport} disabled={!report}>
               <Download className="h-3.5 w-3.5 mr-1.5" />
@@ -569,7 +551,7 @@ export default function MonthlyReportPage() {
         </div>
       )}
 
-      {/* CSV winners */}
+      {/* CSV winners — all stores */}
       {hasCsv && (
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-4">
@@ -577,41 +559,50 @@ export default function MonthlyReportPage() {
             <h2 className="text-sm font-semibold text-foreground uppercase tracking-widest">Winning Products from Analysis</h2>
             <span className="text-xs text-text-muted">(from Winning Products CSV upload)</span>
           </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {csvWinners.demand.length > 0 && (
-              <Card>
-                <CardBody>
-                  <p className="text-xs font-medium uppercase tracking-widest text-text-muted mb-3">Qualified Demand ({csvWinners.demand.length})</p>
-                  <div className="space-y-1.5">
-                    {csvWinners.demand.map((p, i) => (
-                      <div key={i} className="flex items-center justify-between py-1 border-b border-border-subtle last:border-0">
-                        <span className="text-sm text-foreground font-medium">{p.title}</span>
-                        {p.unitsSold != null && (
-                          <span className="text-xs text-text-muted font-mono shrink-0 ml-2">{p.unitsSold} sold/wk</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </CardBody>
-              </Card>
-            )}
-            {csvWinners.momentum.length > 0 && (
-              <Card>
-                <CardBody>
-                  <p className="text-xs font-medium uppercase tracking-widest text-text-muted mb-3">Momentum ({csvWinners.momentum.length})</p>
-                  <div className="space-y-1.5">
-                    {csvWinners.momentum.map((p, i) => (
-                      <div key={i} className="flex items-center justify-between py-1 border-b border-border-subtle last:border-0">
-                        <span className="text-sm text-foreground font-medium">{p.title}</span>
-                        {p.unitGrowthPct != null && (
-                          <span className="text-xs text-accent font-mono shrink-0 ml-2">+{p.unitGrowthPct}%</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </CardBody>
-              </Card>
-            )}
+          <div className="space-y-6">
+            {allStoreCsvWinners.map(s => (
+              <div key={s.storeName}>
+                {allStoreCsvWinners.length > 1 && (
+                  <p className="text-xs font-semibold text-text-secondary uppercase tracking-widest mb-3">{s.storeName}</p>
+                )}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {s.demand.length > 0 && (
+                    <Card>
+                      <CardBody>
+                        <p className="text-xs font-medium uppercase tracking-widest text-text-muted mb-3">Qualified Demand ({s.demand.length})</p>
+                        <div className="space-y-1.5">
+                          {s.demand.map((p, i) => (
+                            <div key={i} className="flex items-center justify-between py-1 border-b border-border-subtle last:border-0">
+                              <span className="text-sm text-foreground font-medium">{p.title}</span>
+                              {p.unitsSold != null && (
+                                <span className="text-xs text-text-muted font-mono shrink-0 ml-2">{p.unitsSold} sold/wk</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </CardBody>
+                    </Card>
+                  )}
+                  {s.momentum.length > 0 && (
+                    <Card>
+                      <CardBody>
+                        <p className="text-xs font-medium uppercase tracking-widest text-text-muted mb-3">Momentum ({s.momentum.length})</p>
+                        <div className="space-y-1.5">
+                          {s.momentum.map((p, i) => (
+                            <div key={i} className="flex items-center justify-between py-1 border-b border-border-subtle last:border-0">
+                              <span className="text-sm text-foreground font-medium">{p.title}</span>
+                              {p.unitGrowthPct != null && (
+                                <span className="text-xs text-accent font-mono shrink-0 ml-2">+{p.unitGrowthPct}%</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </CardBody>
+                    </Card>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

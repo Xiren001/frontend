@@ -14,12 +14,9 @@ import { MobileDataCard, MobileDataRow, ResponsiveCardList, ResponsiveDesktopTab
 import { Modal } from '@/components/ui/modal'
 import { TrendingUp, FlaskConical, Download, Target, Trophy } from 'lucide-react'
 import {
-  type WinningStore,
-  loadStores,
-  loadActiveStoreId,
-  saveActiveStoreId,
-  loadWinningTitles,
-  loadCsvWinners,
+  type StoreCsvWinners,
+  loadAllStoresWinningTitles,
+  loadAllStoresCsvWinners,
   isWinnerMatch,
 } from '@/lib/winning-products'
 
@@ -52,7 +49,7 @@ function generateWeeklyHtml(
   weekStats: WeekStats[],
   narratives: ReportNarrative[],
   testingWinners: (BuildSummary & { week: number })[],
-  csvWinners: { demand: CsvProduct[]; momentum: CsvProduct[] },
+  allStoreCsvWinners: StoreCsvWinners[],
 ): string {
   const dateLabel = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
   const monthLabel = (() => {
@@ -70,7 +67,7 @@ function generateWeeklyHtml(
   const monthTestWinRate = totalTested > 0 ? `${Math.round(totalTestedWon / totalTested * 100)}%` : '—'
   const winRate = totalCompleted > 0 ? `${Math.round(totalWinners / totalCompleted * 100)}%` : '—'
 
-  const avgOf = (key: 'avgBuildDays' | 'avgTotalDays') => {
+  const avgOf = (key: 'avgBuildDays' | 'avgTotalDays' | 'avgBuildDaysJewelry' | 'avgBuildDaysFunnel') => {
     const vals = weekStats.map(w => w[key]).filter((v): v is number => v !== null && v !== undefined)
     if (!vals.length) return '—'
     return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length * 10) / 10
@@ -85,8 +82,10 @@ function generateWeeklyHtml(
     { key: 'winners',      label: 'Expanding',                 description: 'Products approved for scale-up after a successful testing outcome.',        total: sum('winners') },
     { key: 'killed',       label: 'Stopped',                   description: 'Products discontinued after testing did not meet performance targets.',     total: sum('killed') },
     { key: 'mistakes',     label: 'Issues logged',             description: 'Quality issues or mistakes recorded in the Issue Log this week.',           total: sum('mistakes') },
-    { key: 'avgBuildDays', label: 'Avg build cycle (days)',    description: 'Average number of days from build start to live (Phase 1 complete).',       total: avgOf('avgBuildDays') },
-    { key: 'avgTotalDays', label: 'Avg total pipeline (days)', description: 'Average days from approval through testing to a final outcome decision.',    total: avgOf('avgTotalDays') },
+    { key: 'avgBuildDays',         label: 'Avg build cycle (days)',        description: 'Average number of days from build start to live (Phase 1 complete).',          total: avgOf('avgBuildDays') },
+    { key: 'avgBuildDaysJewelry', label: 'Avg build — PDP (days)',         description: 'Avg build days for Shopify / jewelry (PDP) builds only.',                        total: avgOf('avgBuildDaysJewelry') },
+    { key: 'avgBuildDaysFunnel',  label: 'Avg build — Funnel (days)',      description: 'Avg build days for funnel builds only.',                                          total: avgOf('avgBuildDaysFunnel') },
+    { key: 'avgTotalDays',        label: 'Avg total pipeline (days)',       description: 'Average days from approval through testing to a final outcome decision.',         total: avgOf('avgTotalDays') },
     { key: 'testWinRate',  label: 'Test → Winner (%)',         description: 'Of all products that entered the testing phase, the percentage that were decided as expanding.',  total: monthTestWinRate },
   ]
 
@@ -340,30 +339,32 @@ tr:nth-child(even) td{background:#fafbfd}
     </div>` : ''}
 
     <!-- Winning Products -->
-    ${(csvWinners.demand.length > 0 || csvWinners.momentum.length > 0) ? `
+    ${allStoreCsvWinners.length > 0 ? `
     <div class="section">
       <div class="sec-label">Winning Products from Analysis</div>
       <div class="sec-desc">Products from the Winning Products CSV upload that passed the demand and momentum thresholds.</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-        ${csvWinners.demand.length > 0 ? `
-        <div>
-          <div class="csv-lbl">Qualified Demand (${csvWinners.demand.length})</div>
-          ${csvWinners.demand.map(p => `
-            <div class="product-item">
-              <span class="product-name">${esc(p.title)}</span>
-              ${p.unitsSold != null ? `<span class="mono" style="color:#94a3b8;font-size:11px">${p.unitsSold} sold/wk</span>` : ''}
-            </div>`).join('')}
-        </div>` : ''}
-        ${csvWinners.momentum.length > 0 ? `
-        <div>
-          <div class="csv-lbl">Momentum (${csvWinners.momentum.length})</div>
-          ${csvWinners.momentum.map(p => `
-            <div class="product-item">
-              <span class="product-name">${esc(p.title)}</span>
-              ${p.unitGrowthPct != null ? `<span class="mono" style="color:#6366f1;font-size:11px">+${p.unitGrowthPct}%</span>` : ''}
-            </div>`).join('')}
-        </div>` : ''}
-      </div>
+      ${allStoreCsvWinners.map(s => `
+        ${allStoreCsvWinners.length > 1 ? `<div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#475569;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #e2e8f0">${esc(s.storeName)}</div>` : ''}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:${allStoreCsvWinners.length > 1 ? '24' : '0'}px">
+          ${s.demand.length > 0 ? `
+          <div>
+            <div class="csv-lbl">Qualified Demand (${s.demand.length})</div>
+            ${s.demand.map(p => `
+              <div class="product-item">
+                <span class="product-name">${esc(p.title)}</span>
+                ${p.unitsSold != null ? `<span class="mono" style="color:#94a3b8;font-size:11px">${p.unitsSold} sold/wk</span>` : ''}
+              </div>`).join('')}
+          </div>` : ''}
+          ${s.momentum.length > 0 ? `
+          <div>
+            <div class="csv-lbl">Momentum (${s.momentum.length})</div>
+            ${s.momentum.map(p => `
+              <div class="product-item">
+                <span class="product-name">${esc(p.title)}</span>
+                ${p.unitGrowthPct != null ? `<span class="mono" style="color:#6366f1;font-size:11px">+${p.unitGrowthPct}%</span>` : ''}
+              </div>`).join('')}
+          </div>` : ''}
+        </div>`).join('')}
     </div>` : ''}
 
     <!-- Stopped -->
@@ -400,9 +401,7 @@ export default function WeeklyReportPage() {
   const [editText, setEditText] = useState('')
   const [saving, setSaving] = useState(false)
   const [winningTitles, setWinningTitles] = useState<Set<string>>(new Set())
-  const [csvWinners, setCsvWinners] = useState<{ demand: CsvProduct[]; momentum: CsvProduct[] }>({ demand: [], momentum: [] })
-  const [stores, setStores] = useState<WinningStore[]>([])
-  const [activeStoreId, setActiveStoreId] = useState<string | null>(null)
+  const [allStoreCsvWinners, setAllStoreCsvWinners] = useState<StoreCsvWinners[]>([])
 
   async function load() {
     const data = await api.get<{ weekStats: WeekStats[]; narratives: ReportNarrative[] }>(`/api/reports/weekly?month=${month}`)
@@ -414,16 +413,9 @@ export default function WeeklyReportPage() {
   useEffect(() => { load() }, [month])
 
   useEffect(() => {
-    const s = loadStores()
-    setStores(s)
-    setActiveStoreId(loadActiveStoreId(s))
+    setWinningTitles(loadAllStoresWinningTitles())
+    setAllStoreCsvWinners(loadAllStoresCsvWinners())
   }, [])
-
-  useEffect(() => {
-    if (activeStoreId === null) return
-    setWinningTitles(loadWinningTitles(activeStoreId))
-    setCsvWinners(loadCsvWinners(activeStoreId))
-  }, [activeStoreId])
 
   function getNarrative(week: number) {
     return narratives.find(n => n.week_number === week)?.narrative_text ?? ''
@@ -452,7 +444,7 @@ export default function WeeklyReportPage() {
   }
 
   function handleExport() {
-    const html = generateWeeklyHtml(month, weekStats, narratives, testingWinnersAll, csvWinners)
+    const html = generateWeeklyHtml(month, weekStats, narratives, testingWinnersAll, allStoreCsvWinners)
     const win = window.open('', '_blank')
     if (!win) return
     win.document.write(html)
@@ -460,14 +452,16 @@ export default function WeeklyReportPage() {
   }
 
   const METRICS: { key: keyof WeekStats; label: string }[] = [
-    { key: 'logged',       label: 'Builds logged' },
-    { key: 'completed',    label: 'Completed (live)' },
-    { key: 'winners',      label: 'Expanding' },
-    { key: 'killed',       label: 'Stopped' },
-    { key: 'mistakes',     label: 'Issues' },
-    { key: 'avgBuildDays', label: 'Avg build (days)' },
-    { key: 'avgTotalDays', label: 'Avg total: approved → live (days)' },
-    { key: 'testWinRate',  label: 'Tested → winner (%)' },
+    { key: 'logged',              label: 'Builds logged' },
+    { key: 'completed',           label: 'Completed (live)' },
+    { key: 'winners',             label: 'Expanding' },
+    { key: 'killed',              label: 'Stopped' },
+    { key: 'mistakes',            label: 'Issues' },
+    { key: 'avgBuildDays',        label: 'Avg build (days)' },
+    { key: 'avgBuildDaysJewelry', label: 'Avg build — PDP (days)' },
+    { key: 'avgBuildDaysFunnel',  label: 'Avg build — Funnel (days)' },
+    { key: 'avgTotalDays',        label: 'Avg total: approved → live (days)' },
+    { key: 'testWinRate',         label: 'Tested → winner (%)' },
   ]
 
   const monthTotal = (key: keyof WeekStats) => {
@@ -478,7 +472,7 @@ export default function WeeklyReportPage() {
     }
     const vals = weekStats.map(w => w[key] as number | null).filter((v): v is number => v !== null)
     if (vals.length === 0) return '—'
-    if (key === 'avgBuildDays' || key === 'avgTotalDays') {
+    if (key === 'avgBuildDays' || key === 'avgTotalDays' || key === 'avgBuildDaysJewelry' || key === 'avgBuildDaysFunnel') {
       const a = vals.reduce((a, b) => a + b, 0) / vals.length
       return Math.round(a * 10) / 10
     }
@@ -504,20 +498,6 @@ export default function WeeklyReportPage() {
         description="Auto counts from trackers. Fill narrative cells each Friday — send by 2pm."
         actions={
           <div className="flex items-center gap-2">
-            {stores.length > 1 && activeStoreId && (
-              <select
-                value={activeStoreId}
-                onChange={e => {
-                  setActiveStoreId(e.target.value)
-                  saveActiveStoreId(e.target.value)
-                }}
-                className="rounded-lg border border-border bg-surface-elevated px-3 py-2.5 text-xs text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent-border"
-              >
-                {stores.map(s => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-            )}
             <Input type="month" value={month} onChange={e => setMonth(e.target.value)} className="w-auto" mono />
             <Button variant="secondary" size="sm" onClick={handleExport}>
               <Download className="h-3.5 w-3.5 mr-1.5" />
@@ -666,49 +646,58 @@ export default function WeeklyReportPage() {
         </div>
       )}
 
-      {/* Winning Products from CSV */}
-      {(csvWinners.demand.length > 0 || csvWinners.momentum.length > 0) && (
+      {/* Winning Products from CSV — all stores */}
+      {allStoreCsvWinners.length > 0 && (
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-4">
             <Trophy className="h-4 w-4 text-yellow-400" />
             <h2 className="text-sm font-semibold text-foreground uppercase tracking-widest">Winning Products from Analysis</h2>
             <span className="text-xs text-text-muted">(from Winning Products CSV upload)</span>
           </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {csvWinners.demand.length > 0 && (
-              <Card>
-                <CardBody>
-                  <p className="text-xs font-medium uppercase tracking-widest text-text-muted mb-3">Qualified Demand ({csvWinners.demand.length})</p>
-                  <div className="space-y-1.5">
-                    {csvWinners.demand.map((p, i) => (
-                      <div key={i} className="flex items-center justify-between py-1 border-b border-border-subtle last:border-0">
-                        <span className="text-sm text-foreground font-medium">{p.title}</span>
-                        {p.unitsSold != null && (
-                          <span className="text-xs text-text-muted font-mono shrink-0 ml-2">{p.unitsSold} sold/wk</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </CardBody>
-              </Card>
-            )}
-            {csvWinners.momentum.length > 0 && (
-              <Card>
-                <CardBody>
-                  <p className="text-xs font-medium uppercase tracking-widest text-text-muted mb-3">Momentum ({csvWinners.momentum.length})</p>
-                  <div className="space-y-1.5">
-                    {csvWinners.momentum.map((p, i) => (
-                      <div key={i} className="flex items-center justify-between py-1 border-b border-border-subtle last:border-0">
-                        <span className="text-sm text-foreground font-medium">{p.title}</span>
-                        {p.unitGrowthPct != null && (
-                          <span className="text-xs text-accent font-mono shrink-0 ml-2">+{p.unitGrowthPct}%</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </CardBody>
-              </Card>
-            )}
+          <div className="space-y-6">
+            {allStoreCsvWinners.map(s => (
+              <div key={s.storeName}>
+                {allStoreCsvWinners.length > 1 && (
+                  <p className="text-xs font-semibold text-text-secondary uppercase tracking-widest mb-3">{s.storeName}</p>
+                )}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {s.demand.length > 0 && (
+                    <Card>
+                      <CardBody>
+                        <p className="text-xs font-medium uppercase tracking-widest text-text-muted mb-3">Qualified Demand ({s.demand.length})</p>
+                        <div className="space-y-1.5">
+                          {s.demand.map((p, i) => (
+                            <div key={i} className="flex items-center justify-between py-1 border-b border-border-subtle last:border-0">
+                              <span className="text-sm text-foreground font-medium">{p.title}</span>
+                              {p.unitsSold != null && (
+                                <span className="text-xs text-text-muted font-mono shrink-0 ml-2">{p.unitsSold} sold/wk</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </CardBody>
+                    </Card>
+                  )}
+                  {s.momentum.length > 0 && (
+                    <Card>
+                      <CardBody>
+                        <p className="text-xs font-medium uppercase tracking-widest text-text-muted mb-3">Momentum ({s.momentum.length})</p>
+                        <div className="space-y-1.5">
+                          {s.momentum.map((p, i) => (
+                            <div key={i} className="flex items-center justify-between py-1 border-b border-border-subtle last:border-0">
+                              <span className="text-sm text-foreground font-medium">{p.title}</span>
+                              {p.unitGrowthPct != null && (
+                                <span className="text-xs text-accent font-mono shrink-0 ml-2">+{p.unitGrowthPct}%</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </CardBody>
+                    </Card>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

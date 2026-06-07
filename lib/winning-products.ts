@@ -87,6 +87,28 @@ export function loadCsvWinners(storeId: string): { demand: CsvProduct[]; momentu
   }
 }
 
+export interface StoreCsvWinners {
+  storeName: string
+  demand: CsvProduct[]
+  momentum: CsvProduct[]
+}
+
+export function loadAllStoresWinningTitles(): Set<string> {
+  const stores = loadStores()
+  const result = new Set<string>()
+  for (const store of stores) {
+    for (const t of loadWinningTitles(store.id)) result.add(t)
+  }
+  return result
+}
+
+export function loadAllStoresCsvWinners(): StoreCsvWinners[] {
+  const stores = loadStores()
+  return stores
+    .map(store => ({ storeName: store.name, ...loadCsvWinners(store.id) }))
+    .filter(s => s.demand.length > 0 || s.momentum.length > 0)
+}
+
 export function isWinnerMatch(name: string, titles: Set<string>): boolean {
   const n = normTitle(name)
   for (const t of titles) {
