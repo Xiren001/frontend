@@ -17,14 +17,14 @@ function daysInProofread(b: Build): number | null {
   return Math.round((Date.now() - new Date(b.into_proofread).getTime()) / 86_400_000)
 }
 
-export default function ProofreadQueuePage() {
+export default function FunnelQueuePage() {
   const [builds, setBuilds] = useState<Build[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [isAdmin, setIsAdmin] = useState(false)
   const [advancing, setAdvancing] = useState<string | null>(null)
 
   const load = useCallback(() => {
-    api.get<Build[]>('/api/builds/proofread-queue?type=jewelry').then(setBuilds).catch(console.error)
+    api.get<Build[]>('/api/builds/proofread-queue?type=funnel').then(setBuilds).catch(console.error)
   }, [])
 
   useRealtimeRefresh('builds', load)
@@ -46,8 +46,7 @@ export default function ProofreadQueuePage() {
         proof_end: new Date().toISOString().split('T')[0],
       })
       load()
-    } finally {
-      setAdvancing(null) }
+    } finally { setAdvancing(null) }
   }
 
   const q = searchQuery.trim().toLowerCase()
@@ -62,11 +61,11 @@ export default function ProofreadQueuePage() {
   return (
     <div>
       <PageHeader
-        title="Proofread Queue"
-        description="Jewelry builds currently in the Proofread phase. Items flagged red exceed the 3-day target."
+        title="Funnel Queue"
+        description="Funnel builds currently in the Proofread phase. Items flagged red exceed the 3-day target."
       />
 
-      <div className="flex flex-wrap items-center gap-2 mb-6">
+      <div className="flex items-center gap-2 mb-6">
         <div className="relative ml-auto">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-muted pointer-events-none" />
           <input
@@ -112,7 +111,7 @@ export default function ProofreadQueuePage() {
               return (
                 <TableRow key={b.id} className={flagged ? 'bg-danger-muted/20' : undefined}>
                   <TableCell className="font-medium text-foreground">
-                    <Link href="/jewelry-tracker" className="hover:text-accent transition-colors" title="View in Jewelry Tracker">
+                    <Link href="/funnel-tracker" className="hover:text-accent transition-colors" title="View in Funnel Tracker">
                       {b.product_name}
                     </Link>
                   </TableCell>

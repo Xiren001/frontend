@@ -3,7 +3,7 @@ import { useEffect, useState, useRef, KeyboardEvent } from 'react'
 import { api } from '@/lib/api'
 import { formatDate, currentMonth, cn } from '@/lib/utils'
 import type { Mistake } from '@/lib/types'
-import { createClient } from '@/lib/supabase'
+import { useRole } from '@/lib/role-context'
 import { useRealtimeRefresh } from '@/lib/use-realtime-refresh'
 import { PageHeader } from '@/components/ui/page-header'
 import { Input } from '@/components/ui/input'
@@ -18,10 +18,11 @@ import { Plus, X, Layers, Search } from 'lucide-react'
 const SOP_THRESHOLD = 3
 
 export default function MistakeLogPage() {
+  const { role } = useRole()
+  const canManage = role === 'admin' || role === 'management' || role === 'website'
   const [month, setMonth] = useState(currentMonth())
   const [mistakes, setMistakes] = useState<Mistake[]>([])
   const [counts, setCounts] = useState<Record<string, number>>({})
-  const [isAdmin, setIsAdmin] = useState(false)
 
   // forms
   const [formOpen, setFormOpen]   = useState(false)
@@ -52,12 +53,6 @@ export default function MistakeLogPage() {
 
   useEffect(() => {
     loadMistakes()
-    const supabase = createClient()
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session) return
-      const { data } = await supabase.from('profiles').select('role').eq('id', session.user.id).single()
-      setIsAdmin(data?.role === 'admin')
-    })
   }, [month])
 
   // load custom patterns from localStorage after mount
@@ -133,7 +128,7 @@ export default function MistakeLogPage() {
     { key: 'caught',   header: 'Caught where',              render: m => m.caught_where ?? '—' },
     { key: 'desc',     header: 'Description',               render: m => m.description ?? '—' },
     { key: 'sop',      header: 'SOP?',                      render: m => m.sop_updated ? <Badge variant="accent">✓</Badge> : <span className="text-text-muted">—</span> },
-    ...(isAdmin ? [{
+    ...(canManage ? [{
       key: 'actions', header: '', hideOnMobile: true, align: 'right' as const,
       render: (m: Mistake) => (
         <>
@@ -152,7 +147,7 @@ export default function MistakeLogPage() {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Input type="month" value={month} onChange={e => setMonth(e.target.value)} className="w-auto" mono />
-            {isAdmin && (
+            {canManage && (
               <>
                 <Button variant="ghost" size="sm" onClick={() => setBulkOpen(true)}>
                   <Layers className="h-3.5 w-3.5 mr-1.5" />Bulk log
@@ -205,7 +200,7 @@ export default function MistakeLogPage() {
             emptyMessage={searchQuery || categoryFilter !== 'all' ? 'No matching mistakes.' : 'No mistakes logged this month'}
             mobileTitle={m => m.product_name ?? 'Unknown product'}
             mobileSubtitle={m => formatDate(m.date)}
-            mobileActions={isAdmin ? m => (
+            mobileActions={canManage ? m => (
               <div className="flex gap-2">
                 <button onClick={() => openEdit(m)} className="text-xs text-text-secondary hover:text-foreground">Edit</button>
                 <button onClick={() => setDeleteId(m.id)} className="text-xs text-danger/70 hover:text-danger">Del</button>
@@ -219,7 +214,7 @@ export default function MistakeLogPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <p className="text-xs font-medium uppercase tracking-widest text-text-muted">Pattern watch</p>
-              {isAdmin && (
+              {canManage && (
                 <button
                   onClick={() => { setAddingPattern(true); setTimeout(() => patternRef.current?.focus(), 50) }}
                   title="Add custom pattern"
@@ -250,7 +245,7 @@ export default function MistakeLogPage() {
                       <td className="py-2 px-4 text-text-secondary leading-tight">
                         <div className="flex items-center gap-1.5">
                           <span className="flex-1">{cat}</span>
-                          {isCustom && isAdmin && (
+                          {isCustom && canManage && (
                             <button onClick={() => removePattern(cat)} className="text-text-muted hover:text-danger transition-colors shrink-0" title="Remove">
                               <X className="h-3 w-3" />
                             </button>
@@ -297,7 +292,7 @@ export default function MistakeLogPage() {
                   <div key={cat} className={cn('px-4 py-3 flex items-start justify-between gap-3', flagged && 'bg-danger-muted/30')}>
                     <div className="flex items-center gap-1.5 flex-1 min-w-0">
                       <p className="text-xs text-text-secondary leading-tight flex-1 truncate">{cat}</p>
-                      {isCustom && isAdmin && (
+                      {isCustom && canManage && (
                         <button onClick={() => removePattern(cat)} className="text-text-muted hover:text-danger transition-colors shrink-0">
                           <X className="h-3 w-3" />
                         </button>

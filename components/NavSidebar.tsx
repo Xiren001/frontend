@@ -22,6 +22,8 @@ import {
   Menu,
   X,
   ClipboardList,
+  ListFilter,
+  PenLine,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase'
@@ -34,6 +36,8 @@ const NAV = [
   { href: '/funnel-tracker',  label: 'Funnel Tracker',   icon: Filter },
   { href: '/proofread-queue', label: 'Proofread Queue',  icon: ListChecks },
   { href: '/copy-review',     label: 'Proofreading',     icon: FileCheck },
+  { href: '/funnel-queue',    label: 'Funnel Queue',     icon: ListFilter },
+  { href: '/funnel-review',   label: 'Funnel Review',    icon: PenLine },
   { href: '/mistake-log',     label: 'Mistake Log',      icon: AlertTriangle },
   { href: '/product-ranking', label: 'Product Ranking',  icon: Star },
   { href: '/winning-products',label: 'Winning Products', icon: Trophy },
@@ -75,6 +79,7 @@ export function NavSidebar() {
     if (role === 'admin') return true
     if (role === 'proofreader' || role === 'ads') {
       return item.href === '/proofread-queue' || item.href === '/copy-review'
+          || item.href === '/funnel-queue'    || item.href === '/funnel-review'
     }
     if (role === 'management' || role === 'website') {
       return item.href !== '/settings'

@@ -42,9 +42,10 @@ export function canAccessPath(role: UserRole | null, path: string): boolean {
 
   const base = '/' + path.split('/').filter(Boolean)[0]
 
-  // Proofreader and Ads: only proofread-queue and copy-review
+  // Proofreader and Ads: only queue and review pages
   if (role === 'proofreader' || role === 'ads') {
     return base === '/proofread-queue' || base === '/copy-review'
+        || base === '/funnel-queue'    || base === '/funnel-review'
   }
 
   // Management and Website: all pages except settings
