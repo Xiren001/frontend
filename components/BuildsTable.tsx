@@ -944,14 +944,6 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchM
                       )}
                     </TableRow>
                   ))}
-                  {displayBuilds.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={99} className="text-center text-text-muted py-12">
-                        {activeBatch !== null ? 'No builds in this batch.' : `No builds in Week ${activeWeek}`}
-                        {isAdmin && activeBatch === null && <> · <button onClick={openCreate} className="text-accent hover:text-accent-bright">Add one</button></>}
-                      </TableCell>
-                    </TableRow>
-                  )}
                 </TableBody>
               </Table>
             </div>
