@@ -1,14 +1,23 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
-import { Upload, Trophy, TrendingUp, X, HelpCircle } from 'lucide-react'
+import { Trophy, TrendingUp, X, HelpCircle, Plus } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs } from '@/components/ui/tabs'
 import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { ResponsiveTable, type ResponsiveColumn } from '@/components/ui/responsive-table'
 import { cn } from '@/lib/utils'
+import {
+  type WinningStore,
+  getStoreDataKeys,
+  loadStores,
+  saveStores,
+  loadActiveStoreId,
+  saveActiveStoreId,
+} from '@/lib/winning-products'
 
 interface ProductRow {
   rank: number
@@ -233,11 +242,6 @@ function readFile(file: File): Promise<string> {
   })
 }
 
-const STORAGE_DEMAND            = 'wp-demand'
-const STORAGE_MOMENTUM          = 'wp-momentum'
-const STORAGE_DEMAND_FILTERED   = 'wp-demand-filtered'
-const STORAGE_MOMENTUM_FILTERED = 'wp-momentum-filtered'
-
 interface Stored { fileName: string; rows: ProductRow[] }
 
 function loadStored(key: string): Stored | null {
@@ -256,6 +260,10 @@ function clearStored(key: string) {
 }
 
 export default function WinningProductsPage() {
+  const [stores, setStores] = useState<WinningStore[]>([])
+  const [activeStoreId, setActiveStoreId] = useState<string | null>(null)
+  const [addStoreOpen, setAddStoreOpen] = useState(false)
+  const [newStoreName, setNewStoreName] = useState('')
   const [demandFileName, setDemandFileName] = useState<string | null>(null)
   const [demandRows, setDemandRows] = useState<ProductRow[] | null>(null)
   const [momentumFileName, setMomentumFileName] = useState<string | null>(null)
@@ -265,44 +273,86 @@ export default function WinningProductsPage() {
   const [minMarginPct, setMinMarginPct] = useState(50)
   const [infoOpen, setInfoOpen] = useState(false)
 
-  // Restore from localStorage on mount
+  // Load stores and active store on mount
   useEffect(() => {
-    const d = loadStored(STORAGE_DEMAND)
-    if (d) { setDemandFileName(d.fileName); setDemandRows(d.rows) }
-    const m = loadStored(STORAGE_MOMENTUM)
-    if (m) { setMomentumFileName(m.fileName); setMomentumRows(m.rows) }
+    const s = loadStores()
+    setStores(s)
+    setActiveStoreId(loadActiveStoreId(s))
   }, [])
 
+  // Load data whenever active store changes
+  useEffect(() => {
+    if (activeStoreId === null) return
+    const keys = getStoreDataKeys(activeStoreId)
+    const d = loadStored(keys.demand)
+    if (d) { setDemandFileName(d.fileName); setDemandRows(d.rows) }
+    else { setDemandFileName(null); setDemandRows(null) }
+    const m = loadStored(keys.momentum)
+    if (m) { setMomentumFileName(m.fileName); setMomentumRows(m.rows) }
+    else { setMomentumFileName(null); setMomentumRows(null) }
+  }, [activeStoreId])
+
   async function handleDemandFile(file: File) {
+    if (activeStoreId === null) return
     const text = await readFile(file)
     const rows = parseCSV(text)
     setDemandFileName(file.name)
     setDemandRows(rows)
-    saveStored(STORAGE_DEMAND, { fileName: file.name, rows })
+    saveStored(getStoreDataKeys(activeStoreId).demand, { fileName: file.name, rows })
   }
 
   async function handleMomentumFile(file: File) {
+    if (activeStoreId === null) return
     const text = await readFile(file)
     const rows = parseCSV(text)
     setMomentumFileName(file.name)
     setMomentumRows(rows)
-    saveStored(STORAGE_MOMENTUM, { fileName: file.name, rows })
+    saveStored(getStoreDataKeys(activeStoreId).momentum, { fileName: file.name, rows })
   }
 
   const demand = demandRows ? filterQualifiedDemand(demandRows, minPerDay, minMarginPct) : []
   const momentum = momentumRows ? filterMomentum(momentumRows, minPerDay) : []
   const hasAny = demandRows !== null || momentumRows !== null
 
-  // Keep filtered snapshots in sync so the report always reflects what's visible here
+  // Keep filtered snapshots in sync so reports always reflect what's visible here
   useEffect(() => {
-    if (demandRows !== null)
-      saveStored(STORAGE_DEMAND_FILTERED, { fileName: demandFileName ?? '', rows: demand })
-  }, [demand])
+    if (activeStoreId === null || demandRows === null) return
+    saveStored(getStoreDataKeys(activeStoreId).demandFiltered, { fileName: demandFileName ?? '', rows: demand })
+  }, [demand, activeStoreId])
 
   useEffect(() => {
-    if (momentumRows !== null)
-      saveStored(STORAGE_MOMENTUM_FILTERED, { fileName: momentumFileName ?? '', rows: momentum })
-  }, [momentum])
+    if (activeStoreId === null || momentumRows === null) return
+    saveStored(getStoreDataKeys(activeStoreId).momentumFiltered, { fileName: momentumFileName ?? '', rows: momentum })
+  }, [momentum, activeStoreId])
+
+  function selectStore(id: string) {
+    setActiveStoreId(id)
+    saveActiveStoreId(id)
+  }
+
+  function handleAddStore() {
+    const name = newStoreName.trim()
+    if (!name) return
+    const id = Date.now().toString(36)
+    const store: WinningStore = { id, name }
+    const updated = [...stores, store]
+    setStores(updated)
+    saveStores(updated)
+    selectStore(id)
+    setNewStoreName('')
+    setAddStoreOpen(false)
+  }
+
+  function handleRemoveStore(id: string) {
+    if (stores.length <= 1) return
+    const keys = getStoreDataKeys(id)
+    clearStored(keys.demand); clearStored(keys.demandFiltered)
+    clearStored(keys.momentum); clearStored(keys.momentumFiltered)
+    const updated = stores.filter(s => s.id !== id)
+    setStores(updated)
+    saveStores(updated)
+    if (activeStoreId === id) selectStore(updated[0].id)
+  }
 
   const tabs = [
     {
@@ -330,6 +380,64 @@ export default function WinningProductsPage() {
         }
       />
 
+      {/* Store selector */}
+      <div className="flex flex-wrap items-center gap-2 mb-5">
+        {stores.map(store => (
+          <div key={store.id} className="flex items-center">
+            <button
+              onClick={() => selectStore(store.id)}
+              className={cn(
+                'rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
+                store.id === activeStoreId
+                  ? 'bg-accent text-white'
+                  : 'bg-surface-elevated border border-border text-text-secondary hover:bg-surface-hover hover:text-foreground',
+              )}
+            >
+              {store.name}
+            </button>
+            {stores.length > 1 && (
+              <button
+                onClick={() => handleRemoveStore(store.id)}
+                className="ml-1 text-text-muted hover:text-foreground transition-colors"
+                title={`Remove ${store.name}`}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+        ))}
+        <button
+          onClick={() => setAddStoreOpen(true)}
+          className="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium text-text-muted border border-dashed border-border hover:text-foreground hover:border-border-subtle transition-colors"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Add Store
+        </button>
+      </div>
+
+      {/* Add Store modal */}
+      <Modal
+        open={addStoreOpen}
+        onClose={() => { setAddStoreOpen(false); setNewStoreName('') }}
+        title="Add Store"
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" size="sm" onClick={() => { setAddStoreOpen(false); setNewStoreName('') }}>Cancel</Button>
+            <Button size="sm" onClick={handleAddStore} disabled={!newStoreName.trim()}>Add Store</Button>
+          </>
+        }
+      >
+        <Input
+          placeholder="Store name (e.g. Main Store, EU Store)"
+          value={newStoreName}
+          onChange={e => setNewStoreName(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') handleAddStore() }}
+          autoFocus
+        />
+      </Modal>
+
+      {/* How it works modal */}
       <Modal
         open={infoOpen}
         onClose={() => setInfoOpen(false)}
@@ -377,8 +485,8 @@ export default function WinningProductsPage() {
           </div>
 
           <div className="rounded-lg border border-border-subtle bg-surface px-4 py-3 space-y-1">
-            <p className="text-text-secondary"><span className="font-medium text-foreground">Report 1</span> = What's selling?</p>
-            <p className="text-text-secondary"><span className="font-medium text-foreground">Report 2</span> = What's growing?</p>
+            <p className="text-text-secondary"><span className="font-medium text-foreground">Report 1</span> = What&apos;s selling?</p>
+            <p className="text-text-secondary"><span className="font-medium text-foreground">Report 2</span> = What&apos;s growing?</p>
           </div>
 
           <div className="rounded-lg border border-border-subtle bg-surface px-4 py-3 space-y-1.5">
@@ -423,7 +531,12 @@ export default function WinningProductsPage() {
           icon={<Trophy className="h-5 w-5" />}
           fileName={demandFileName}
           onFile={handleDemandFile}
-          onClear={() => { setDemandFileName(null); setDemandRows(null); clearStored(STORAGE_DEMAND); clearStored(STORAGE_DEMAND_FILTERED) }}
+          onClear={() => {
+            if (!activeStoreId) return
+            const keys = getStoreDataKeys(activeStoreId)
+            setDemandFileName(null); setDemandRows(null)
+            clearStored(keys.demand); clearStored(keys.demandFiltered)
+          }}
         />
         <UploadSlot
           label="Momentum Tracker"
@@ -431,7 +544,12 @@ export default function WinningProductsPage() {
           icon={<TrendingUp className="h-5 w-5" />}
           fileName={momentumFileName}
           onFile={handleMomentumFile}
-          onClear={() => { setMomentumFileName(null); setMomentumRows(null); clearStored(STORAGE_MOMENTUM); clearStored(STORAGE_MOMENTUM_FILTERED) }}
+          onClear={() => {
+            if (!activeStoreId) return
+            const keys = getStoreDataKeys(activeStoreId)
+            setMomentumFileName(null); setMomentumRows(null)
+            clearStored(keys.momentum); clearStored(keys.momentumFiltered)
+          }}
         />
       </div>
 

@@ -13,6 +13,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { MobileDataCard, MobileDataRow, ResponsiveCardList, ResponsiveDesktopTable } from '@/components/ui/responsive-table'
 import { Modal } from '@/components/ui/modal'
 import { TrendingUp, FlaskConical, Download, Target, Trophy } from 'lucide-react'
+import {
+  type WinningStore,
+  loadStores,
+  loadActiveStoreId,
+  saveActiveStoreId,
+  loadWinningTitles,
+  loadCsvWinners,
+  isWinnerMatch,
+} from '@/lib/winning-products'
 
 interface ReportNarrative { id: string; week_number: number; narrative_text: string }
 
@@ -31,57 +40,7 @@ function BuildList({ builds, emptyText }: { builds: BuildSummary[]; emptyText: s
   )
 }
 
-function normTitle(s: string) { return s.toLowerCase().trim() }
-
-function isWinnerMatch(name: string, titles: Set<string>): boolean {
-  const n = normTitle(name)
-  for (const t of titles) {
-    if (n === t || n.includes(t) || t.includes(n)) return true
-  }
-  return false
-}
-
-function loadTitleSet(filteredKey: string, rawKey: string): Set<string> {
-  const s = new Set<string>()
-  try {
-    const raw = localStorage.getItem(filteredKey) || localStorage.getItem(rawKey)
-    if (!raw) return s
-    const stored = JSON.parse(raw) as { rows: { title: string }[] }
-    for (const r of stored.rows ?? []) if (r.title) s.add(normTitle(r.title))
-  } catch {}
-  return s
-}
-
-function loadWinningTitles(): Set<string> {
-  const demand   = loadTitleSet('wp-demand-filtered',   'wp-demand')
-  const momentum = loadTitleSet('wp-momentum-filtered', 'wp-momentum')
-  if (demand.size === 0 || momentum.size === 0) return new Set()
-  const result = new Set<string>()
-  for (const t of demand) if (momentum.has(t)) result.add(t)
-  return result
-}
-
 interface CsvProduct { title: string; unitsSold?: number; unitGrowthPct?: number }
-
-function loadCsvWinners(): { demand: CsvProduct[]; momentum: CsvProduct[] } {
-  const parse = (filteredKey: string, rawKey: string): CsvProduct[] => {
-    try {
-      const filtered = localStorage.getItem(filteredKey)
-      if (filtered) {
-        const stored = JSON.parse(filtered) as { rows: CsvProduct[] }
-        return stored.rows ?? []
-      }
-      const raw = localStorage.getItem(rawKey)
-      if (!raw) return []
-      const stored = JSON.parse(raw) as { rows: CsvProduct[] }
-      return stored.rows ?? []
-    } catch { return [] }
-  }
-  return {
-    demand:   parse('wp-demand-filtered',   'wp-demand'),
-    momentum: parse('wp-momentum-filtered', 'wp-momentum'),
-  }
-}
 
 function esc(s: string | null | undefined): string {
   if (!s) return ''
@@ -442,6 +401,8 @@ export default function WeeklyReportPage() {
   const [saving, setSaving] = useState(false)
   const [winningTitles, setWinningTitles] = useState<Set<string>>(new Set())
   const [csvWinners, setCsvWinners] = useState<{ demand: CsvProduct[]; momentum: CsvProduct[] }>({ demand: [], momentum: [] })
+  const [stores, setStores] = useState<WinningStore[]>([])
+  const [activeStoreId, setActiveStoreId] = useState<string | null>(null)
 
   async function load() {
     const data = await api.get<{ weekStats: WeekStats[]; narratives: ReportNarrative[] }>(`/api/reports/weekly?month=${month}`)
@@ -451,8 +412,18 @@ export default function WeeklyReportPage() {
 
   useRealtimeRefresh(['builds', 'mistakes', 'report_narratives'], load)
   useEffect(() => { load() }, [month])
-  useEffect(() => { setWinningTitles(loadWinningTitles()) }, [])
-  useEffect(() => { setCsvWinners(loadCsvWinners()) }, [])
+
+  useEffect(() => {
+    const s = loadStores()
+    setStores(s)
+    setActiveStoreId(loadActiveStoreId(s))
+  }, [])
+
+  useEffect(() => {
+    if (activeStoreId === null) return
+    setWinningTitles(loadWinningTitles(activeStoreId))
+    setCsvWinners(loadCsvWinners(activeStoreId))
+  }, [activeStoreId])
 
   function getNarrative(week: number) {
     return narratives.find(n => n.week_number === week)?.narrative_text ?? ''
@@ -533,6 +504,20 @@ export default function WeeklyReportPage() {
         description="Auto counts from trackers. Fill narrative cells each Friday — send by 2pm."
         actions={
           <div className="flex items-center gap-2">
+            {stores.length > 1 && activeStoreId && (
+              <select
+                value={activeStoreId}
+                onChange={e => {
+                  setActiveStoreId(e.target.value)
+                  saveActiveStoreId(e.target.value)
+                }}
+                className="rounded-lg border border-border bg-surface-elevated px-3 py-2.5 text-xs text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent-border"
+              >
+                {stores.map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            )}
             <Input type="month" value={month} onChange={e => setMonth(e.target.value)} className="w-auto" mono />
             <Button variant="secondary" size="sm" onClick={handleExport}>
               <Download className="h-3.5 w-3.5 mr-1.5" />
