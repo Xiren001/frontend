@@ -84,26 +84,26 @@ export default function ProofreadQueuePage() {
             <button
               key={f.key}
               onClick={() => setFilter(f.key)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors
                 ${filter === f.key
                   ? 'bg-accent-muted text-accent-bright border border-accent-border/50'
                   : 'text-text-secondary hover:bg-surface-hover border border-transparent'
                 }`}
             >
               {f.label}
-              <span className={`text-[10px] font-mono px-1 rounded ${filter === f.key ? 'text-accent' : 'text-text-muted'}`}>
+              <span className={`text-xs font-mono px-1 rounded ${filter === f.key ? 'text-accent' : 'text-text-muted'}`}>
                 {f.count}
               </span>
             </button>
           ))}
         </div>
         <div className="relative ml-auto">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-muted pointer-events-none" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted pointer-events-none" />
           <input
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             placeholder="Search product or proofreader…"
-            className="rounded-md border border-border bg-surface pl-8 pr-7 py-1.5 text-xs text-foreground placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/40 w-64"
+            className="rounded-md border border-border bg-surface pl-9 pr-8 py-2 text-sm text-foreground placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/40 w-72"
           />
           {searchQuery && (
             <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-foreground">
@@ -177,13 +177,13 @@ export default function ProofreadQueuePage() {
                   {isAdmin && (
                     <TableCell className="text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-3">
-                        <Link href={`/qa-checklist/${b.id}`} className="text-xs text-accent hover:text-accent-bright">
+                        <Link href={`/qa-checklist/${b.id}`} className="text-sm text-accent hover:text-accent-bright">
                           QA
                         </Link>
                         <button
                           onClick={() => endProofread(b)}
                           disabled={advancing === b.id}
-                          className="text-xs font-medium px-2 py-0.5 rounded border text-text-secondary border-border hover:border-text-secondary transition-colors disabled:opacity-40"
+                          className="text-sm font-medium px-3 py-1 rounded border text-text-secondary border-border hover:border-text-secondary transition-colors disabled:opacity-40"
                         >
                           {advancing === b.id ? '…' : 'Done →'}
                         </button>

@@ -92,9 +92,9 @@ export default function QAChecklistPage() {
                     key={item.key}
                     type="button"
                     onClick={() => openEditItem(item)}
-                    className="w-full px-4 py-3.5 flex items-start gap-3 hover:bg-surface-hover/50 transition-colors text-left"
+                    className="w-full px-4 py-4 flex items-start gap-3 hover:bg-surface-hover/50 transition-colors text-left"
                   >
-                    <span className={`mt-0.5 h-4 w-4 shrink-0 rounded border flex items-center justify-center text-[10px] ${
+                    <span className={`mt-0.5 h-5 w-5 shrink-0 rounded border flex items-center justify-center text-xs ${
                       item.done
                         ? 'bg-accent-muted border-accent-border text-accent'
                         : 'border-border bg-surface-elevated'
@@ -102,9 +102,9 @@ export default function QAChecklistPage() {
                       {item.done ? '✓' : ''}
                     </span>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm ${item.done ? 'text-text-muted line-through' : 'text-foreground'}`}>{item.label}</p>
+                      <p className={`text-[15px] leading-snug ${item.done ? 'text-text-muted line-through' : 'text-foreground'}`}>{item.label}</p>
                       {item.notes && (
-                        <p className="mt-1 text-xs font-mono text-text-muted truncate">{item.notes}</p>
+                        <p className="mt-1.5 text-sm font-mono text-text-muted truncate">{item.notes}</p>
                       )}
                     </div>
                   </button>

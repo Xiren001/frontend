@@ -447,7 +447,7 @@ export default function CopyReviewPage() {
 
             <ul className="md:flex-1 md:overflow-y-auto">
               {sortedVisible.length === 0 && (
-                <li className="px-4 py-8 text-center text-xs text-text-muted">
+                <li className="px-4 py-8 text-center text-sm text-text-muted">
                   {searchQuery ? `No products match "${searchQuery}"` : 'No products.'}
                 </li>
               )}
@@ -468,7 +468,7 @@ export default function CopyReviewPage() {
                         noLinks  ? 'bg-yellow-500/5' : 'bg-surface-elevated/30',
                       )}>
                         <p className={cn(
-                          'text-[10px] font-semibold uppercase tracking-widest',
+                          'text-xs font-semibold uppercase tracking-widest',
                           isReady  ? 'text-green-500/70'  :
                           noLinks  ? 'text-yellow-500/70' : 'text-text-muted',
                         )}>
@@ -480,7 +480,7 @@ export default function CopyReviewPage() {
                       type="button"
                       onClick={() => { selectProduct(p.id); setMobileDetailOpen(true) }}
                       className={cn(
-                        'w-full text-left px-4 py-3.5 transition-colors border-l-2',
+                        'w-full text-left px-4 py-4 transition-colors border-l-2',
                         isSelected
                           ? 'bg-accent-muted/40 border-l-accent'
                           : isReady
@@ -491,16 +491,16 @@ export default function CopyReviewPage() {
                       )}
                     >
                       <p className={cn(
-                        'text-sm font-medium leading-snug line-clamp-2',
+                        'text-[15px] font-medium leading-snug line-clamp-2',
                         p.done ? 'text-text-muted line-through' : 'text-foreground',
                       )}>
                         {p.product_name}
                       </p>
                       {p.proofreader && (
-                        <p className="text-xs text-text-muted mt-1 truncate">{p.proofreader}</p>
+                        <p className="text-sm text-text-muted mt-1 truncate">{p.proofreader}</p>
                       )}
                       {dateSort !== 'status' && (
-                        <p className="text-[10px] text-text-muted mt-0.5 font-mono">
+                        <p className="text-xs text-text-muted mt-0.5 font-mono">
                           {new Date(p.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                         </p>
                       )}
@@ -511,7 +511,7 @@ export default function CopyReviewPage() {
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
                           <span className={cn(
-                            'text-[10px] font-mono',
+                            'text-xs font-mono',
                             p.correction_count > 0 ? 'text-text-secondary' : 'text-text-muted',
                           )}>
                             {doneCnt !== null
@@ -519,7 +519,7 @@ export default function CopyReviewPage() {
                               : `${p.correction_count}`
                             }
                           </span>
-                          <ChevronRight className="h-3.5 w-3.5 text-text-muted md:hidden" />
+                          <ChevronRight className="h-4 w-4 text-text-muted md:hidden" />
                         </div>
                       </div>
                     </button>
@@ -619,7 +619,7 @@ export default function CopyReviewPage() {
                             onClick={() => toggleReadyForRevision(selectedProduct)}
                             disabled={togglingReady}
                             className={cn(
-                              'flex items-center gap-1 px-2 py-1.5 rounded text-xs transition-all active:scale-95',
+                              'flex items-center gap-1.5 px-3 py-2 rounded text-sm transition-all active:scale-95',
                               selectedProduct.ready_for_revision
                                 ? 'bg-green-500/10 text-green-400 hover:bg-green-500/20'
                                 : 'text-text-muted hover:text-foreground hover:bg-surface-hover',
@@ -639,7 +639,7 @@ export default function CopyReviewPage() {
                               disabled={togglingDone}
                               title={!selectedProduct.done && !selectedProduct.ready_for_revision ? 'Mark as Ready first' : undefined}
                               className={cn(
-                                'flex items-center gap-1 px-2 py-1.5 rounded text-xs transition-all active:scale-95',
+                                'flex items-center gap-1.5 px-3 py-2 rounded text-sm transition-all active:scale-95',
                                 !selectedProduct.done && !selectedProduct.ready_for_revision
                                   ? 'opacity-40 cursor-not-allowed text-text-muted'
                                   : 'text-text-muted hover:text-foreground hover:bg-surface-hover',
@@ -722,9 +722,9 @@ export default function CopyReviewPage() {
                         {canModifyCorrections && (
                           <button
                             onClick={() => openCreateCorrection(selectedProduct.id, sourceTab)}
-                            className="flex items-center gap-1.5 text-xs font-medium text-text-muted hover:text-foreground hover:bg-surface-hover px-2 py-1 rounded-md transition-colors"
+                            className="flex items-center gap-1.5 text-sm font-medium text-text-muted hover:text-foreground hover:bg-surface-hover px-3 py-1.5 rounded-md transition-colors"
                           >
-                            <Plus className="h-3.5 w-3.5" />Add
+                            <Plus className="h-4 w-4" />Add
                           </button>
                         )}
                       </div>
@@ -761,21 +761,21 @@ export default function CopyReviewPage() {
                                   {/* Card header: number, location, actions */}
                                   <div className="flex items-center justify-between gap-2 mb-3">
                                     <div className="flex items-center gap-2 flex-wrap">
-                                      <span className="text-[10px] font-mono text-text-muted bg-surface border border-border-subtle rounded px-1.5 py-0.5">
+                                      <span className="text-xs font-mono text-text-muted bg-surface border border-border-subtle rounded px-1.5 py-0.5">
                                         #{i + 1}
                                       </span>
                                       {loc && (
-                                        <span className="text-xs font-semibold text-text-muted uppercase tracking-wide">{loc}</span>
+                                        <span className="text-sm font-semibold text-text-secondary uppercase tracking-wide">{loc}</span>
                                       )}
                                     </div>
                                     {(canToggleCorrectionDone(selectedProduct) || canModifyCorrections) && (
-                                      <div className="flex items-center gap-0.5 shrink-0">
+                                      <div className="flex items-center gap-1 shrink-0">
                                         {canToggleCorrectionDone(selectedProduct) && (
                                           <button
                                             onClick={() => toggleCorrectionDone(c)}
                                             disabled={togglingCorrectionId === c.id}
                                             className={cn(
-                                              'flex items-center justify-center w-7 h-7 rounded-md transition-all active:scale-90',
+                                              'flex items-center justify-center w-9 h-9 rounded-md transition-all active:scale-90',
                                               togglingCorrectionId === c.id
                                                 ? 'opacity-60 cursor-wait bg-surface-elevated border border-border-subtle text-text-muted'
                                                 : c.done
@@ -787,8 +787,8 @@ export default function CopyReviewPage() {
                                             {togglingCorrectionId === c.id
                                               ? <Spinner />
                                               : c.done
-                                                ? <RotateCcw className="h-3.5 w-3.5" />
-                                                : <Check className="h-3.5 w-3.5" />
+                                                ? <RotateCcw className="h-4 w-4" />
+                                                : <Check className="h-4 w-4" />
                                             }
                                           </button>
                                         )}
@@ -816,8 +816,8 @@ export default function CopyReviewPage() {
                                   <div className="space-y-3">
                                     {c.original_text && (
                                       <div className="space-y-1">
-                                        <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">{L.before}</p>
-                                        <p className="text-sm text-text-secondary leading-relaxed line-through decoration-text-muted/50">
+                                        <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">{L.before}</p>
+                                        <p className="text-[15px] text-text-secondary leading-relaxed line-through decoration-text-muted/50">
                                           {c.original_text}
                                         </p>
                                       </div>
@@ -825,8 +825,8 @@ export default function CopyReviewPage() {
 
                                     {c.corrected_text && (
                                       <div className="space-y-1">
-                                        <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">{L.after}</p>
-                                        <p className="text-sm text-foreground font-medium leading-relaxed">
+                                        <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">{L.after}</p>
+                                        <p className="text-[15px] text-foreground font-medium leading-relaxed">
                                           {c.corrected_text}
                                         </p>
                                       </div>
@@ -841,7 +841,7 @@ export default function CopyReviewPage() {
                                   </div>
 
                                   {c.notes && (
-                                    <p className="mt-2.5 text-xs text-text-muted italic border-l-2 border-border-subtle pl-2.5 leading-relaxed">
+                                    <p className="mt-2.5 text-sm text-text-muted italic border-l-2 border-border-subtle pl-3 leading-relaxed">
                                       {c.notes}
                                     </p>
                                   )}
