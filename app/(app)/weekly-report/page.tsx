@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import { useRealtimeRefresh } from '@/lib/use-realtime-refresh'
 import { currentMonth } from '@/lib/utils'
-import type { WeekStats, BuildSummary } from '@/lib/types'
+import type { WeekStats, BuildSummary, CycleAvgs, CycleAvg, ReportTargets } from '@/lib/types'
 import { PageHeader } from '@/components/ui/page-header'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -39,6 +39,49 @@ function BuildList({ builds, emptyText }: { builds: BuildSummary[]; emptyText: s
 
 interface CsvProduct { title: string; unitsSold?: number; unitGrowthPct?: number }
 
+const PHASE_ROWS = [
+  { label: 'Building',  key: 'buildDays' as keyof CycleAvg, targetKey: 'build_target_days' as keyof ReportTargets },
+  { label: 'Proofread', key: 'proofDays' as keyof CycleAvg, targetKey: 'proof_target_days' as keyof ReportTargets },
+  { label: 'Testing',   key: 'testDays'  as keyof CycleAvg, targetKey: 'test_target_days'  as keyof ReportTargets },
+  { label: 'Total',     key: 'totalDays' as keyof CycleAvg, targetKey: 'total_target_days' as keyof ReportTargets },
+]
+
+function PhaseAvgTable({ label, data, targets }: { label: string; data: CycleAvg; targets: ReportTargets }) {
+  return (
+    <Card>
+      <CardBody>
+        <p className="text-xs font-semibold uppercase tracking-widest text-text-muted mb-3">{label}</p>
+        <table className="w-full">
+          <thead>
+            <tr>
+              <th className="text-left pb-2 text-xs text-text-muted font-medium">Phase</th>
+              <th className="text-right pb-2 text-xs text-text-muted font-medium">Avg</th>
+              <th className="text-right pb-2 text-xs text-text-muted font-medium">Target</th>
+            </tr>
+          </thead>
+          <tbody>
+            {PHASE_ROWS.map(p => {
+              const val = data[p.key]
+              const target = targets[p.targetKey] as number
+              return (
+                <tr key={p.label} className="border-t border-border-subtle">
+                  <td className="py-1.5 text-sm text-foreground">{p.label}</td>
+                  <td className={`py-1.5 text-right text-sm font-mono font-medium ${
+                    val === null ? 'text-text-muted' : val <= target ? 'text-green-600' : 'text-red-500'
+                  }`}>
+                    {val !== null ? `${val}d` : '—'}
+                  </td>
+                  <td className="py-1.5 text-right text-sm font-mono text-text-muted">{target}d</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </CardBody>
+    </Card>
+  )
+}
+
 function esc(s: string | null | undefined): string {
   if (!s) return ''
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -50,6 +93,8 @@ function generateWeeklyHtml(
   narratives: ReportNarrative[],
   testingWinners: (BuildSummary & { week: number })[],
   allStoreCsvWinners: StoreCsvWinners[],
+  cycleAvgs: CycleAvgs | null,
+  settings: ReportTargets | null,
 ): string {
   const dateLabel = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
   const monthLabel = (() => {
@@ -338,6 +383,44 @@ tr:nth-child(even) td{background:#fafbfd}
       </div>
     </div>` : ''}
 
+    <!-- Phase cycle times -->
+    ${cycleAvgs && settings ? (() => {
+      const phases = [
+        { label: 'Building',  j: cycleAvgs.jewelry.buildDays, f: cycleAvgs.funnel.buildDays, t: settings.build_target_days },
+        { label: 'Proofread', j: cycleAvgs.jewelry.proofDays, f: cycleAvgs.funnel.proofDays, t: settings.proof_target_days },
+        { label: 'Testing',   j: cycleAvgs.jewelry.testDays,  f: cycleAvgs.funnel.testDays,  t: settings.test_target_days },
+        { label: 'Total',     j: cycleAvgs.jewelry.totalDays, f: cycleAvgs.funnel.totalDays, t: settings.total_target_days },
+      ]
+      const color = (v: number | null, t: number) =>
+        v === null ? '#94a3b8' : v <= t ? '#16a34a' : '#ef4444'
+      const fmt = (v: number | null) => v !== null ? `${v}d` : '—'
+      return `
+    <div class="section">
+      <div class="sec-label">Phase Cycle Times</div>
+      <div class="sec-desc">Average days per build phase, separated by Jewelry (PDP) and Funnel. Green = at or under target.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div>
+          <div class="csv-lbl" style="margin-bottom:10px">Jewelry — PDP</div>
+          <table style="max-width:100%">
+            <thead><tr><th>Phase</th><th>Avg</th><th>Target</th></tr></thead>
+            <tbody>
+              ${phases.map(p => `<tr><td class="td-label"><div class="ml">${esc(p.label)}</div></td><td style="text-align:right;font-weight:600;color:${color(p.j, p.t)};font-variant-numeric:tabular-nums">${fmt(p.j)}</td><td style="text-align:right;color:#94a3b8;font-variant-numeric:tabular-nums">${p.t}d</td></tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="csv-lbl" style="margin-bottom:10px">Funnel</div>
+          <table style="max-width:100%">
+            <thead><tr><th>Phase</th><th>Avg</th><th>Target</th></tr></thead>
+            <tbody>
+              ${phases.map(p => `<tr><td class="td-label"><div class="ml">${esc(p.label)}</div></td><td style="text-align:right;font-weight:600;color:${color(p.f, p.t)};font-variant-numeric:tabular-nums">${fmt(p.f)}</td><td style="text-align:right;color:#94a3b8;font-variant-numeric:tabular-nums">${p.t}d</td></tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>`
+    })() : ''}
+
     <!-- Winning Products -->
     ${allStoreCsvWinners.length > 0 ? `
     <div class="section">
@@ -402,11 +485,15 @@ export default function WeeklyReportPage() {
   const [saving, setSaving] = useState(false)
   const [winningTitles, setWinningTitles] = useState<Set<string>>(new Set())
   const [allStoreCsvWinners, setAllStoreCsvWinners] = useState<StoreCsvWinners[]>([])
+  const [cycleAvgs, setCycleAvgs] = useState<CycleAvgs | null>(null)
+  const [reportSettings, setReportSettings] = useState<ReportTargets | null>(null)
 
   async function load() {
-    const data = await api.get<{ weekStats: WeekStats[]; narratives: ReportNarrative[] }>(`/api/reports/weekly?month=${month}`)
+    const data = await api.get<{ weekStats: WeekStats[]; narratives: ReportNarrative[]; cycleAvgs: CycleAvgs; settings: ReportTargets | null }>(`/api/reports/weekly?month=${month}`)
     setWeekStats(data.weekStats)
     setNarratives(data.narratives)
+    setCycleAvgs(data.cycleAvgs ?? null)
+    setReportSettings(data.settings)
   }
 
   useRealtimeRefresh(['builds', 'mistakes', 'report_narratives'], load)
@@ -444,7 +531,7 @@ export default function WeeklyReportPage() {
   }
 
   function handleExport() {
-    const html = generateWeeklyHtml(month, weekStats, narratives, testingWinnersAll, allStoreCsvWinners)
+    const html = generateWeeklyHtml(month, weekStats, narratives, testingWinnersAll, allStoreCsvWinners, cycleAvgs, reportSettings)
     const win = window.open('', '_blank')
     if (!win) return
     win.document.write(html)
@@ -575,6 +662,21 @@ export default function WeeklyReportPage() {
           )
         })}
       </div>
+
+      {/* Phase cycle times */}
+      {cycleAvgs && reportSettings && (
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Target className="h-4 w-4 text-accent" />
+            <h2 className="text-sm font-semibold text-foreground uppercase tracking-widest">Phase Cycle Times</h2>
+            <span className="text-xs text-text-muted normal-case tracking-normal font-normal">avg days per phase vs target</span>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <PhaseAvgTable label="Jewelry — PDP" data={cycleAvgs.jewelry} targets={reportSettings} />
+            <PhaseAvgTable label="Funnel" data={cycleAvgs.funnel} targets={reportSettings} />
+          </div>
+        </div>
+      )}
 
       {/* Expanding products by week */}
       {hasAnyExpanding && (

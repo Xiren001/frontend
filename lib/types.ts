@@ -105,6 +105,25 @@ export interface WeekStats {
   testingBuilds?: BuildSummary[]
 }
 
+export interface CycleAvg {
+  buildDays: number | null
+  proofDays: number | null
+  testDays:  number | null
+  totalDays: number | null
+}
+
+export interface CycleAvgs {
+  jewelry: CycleAvg
+  funnel:  CycleAvg
+}
+
+export interface ReportTargets {
+  build_target_days: number
+  proof_target_days: number
+  test_target_days:  number
+  total_target_days: number
+}
+
 export interface PlannerNote {
   id: string
   date: string
