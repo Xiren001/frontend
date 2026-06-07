@@ -19,6 +19,11 @@ function daysInProofread(b: Build): number | null {
   return Math.round((Date.now() - new Date(b.into_proofread).getTime()) / 86_400_000)
 }
 
+function formatMonthYear(monthYear: string): string {
+  const d = new Date(monthYear + 'T00:00:00')
+  return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+}
+
 export default function ProofreadQueuePage() {
   const [builds, setBuilds] = useState<Build[]>([])
   const [filter, setFilter] = useState<TypeFilter>('all')
@@ -50,7 +55,8 @@ export default function ProofreadQueuePage() {
       })
       load()
     } finally {
-      setAdvancing(null) }
+      setAdvancing(null)
+    }
   }
 
   const byType = builds.filter(b => filter === 'all' || b.type === filter)
@@ -62,6 +68,7 @@ export default function ProofreadQueuePage() {
         (b.language ?? '').toLowerCase().includes(q)
       )
     : byType
+
   const jewelryCount = builds.filter(b => b.type === 'jewelry').length
   const funnelCount  = builds.filter(b => b.type === 'funnel').length
 
@@ -71,11 +78,27 @@ export default function ProofreadQueuePage() {
     { key: 'funnel',  label: 'Funnel',  count: funnelCount   },
   ]
 
+  // Group visible builds by month_year + week_number, sorted chronologically
+  const weekGroups = visible
+    .reduce<{ key: string; monthYear: string; week: number; builds: Build[] }[]>((acc, b) => {
+      const key = `${b.month_year}-w${b.week_number}`
+      let group = acc.find(g => g.key === key)
+      if (!group) {
+        group = { key, monthYear: b.month_year, week: b.week_number, builds: [] }
+        acc.push(group)
+      }
+      group.builds.push(b)
+      return acc
+    }, [])
+    .sort((a, b) => a.key.localeCompare(b.key))
+
+  const colSpan = isAdmin ? 8 : 7
+
   return (
     <div>
       <PageHeader
         title="Proofread Queue"
-        description="Builds currently in the Proofread phase. Items flagged red exceed the 3-day target."
+        description="Builds currently in the Proofread phase, grouped by week. Items flagged red exceed the 3-day target."
       />
 
       <div className="flex flex-wrap items-center gap-2 mb-6">
@@ -120,7 +143,6 @@ export default function ProofreadQueuePage() {
               <TableHeader>Product</TableHeader>
               <TableHeader>Type</TableHeader>
               <TableHeader>Lang</TableHeader>
-              <TableHeader>Wk</TableHeader>
               <TableHeader>In Proofread Since</TableHeader>
               <TableHeader className="text-right">Days</TableHeader>
               <TableHeader>Flag</TableHeader>
@@ -131,68 +153,86 @@ export default function ProofreadQueuePage() {
           <TableBody>
             {visible.length === 0 && (
               <TableRow>
-                <TableCell colSpan={isAdmin ? 9 : 8} className="text-center text-text-muted py-12">
+                <TableCell colSpan={colSpan} className="text-center text-text-muted py-12">
                   {searchQuery ? `No results for "${searchQuery}"` : 'Queue is empty — all clear.'}
                 </TableCell>
               </TableRow>
             )}
-            {visible.map(b => {
-              const days = daysInProofread(b)
-              const flagged = days !== null && days > 3
-              const trackerHref = b.type === 'jewelry' ? '/jewelry-tracker' : '/funnel-tracker'
-
-              return (
-                <TableRow key={b.id} className={flagged ? 'bg-danger-muted/20' : undefined}>
-                  <TableCell className="font-medium text-foreground">
-                    <Link href={trackerHref} className="hover:text-accent transition-colors"
-                      title={`View in ${b.type === 'jewelry' ? 'Jewelry' : 'Funnel'} Tracker`}>
-                      {b.product_name}
-                    </Link>
+            {weekGroups.map(group => (
+              <>
+                <TableRow key={group.key + '-header'} className="bg-surface-elevated/60 border-t-2 border-border-subtle">
+                  <TableCell colSpan={colSpan} className="py-2.5 px-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-foreground">
+                        Week {group.week}
+                      </span>
+                      <span className="text-xs text-text-muted font-mono">
+                        {formatMonthYear(group.monthYear)}
+                      </span>
+                      <span className="ml-auto text-xs font-mono text-text-muted">
+                        {group.builds.length} {group.builds.length === 1 ? 'build' : 'builds'}
+                      </span>
+                    </div>
                   </TableCell>
-
-                  <TableCell>
-                    <Badge variant={b.type === 'jewelry' ? 'accent' : 'default'}>
-                      {b.type === 'jewelry' ? 'Jewelry' : 'Funnel'}
-                    </Badge>
-                  </TableCell>
-
-                  <TableCell mono>{b.language ?? '—'}</TableCell>
-                  <TableCell mono>{b.week_number}</TableCell>
-                  <TableCell mono className="whitespace-nowrap">{formatDate(b.into_proofread)}</TableCell>
-
-                  <TableCell mono className="text-right">
-                    <span className={flagged ? 'text-danger font-medium' : 'text-foreground'}>
-                      {days ?? '—'}
-                    </span>
-                  </TableCell>
-
-                  <TableCell>
-                    {flagged
-                      ? <Badge variant="danger">RED</Badge>
-                      : <span className="text-text-muted">—</span>}
-                  </TableCell>
-
-                  <TableCell>{b.proofreader ?? <span className="text-text-muted">—</span>}</TableCell>
-
-                  {isAdmin && (
-                    <TableCell className="text-right whitespace-nowrap">
-                      <div className="flex items-center justify-end gap-3">
-                        <Link href={`/qa-checklist/${b.id}`} className="text-sm text-accent hover:text-accent-bright">
-                          QA
-                        </Link>
-                        <button
-                          onClick={() => endProofread(b)}
-                          disabled={advancing === b.id}
-                          className="text-sm font-medium px-3 py-1 rounded border text-text-secondary border-border hover:border-text-secondary transition-colors disabled:opacity-40"
-                        >
-                          {advancing === b.id ? '…' : 'Done →'}
-                        </button>
-                      </div>
-                    </TableCell>
-                  )}
                 </TableRow>
-              )
-            })}
+                {group.builds.map(b => {
+                  const days = daysInProofread(b)
+                  const flagged = days !== null && days > 3
+                  const trackerHref = b.type === 'jewelry' ? '/jewelry-tracker' : '/funnel-tracker'
+
+                  return (
+                    <TableRow key={b.id} className={flagged ? 'bg-danger-muted/20' : undefined}>
+                      <TableCell className="font-medium text-foreground">
+                        <Link href={trackerHref} className="hover:text-accent transition-colors"
+                          title={`View in ${b.type === 'jewelry' ? 'Jewelry' : 'Funnel'} Tracker`}>
+                          {b.product_name}
+                        </Link>
+                      </TableCell>
+
+                      <TableCell>
+                        <Badge variant={b.type === 'jewelry' ? 'accent' : 'default'}>
+                          {b.type === 'jewelry' ? 'Jewelry' : 'Funnel'}
+                        </Badge>
+                      </TableCell>
+
+                      <TableCell mono>{b.language ?? '—'}</TableCell>
+                      <TableCell mono className="whitespace-nowrap">{formatDate(b.into_proofread)}</TableCell>
+
+                      <TableCell mono className="text-right">
+                        <span className={flagged ? 'text-danger font-medium' : 'text-foreground'}>
+                          {days ?? '—'}
+                        </span>
+                      </TableCell>
+
+                      <TableCell>
+                        {flagged
+                          ? <Badge variant="danger">RED</Badge>
+                          : <span className="text-text-muted">—</span>}
+                      </TableCell>
+
+                      <TableCell>{b.proofreader ?? <span className="text-text-muted">—</span>}</TableCell>
+
+                      {isAdmin && (
+                        <TableCell className="text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-3">
+                            <Link href={`/qa-checklist/${b.id}`} className="text-sm text-accent hover:text-accent-bright">
+                              QA
+                            </Link>
+                            <button
+                              onClick={() => endProofread(b)}
+                              disabled={advancing === b.id}
+                              className="text-sm font-medium px-3 py-1 rounded border text-text-secondary border-border hover:border-text-secondary transition-colors disabled:opacity-40"
+                            >
+                              {advancing === b.id ? '…' : 'Done →'}
+                            </button>
+                          </div>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  )
+                })}
+              </>
+            ))}
           </TableBody>
         </Table>
       </div>
