@@ -16,7 +16,7 @@ interface TabsProps {
 
 export function Tabs({ tabs, active, onChange, className }: TabsProps) {
   return (
-    <div className={cn('flex gap-1 border-b border-border-subtle', className)}>
+    <div className={cn('flex gap-1 border-b border-border-subtle overflow-x-auto', className)}>
       {tabs.map(tab => {
         const isActive = tab.id === active
         return (
@@ -24,7 +24,7 @@ export function Tabs({ tabs, active, onChange, className }: TabsProps) {
             key={tab.id}
             onClick={() => onChange(tab.id)}
             className={cn(
-              'relative px-4 py-3 text-sm transition-colors -mb-px',
+              'relative shrink-0 px-4 py-3 text-sm transition-colors -mb-px',
               isActive
                 ? 'text-accent font-medium'
                 : 'text-text-muted hover:text-foreground',
