@@ -2,11 +2,12 @@
 import { useEffect, useState, useCallback } from 'react'
 import { api } from '@/lib/api'
 import { useRealtimeRefresh } from '@/lib/use-realtime-refresh'
-import { formatDate } from '@/lib/utils'
+import { formatDate, currentMonth } from '@/lib/utils'
 import type { Build } from '@/lib/types'
 import Link from 'next/link'
 import { PageHeader } from '@/components/ui/page-header'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { createClient } from '@/lib/supabase'
 import { Search, X } from 'lucide-react'
@@ -26,14 +27,15 @@ function formatMonthYear(monthYear: string): string {
 
 export default function ProofreadQueuePage() {
   const [builds, setBuilds] = useState<Build[]>([])
+  const [month, setMonth] = useState(currentMonth())
   const [filter, setFilter] = useState<TypeFilter>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [isAdmin, setIsAdmin] = useState(false)
   const [advancing, setAdvancing] = useState<string | null>(null)
 
   const load = useCallback(() => {
-    api.get<Build[]>('/api/builds/proofread-queue').then(setBuilds).catch(console.error)
-  }, [])
+    api.get<Build[]>(`/api/builds/proofread-queue?month=${month}`).then(setBuilds).catch(console.error)
+  }, [month])
 
   useRealtimeRefresh('builds', load)
 
@@ -98,7 +100,16 @@ export default function ProofreadQueuePage() {
     <div>
       <PageHeader
         title="Proofread Queue"
-        description="Builds currently in the Proofread phase, grouped by week. Items flagged red exceed the 3-day target."
+        description="Proofread builds grouped by week. Items flagged red exceed the 3-day target."
+        actions={
+          <Input
+            type="month"
+            value={month}
+            onChange={e => setMonth(e.target.value)}
+            className="w-auto"
+            mono
+          />
+        }
       />
 
       <div className="flex flex-wrap items-center gap-2 mb-6">
@@ -177,11 +188,12 @@ export default function ProofreadQueuePage() {
                 </TableRow>
                 {group.builds.map(b => {
                   const days = daysInProofread(b)
-                  const flagged = days !== null && days > 3
+                  const done = b.proof_end !== null
+                  const flagged = !done && days !== null && days > 3
                   const trackerHref = b.type === 'jewelry' ? '/jewelry-tracker' : '/funnel-tracker'
 
                   return (
-                    <TableRow key={b.id} className={flagged ? 'bg-danger-muted/20' : undefined}>
+                    <TableRow key={b.id} className={flagged ? 'bg-danger-muted/20' : done ? 'opacity-60' : undefined}>
                       <TableCell className="font-medium text-foreground">
                         <Link href={trackerHref} className="hover:text-accent transition-colors"
                           title={`View in ${b.type === 'jewelry' ? 'Jewelry' : 'Funnel'} Tracker`}>
@@ -205,27 +217,31 @@ export default function ProofreadQueuePage() {
                       </TableCell>
 
                       <TableCell>
-                        {flagged
-                          ? <Badge variant="danger">RED</Badge>
-                          : <span className="text-text-muted">—</span>}
+                        {done
+                          ? <Badge variant="muted">Done</Badge>
+                          : flagged
+                            ? <Badge variant="danger">RED</Badge>
+                            : <span className="text-text-muted">—</span>}
                       </TableCell>
 
                       <TableCell>{b.proofreader ?? <span className="text-text-muted">—</span>}</TableCell>
 
                       {isAdmin && (
                         <TableCell className="text-right whitespace-nowrap">
-                          <div className="flex items-center justify-end gap-3">
-                            <Link href={`/qa-checklist/${b.id}`} className="text-sm text-accent hover:text-accent-bright">
-                              QA
-                            </Link>
-                            <button
-                              onClick={() => endProofread(b)}
-                              disabled={advancing === b.id}
-                              className="text-sm font-medium px-3 py-1 rounded border text-text-secondary border-border hover:border-text-secondary transition-colors disabled:opacity-40"
-                            >
-                              {advancing === b.id ? '…' : 'Done →'}
-                            </button>
-                          </div>
+                          {!done && (
+                            <div className="flex items-center justify-end gap-3">
+                              <Link href={`/qa-checklist/${b.id}`} className="text-sm text-accent hover:text-accent-bright">
+                                QA
+                              </Link>
+                              <button
+                                onClick={() => endProofread(b)}
+                                disabled={advancing === b.id}
+                                className="text-sm font-medium px-3 py-1 rounded border text-text-secondary border-border hover:border-text-secondary transition-colors disabled:opacity-40"
+                              >
+                                {advancing === b.id ? '…' : 'Done →'}
+                              </button>
+                            </div>
+                          )}
                         </TableCell>
                       )}
                     </TableRow>
