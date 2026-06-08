@@ -374,7 +374,7 @@ export default function CopyReviewPage() {
                 className="flex items-center gap-1.5 text-xs font-medium text-text-muted hover:text-foreground hover:bg-surface-hover px-2.5 py-1.5 rounded-md border border-border-subtle transition-colors"
               >
                 <HelpCircle className="h-3.5 w-3.5" />
-                How to use
+                <span className="hidden sm:inline">How to use</span>
               </button>
               {canManageProducts && (
                 <Button variant="secondary" size="sm" onClick={openCreateProduct}>+ Add product</Button>
@@ -405,7 +405,7 @@ export default function CopyReviewPage() {
           {/* ── Left: product list ── */}
           <aside className={cn(
             'shrink-0 flex-col md:border-r border-border-subtle bg-surface-elevated/20',
-            'w-full md:w-64 xl:md:w-72',
+            'w-full md:w-64 lg:w-72',
             mobileDetailOpen ? 'hidden md:flex' : 'flex',
           )}>
             {/* Search + sort */}
@@ -445,7 +445,7 @@ export default function CopyReviewPage() {
               </div>
             </div>
 
-            <ul className="md:flex-1 md:overflow-y-auto">
+            <ul className="md:flex-1 md:overflow-y-auto p-3 md:p-0 space-y-2 md:space-y-0">
               {sortedVisible.length === 0 && (
                 <li className="px-4 py-8 text-center text-sm text-text-muted">
                   {searchQuery ? `No products match "${searchQuery}"` : 'No products.'}
@@ -463,7 +463,7 @@ export default function CopyReviewPage() {
                   <li key={p.id}>
                     {showHeader && (
                       <div className={cn(
-                        'px-4 py-2 border-y border-border-subtle',
+                        'px-4 py-2 md:border-y border-border-subtle rounded-lg md:rounded-none mb-1 md:mb-0',
                         isReady  ? 'bg-green-500/5'  :
                         noLinks  ? 'bg-yellow-500/5' : 'bg-surface-elevated/30',
                       )}>
@@ -480,14 +480,18 @@ export default function CopyReviewPage() {
                       type="button"
                       onClick={() => { selectProduct(p.id); setMobileDetailOpen(true) }}
                       className={cn(
-                        'w-full text-left px-4 py-4 transition-colors border-l-2',
+                        'w-full text-left px-4 py-4 transition-colors',
+                        // Mobile: card style
+                        'rounded-xl border md:rounded-none md:border-0',
+                        // Desktop: left-border accent
+                        'md:border-l-2',
                         isSelected
-                          ? 'bg-accent-muted/40 border-l-accent'
+                          ? 'bg-accent-muted/40 border-accent md:border-l-accent'
                           : isReady
-                            ? 'bg-green-500/[0.04] hover:bg-green-500/10 border-l-transparent'
+                            ? 'bg-green-500/[0.04] border-green-500/20 hover:bg-green-500/10 md:border-l-transparent'
                           : noLinks
-                            ? 'bg-yellow-500/[0.04] hover:bg-yellow-500/10 border-l-transparent'
-                            : 'hover:bg-surface-hover/50 border-l-transparent',
+                            ? 'bg-yellow-500/[0.04] border-yellow-500/20 hover:bg-yellow-500/10 md:border-l-transparent'
+                            : 'bg-surface-elevated border-border-subtle hover:bg-surface-hover/50 md:border-l-transparent',
                       )}
                     >
                       <p className={cn(
@@ -504,10 +508,12 @@ export default function CopyReviewPage() {
                           {new Date(p.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                         </p>
                       )}
-                      <div className="flex items-center justify-between mt-2 gap-1">
+                      <div className="flex items-center justify-between mt-2.5 gap-1">
                         <div className="flex items-center gap-1">
                           {langFilter === 'all' && p.language && <Badge variant="accent">{p.language}</Badge>}
                           {p.done && <Badge variant="muted">Done</Badge>}
+                          {isReady && !p.done && <Badge variant="default">Ready</Badge>}
+                          {noLinks && <Badge variant="warn">Needs links</Badge>}
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
                           <span className={cn(
@@ -594,86 +600,45 @@ export default function CopyReviewPage() {
 
             {selectedProduct && selectedProduct.pdp_url && selectedProduct.drive_folder && (
               <>
-                <div className="shrink-0 px-5 py-4 border-b border-border-subtle bg-surface-elevated/30">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <h2 className="text-base font-semibold text-foreground leading-snug">
-                        {selectedProduct.product_name}
-                      </h2>
-                      <div className="flex items-center gap-2 flex-wrap mt-2">
-                        {selectedProduct.language && <Badge variant="accent">{selectedProduct.language}</Badge>}
-                        {selectedProduct.proofreader && (
-                          <span className="text-xs text-text-muted">{selectedProduct.proofreader}</span>
-                        )}
-                        {selectedProduct.done && <Badge variant="muted">Done</Badge>}
-                        <span className="text-xs text-text-muted font-mono">
-                          {L.resolvedOf(selectedCorrections.filter(c => c.done).length, selectedProduct.correction_count)}
-                        </span>
-                      </div>
-                    </div>
+                <div className="shrink-0 px-4 py-4 border-b border-border-subtle bg-surface-elevated/30 space-y-3">
 
-                    {(canMarkReady || canMarkDone || canManageProducts) && (
+                  {/* Name — hidden on mobile (shown in the back bar above) */}
+                  <h2 className="hidden md:block text-base font-semibold text-foreground leading-snug">
+                    {selectedProduct.product_name}
+                  </h2>
+
+                  {/* Badges + icon actions row */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
+                      {selectedProduct.language && <Badge variant="accent">{selectedProduct.language}</Badge>}
+                      {selectedProduct.proofreader && (
+                        <span className="text-xs text-text-muted truncate">{selectedProduct.proofreader}</span>
+                      )}
+                      {selectedProduct.done && <Badge variant="muted">Done</Badge>}
+                      <span className="text-xs text-text-muted font-mono">
+                        {L.resolvedOf(selectedCorrections.filter(c => c.done).length, selectedProduct.correction_count)}
+                      </span>
+                    </div>
+                    {canManageProducts && (
                       <div className="flex items-center gap-0.5 shrink-0">
-                        {canMarkReady && (
-                          <button
-                            onClick={() => toggleReadyForRevision(selectedProduct)}
-                            disabled={togglingReady}
-                            className={cn(
-                              'flex items-center gap-1.5 px-3 py-2 rounded text-sm transition-all active:scale-95',
-                              selectedProduct.ready_for_revision
-                                ? 'bg-green-500/10 text-green-400 hover:bg-green-500/20'
-                                : 'text-text-muted hover:text-foreground hover:bg-surface-hover',
-                              togglingReady && 'opacity-60 cursor-wait',
-                            )}
-                          >
-                            {togglingReady
-                              ? <><Spinner />…</>
-                              : selectedProduct.ready_for_revision ? '↩ Unmark' : '✓ Ready'
-                            }
-                          </button>
-                        )}
-                        {canMarkDone && (
-                          <span key={doneShakeKey} className={cn('inline-block', doneShakeKey > 0 && 'animate-proof-shake')}>
-                            <button
-                              onClick={() => toggleProductDone(selectedProduct)}
-                              disabled={togglingDone}
-                              title={!selectedProduct.done && !selectedProduct.ready_for_revision ? 'Mark as Ready first' : undefined}
-                              className={cn(
-                                'flex items-center gap-1.5 px-3 py-2 rounded text-sm transition-all active:scale-95',
-                                !selectedProduct.done && !selectedProduct.ready_for_revision
-                                  ? 'opacity-40 cursor-not-allowed text-text-muted'
-                                  : 'text-text-muted hover:text-foreground hover:bg-surface-hover',
-                                togglingDone && 'opacity-60 cursor-wait',
-                              )}
-                            >
-                              {togglingDone
-                                ? <><Spinner />…</>
-                                : selectedProduct.done ? '↩ Reopen' : '✓ Done'
-                              }
-                            </button>
-                          </span>
-                        )}
-                        {canManageProducts && (
-                          <>
-                            <button
-                              onClick={() => openEditProduct(selectedProduct)}
-                              className="p-1.5 rounded text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              onClick={() => setDeleteProductId(selectedProduct.id)}
-                              className="p-1.5 rounded text-text-muted hover:text-danger hover:bg-danger-muted transition-colors"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </>
-                        )}
+                        <button
+                          onClick={() => openEditProduct(selectedProduct)}
+                          className="p-2 rounded text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => setDeleteProductId(selectedProduct.id)}
+                          className="p-2 rounded text-text-muted hover:text-danger hover:bg-danger-muted transition-colors"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-3 mt-3.5">
+                  {/* Links + translate */}
+                  <div className="flex items-center gap-3 flex-wrap">
                     <a
                       href={selectedProduct.pdp_url}
                       target="_blank"
@@ -705,6 +670,53 @@ export default function CopyReviewPage() {
                       </button>
                     )}
                   </div>
+
+                  {/* Ready / Done action buttons — full row, wraps on mobile */}
+                  {(canMarkReady || canMarkDone) && (
+                    <div className="flex items-center gap-2 flex-wrap pt-1">
+                      {canMarkReady && (
+                        <button
+                          onClick={() => toggleReadyForRevision(selectedProduct)}
+                          disabled={togglingReady}
+                          className={cn(
+                            'flex items-center gap-1.5 flex-1 sm:flex-none justify-center px-4 py-2 rounded-lg text-sm font-medium transition-all active:scale-95 border',
+                            selectedProduct.ready_for_revision
+                              ? 'bg-green-500/10 text-green-400 border-green-500/30 hover:bg-green-500/20'
+                              : 'text-text-muted border-border-subtle hover:text-foreground hover:bg-surface-hover',
+                            togglingReady && 'opacity-60 cursor-wait',
+                          )}
+                        >
+                          {togglingReady
+                            ? <><Spinner />…</>
+                            : selectedProduct.ready_for_revision ? '↩ Unmark Ready' : '✓ Mark Ready'
+                          }
+                        </button>
+                      )}
+                      {canMarkDone && (
+                        <span key={doneShakeKey} className={cn('flex-1 sm:flex-none inline-flex', doneShakeKey > 0 && 'animate-proof-shake')}>
+                          <button
+                            onClick={() => toggleProductDone(selectedProduct)}
+                            disabled={togglingDone}
+                            title={!selectedProduct.done && !selectedProduct.ready_for_revision ? 'Mark as Ready first' : undefined}
+                            className={cn(
+                              'flex w-full items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all active:scale-95 border',
+                              !selectedProduct.done && !selectedProduct.ready_for_revision
+                                ? 'opacity-40 cursor-not-allowed text-text-muted border-border-subtle'
+                                : selectedProduct.done
+                                  ? 'text-text-muted border-border-subtle hover:text-foreground hover:bg-surface-hover'
+                                  : 'text-text-muted border-border-subtle hover:text-foreground hover:bg-surface-hover',
+                              togglingDone && 'opacity-60 cursor-wait',
+                            )}
+                          >
+                            {togglingDone
+                              ? <><Spinner />…</>
+                              : selectedProduct.done ? '↩ Reopen' : '✓ Done'
+                            }
+                          </button>
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {(() => {
@@ -722,9 +734,10 @@ export default function CopyReviewPage() {
                         {canModifyCorrections && (
                           <button
                             onClick={() => openCreateCorrection(selectedProduct.id, sourceTab)}
-                            className="flex items-center gap-1.5 text-sm font-medium text-text-muted hover:text-foreground hover:bg-surface-hover px-3 py-1.5 rounded-md transition-colors"
+                            className="shrink-0 flex items-center gap-1.5 text-sm font-medium text-text-muted hover:text-foreground hover:bg-surface-hover px-3 py-2.5 rounded-md transition-colors"
                           >
-                            <Plus className="h-4 w-4" />Add
+                            <Plus className="h-4 w-4" />
+                            <span className="hidden sm:inline">Add</span>
                           </button>
                         )}
                       </div>
@@ -796,15 +809,15 @@ export default function CopyReviewPage() {
                                           <>
                                             <button
                                               onClick={() => openEditCorrection(c)}
-                                              className="p-1.5 rounded-md text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                                              className="p-2 rounded-md text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
                                             >
-                                              <Pencil className="h-3.5 w-3.5" />
+                                              <Pencil className="h-4 w-4" />
                                             </button>
                                             <button
                                               onClick={() => setDeleteCorrectionId(c.id)}
-                                              className="p-1.5 rounded-md text-text-muted hover:text-danger hover:bg-danger-muted transition-colors"
+                                              className="p-2 rounded-md text-text-muted hover:text-danger hover:bg-danger-muted transition-colors"
                                             >
-                                              <Trash2 className="h-3.5 w-3.5" />
+                                              <Trash2 className="h-4 w-4" />
                                             </button>
                                           </>
                                         )}
