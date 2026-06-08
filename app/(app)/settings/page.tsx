@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Modal, FormField } from '@/components/ui/modal'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, RefreshCw, Copy, Check as CheckIcon } from 'lucide-react'
 
 const PIPELINE_FIELDS: { key: keyof Settings; label: string; unit: string }[] = [
   { key: 'build_target_days',  label: 'Build target',          unit: 'days' },
@@ -53,6 +53,7 @@ export default function SettingsPage() {
   const [userSaving, setUserSaving] = useState(false)
   const [userError, setUserError] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [pwCopied, setPwCopied] = useState(false)
 
   function applySettings(s: Settings) { setSettings(s); setDraft(s) }
   function loadSettings() {
@@ -82,10 +83,40 @@ export default function SettingsPage() {
     } finally { setSaving(false) }
   }
 
+  function generatePassword(): string {
+    const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
+    const lower = 'abcdefghjkmnpqrstuvwxyz'
+    const digits = '23456789'
+    const special = '!@#$%&*'
+    const all = upper + lower + digits + special
+    const arr = new Uint8Array(14)
+    crypto.getRandomValues(arr)
+    let pw = upper[arr[0] % upper.length] + lower[arr[1] % lower.length]
+      + digits[arr[2] % digits.length] + special[arr[3] % special.length]
+    for (let i = 4; i < 14; i++) pw += all[arr[i] % all.length]
+    return pw.split('').sort(() => Math.random() - 0.5).join('')
+  }
+
   function openCreateUser(lang: string) {
-    setUserForm({ email: '', password: '', role: `proofreader_${lang.toLowerCase()}` })
+    setUserForm({
+      email: `${lang.toLowerCase()}@faszik.com`,
+      password: generatePassword(),
+      role: `proofreader_${lang.toLowerCase()}`,
+    })
     setUserError(null)
+    setPwCopied(false)
     setUserModalOpen(true)
+  }
+
+  function regeneratePassword() {
+    setUserForm(f => ({ ...f, password: generatePassword() }))
+    setPwCopied(false)
+  }
+
+  function copyPassword() {
+    navigator.clipboard.writeText(userForm.password)
+    setPwCopied(true)
+    setTimeout(() => setPwCopied(false), 2000)
   }
 
   async function handleCreateUser() {
@@ -296,18 +327,43 @@ export default function SettingsPage() {
           <FormField label="Email">
             <Input
               type="email"
-              placeholder="user@example.com"
               value={userForm.email}
               onChange={e => setUserForm(f => ({ ...f, email: e.target.value }))}
             />
           </FormField>
           <FormField label="Password">
-            <Input
-              type="password"
-              placeholder="••••••••"
-              value={userForm.password}
-              onChange={e => setUserForm(f => ({ ...f, password: e.target.value }))}
-            />
+            <div className="flex items-center gap-1.5">
+              <div className="relative flex-1 min-w-0">
+                <Input
+                  type="text"
+                  mono
+                  value={userForm.password}
+                  onChange={e => setUserForm(f => ({ ...f, password: e.target.value }))}
+                  className="pr-10"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={regeneratePassword}
+                title="Generate new password"
+                className="shrink-0 p-2 rounded-md border border-border text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={copyPassword}
+                title="Copy password"
+                className={cn(
+                  'shrink-0 p-2 rounded-md border transition-colors',
+                  pwCopied
+                    ? 'border-green-500/40 text-green-400 bg-green-500/10'
+                    : 'border-border text-text-muted hover:text-foreground hover:bg-surface-hover',
+                )}
+              >
+                {pwCopied ? <CheckIcon className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              </button>
+            </div>
           </FormField>
           <FormField label="Role">
             <p className="text-sm font-mono text-text-secondary px-3 py-2 rounded-md bg-surface border border-border">
