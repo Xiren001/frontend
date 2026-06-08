@@ -79,7 +79,7 @@ function severityBorder(severity: string | null) {
 }
 
 export default function CopyReviewPage() {
-  const { role } = useRole()
+  const { role, userLang } = useRole()
   const isAdmin = role === 'admin'
   const canManageProducts    = role === 'admin' || role === 'management'
   const canMarkReady         = role === 'admin' || role === 'management' || role === 'proofreader'
@@ -92,7 +92,7 @@ export default function CopyReviewPage() {
     (!!product?.ready_for_revision && (role === 'ads' || role === 'website'))
 
   const [products, setProducts] = useState<ProofProduct[]>([])
-  const [langFilter, setLangFilter] = useState<string>('all')
+  const [langFilter, setLangFilter] = useState<string>(userLang ?? 'all')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [corrections, setCorrections] = useState<Record<string, ProofCorrection[]>>({})
 
@@ -384,14 +384,16 @@ export default function CopyReviewPage() {
         />
       </div>
 
-      {/* Language tabs — sticky on mobile so they don't scroll off */}
-      <div className="shrink-0 sticky top-0 z-20 bg-background overflow-x-auto md:static md:z-auto md:overflow-visible">
-        <Tabs
-          tabs={langTabs}
-          active={langFilter}
-          onChange={id => setLangFilter(String(id))}
-        />
-      </div>
+      {/* Language tabs — hidden for lang-locked proofreaders (they see only their language) */}
+      {!userLang && (
+        <div className="shrink-0 sticky top-0 z-20 bg-background overflow-x-auto md:static md:z-auto md:overflow-visible">
+          <Tabs
+            tabs={langTabs}
+            active={langFilter}
+            onChange={id => setLangFilter(String(id))}
+          />
+        </div>
+      )}
 
       {visible.length === 0 ? (
         <p className="text-sm text-text-muted py-12 text-center">

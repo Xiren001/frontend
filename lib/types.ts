@@ -1,7 +1,7 @@
 export type BuildType = 'jewelry' | 'funnel'
 export type BuildOutcome = 'stopped' | 'testing' | 'expanding' | null
 export type BuildPhase = 'pending' | 'building' | 'proofread' | 'testing' | 'decided'
-export type UserRole = 'admin' | 'management' | 'proofreader' | 'ads' | 'website'
+export type UserRole = 'admin' | 'management' | 'proofreader' | 'ads' | 'website' | 'viewer'
 
 export interface Build {
   id: string
