@@ -386,7 +386,7 @@ export default function CopyReviewPage() {
 
       {/* Language tabs — hidden for lang-locked proofreaders (they see only their language) */}
       {!userLang && (
-        <div className="shrink-0 sticky top-0 z-20 bg-background overflow-x-auto md:static md:z-auto md:overflow-visible">
+        <div className="shrink-0 sticky top-0 z-20 bg-background overflow-x-auto md:static md:z-auto md:overflow-visible mb-0">
           <Tabs
             tabs={langTabs}
             active={langFilter}
@@ -402,7 +402,7 @@ export default function CopyReviewPage() {
           )}
         </p>
       ) : (
-        <div className="md:flex-1 md:flex md:overflow-hidden border border-border-subtle rounded-b-lg border-t-0">
+        <div className="md:flex-1 md:flex md:overflow-hidden border border-border-subtle rounded-lg">
 
           {/* ── Left: product list ── */}
           <aside className={cn(
