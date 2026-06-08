@@ -3,7 +3,6 @@ import { useEffect, useState, useCallback } from 'react'
 import { api } from '@/lib/api'
 import { useRealtimeRefresh } from '@/lib/use-realtime-refresh'
 import { formatDate, currentMonth } from '@/lib/utils'
-import type { Build } from '@/lib/types'
 import Link from 'next/link'
 import { PageHeader } from '@/components/ui/page-header'
 import { Badge } from '@/components/ui/badge'
@@ -12,12 +11,28 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { createClient } from '@/lib/supabase'
 import { Search, X } from 'lucide-react'
 
+interface ProofQueueItem {
+  id: string
+  build_id: string | null
+  product_name: string
+  language: string | null
+  proofreader: string | null
+  type: string | null
+  week_number: number | null
+  month_year: string | null
+  into_proofread: string | null
+  proof_end: string | null
+  proof_days: number | null
+  outcome: string | null
+  source: 'build' | 'proof_product'
+}
+
 type TypeFilter = 'all' | 'jewelry' | 'funnel'
 
-function daysInProofread(b: Build): number | null {
-  if (!b.into_proofread) return null
-  if (b.proof_days !== null) return b.proof_days
-  return Math.round((Date.now() - new Date(b.into_proofread).getTime()) / 86_400_000)
+function daysInProofread(item: ProofQueueItem): number | null {
+  if (!item.into_proofread) return null
+  if (item.proof_days !== null) return item.proof_days
+  return Math.round((Date.now() - new Date(item.into_proofread).getTime()) / 86_400_000)
 }
 
 function formatMonthYear(monthYear: string): string {
@@ -26,7 +41,7 @@ function formatMonthYear(monthYear: string): string {
 }
 
 export default function ProofreadQueuePage() {
-  const [builds, setBuilds] = useState<Build[]>([])
+  const [items, setItems] = useState<ProofQueueItem[]>([])
   const [month, setMonth] = useState(currentMonth())
   const [filter, setFilter] = useState<TypeFilter>('all')
   const [searchQuery, setSearchQuery] = useState('')
@@ -34,7 +49,8 @@ export default function ProofreadQueuePage() {
   const [advancing, setAdvancing] = useState<string | null>(null)
 
   const load = useCallback(() => {
-    api.get<Build[]>(`/api/builds/proofread-queue?month=${month}`).then(setBuilds).catch(console.error)
+    api.get<ProofQueueItem[]>(`/api/builds/proofread-queue?month=${month}`)
+      .then(setItems).catch(console.error)
   }, [month])
 
   useRealtimeRefresh('builds', load)
@@ -49,10 +65,11 @@ export default function ProofreadQueuePage() {
     })
   }, [load])
 
-  async function endProofread(b: Build) {
-    setAdvancing(b.id)
+  async function endProofread(item: ProofQueueItem) {
+    if (!item.build_id) return
+    setAdvancing(item.id)
     try {
-      await api.put(`/api/builds/${b.id}`, {
+      await api.put(`/api/builds/${item.build_id}`, {
         proof_end: new Date().toISOString().split('T')[0],
       })
       load()
@@ -61,7 +78,11 @@ export default function ProofreadQueuePage() {
     }
   }
 
-  const byType = builds.filter(b => filter === 'all' || b.type === filter)
+  const byType = items.filter(b =>
+    filter === 'all' ||
+    (filter === 'jewelry' && b.type === 'jewelry') ||
+    (filter === 'funnel'  && b.type === 'funnel')
+  )
   const q = searchQuery.trim().toLowerCase()
   const visible = q
     ? byType.filter(b =>
@@ -71,28 +92,34 @@ export default function ProofreadQueuePage() {
       )
     : byType
 
-  const jewelryCount = builds.filter(b => b.type === 'jewelry').length
-  const funnelCount  = builds.filter(b => b.type === 'funnel').length
+  const jewelryCount = items.filter(b => b.type === 'jewelry').length
+  const funnelCount  = items.filter(b => b.type === 'funnel').length
+  const directCount  = items.filter(b => b.source === 'proof_product').length
 
   const FILTERS: { key: TypeFilter; label: string; count: number }[] = [
-    { key: 'all',     label: 'All',     count: builds.length },
+    { key: 'all',     label: 'All',     count: items.length },
     { key: 'jewelry', label: 'Jewelry', count: jewelryCount  },
     { key: 'funnel',  label: 'Funnel',  count: funnelCount   },
   ]
 
-  // Group visible builds by month_year + week_number, sorted chronologically
+  // Group by week — items without week_number go into a "directly added" group
+  type WeekGroup = { key: string; monthYear: string | null; week: number | null; items: ProofQueueItem[] }
   const weekGroups = visible
-    .reduce<{ key: string; monthYear: string; week: number; builds: Build[] }[]>((acc, b) => {
-      const key = `${b.month_year}-w${b.week_number}`
+    .reduce<WeekGroup[]>((acc, b) => {
+      const key = b.week_number != null ? `${b.month_year}-w${b.week_number}` : 'direct'
       let group = acc.find(g => g.key === key)
       if (!group) {
-        group = { key, monthYear: b.month_year, week: b.week_number, builds: [] }
+        group = { key, monthYear: b.month_year, week: b.week_number, items: [] }
         acc.push(group)
       }
-      group.builds.push(b)
+      group.items.push(b)
       return acc
     }, [])
-    .sort((a, b) => a.key.localeCompare(b.key))
+    .sort((a, b) => {
+      if (a.key === 'direct') return 1
+      if (b.key === 'direct') return -1
+      return a.key.localeCompare(b.key)
+    })
 
   const colSpan = isAdmin ? 8 : 7
 
@@ -130,6 +157,11 @@ export default function ProofreadQueuePage() {
               </span>
             </button>
           ))}
+          {directCount > 0 && (
+            <span className="ml-2 text-xs text-text-muted font-mono">
+              +{directCount} added directly
+            </span>
+          )}
         </div>
         <div className="relative ml-auto">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted pointer-events-none" />
@@ -175,40 +207,47 @@ export default function ProofreadQueuePage() {
                   <TableCell colSpan={colSpan} className="py-2.5 px-4">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold text-foreground">
-                        Week {group.week}
+                        {group.week != null ? `Week ${group.week}` : 'Added directly'}
                       </span>
-                      <span className="text-xs text-text-muted font-mono">
-                        {formatMonthYear(group.monthYear)}
-                      </span>
+                      {group.monthYear && (
+                        <span className="text-xs text-text-muted font-mono">
+                          {formatMonthYear(group.monthYear)}
+                        </span>
+                      )}
                       <span className="ml-auto text-xs font-mono text-text-muted">
-                        {group.builds.length} {group.builds.length === 1 ? 'build' : 'builds'}
+                        {group.items.length} {group.items.length === 1 ? 'item' : 'items'}
                       </span>
                     </div>
                   </TableCell>
                 </TableRow>
-                {group.builds.map(b => {
+                {group.items.map(b => {
                   const days = daysInProofread(b)
                   const done = b.proof_end !== null
                   const flagged = !done && days !== null && days > 3
-                  const trackerHref = b.type === 'jewelry' ? '/jewelry-tracker' : '/funnel-tracker'
+                  const trackerHref = b.type === 'jewelry' ? '/jewelry-tracker' : b.type === 'funnel' ? '/funnel-tracker' : '/copy-review'
 
                   return (
                     <TableRow key={b.id} className={flagged ? 'bg-danger-muted/20' : done ? 'opacity-60' : undefined}>
                       <TableCell className="font-medium text-foreground">
-                        <Link href={trackerHref} className="hover:text-accent transition-colors"
-                          title={`View in ${b.type === 'jewelry' ? 'Jewelry' : 'Funnel'} Tracker`}>
+                        <Link href={trackerHref} className="hover:text-accent transition-colors">
                           {b.product_name}
                         </Link>
                       </TableCell>
 
                       <TableCell>
-                        <Badge variant={b.type === 'jewelry' ? 'accent' : 'default'}>
-                          {b.type === 'jewelry' ? 'Jewelry' : 'Funnel'}
-                        </Badge>
+                        {b.type === 'jewelry' ? (
+                          <Badge variant="accent">Jewelry</Badge>
+                        ) : b.type === 'funnel' ? (
+                          <Badge variant="default">Funnel</Badge>
+                        ) : (
+                          <span className="text-text-muted text-sm">—</span>
+                        )}
                       </TableCell>
 
                       <TableCell mono>{b.language ?? '—'}</TableCell>
-                      <TableCell mono className="whitespace-nowrap">{formatDate(b.into_proofread)}</TableCell>
+                      <TableCell mono className="whitespace-nowrap">
+                        {b.into_proofread ? formatDate(b.into_proofread) : <span className="text-text-muted">—</span>}
+                      </TableCell>
 
                       <TableCell mono className="text-right">
                         <span className={flagged ? 'text-danger font-medium' : 'text-foreground'}>
@@ -228,9 +267,9 @@ export default function ProofreadQueuePage() {
 
                       {isAdmin && (
                         <TableCell className="text-right whitespace-nowrap">
-                          {!done && (
+                          {!done && b.build_id && (
                             <div className="flex items-center justify-end gap-3">
-                              <Link href={`/qa-checklist/${b.id}`} className="text-sm text-accent hover:text-accent-bright">
+                              <Link href={`/qa-checklist/${b.build_id}`} className="text-sm text-accent hover:text-accent-bright">
                                 QA
                               </Link>
                               <button
