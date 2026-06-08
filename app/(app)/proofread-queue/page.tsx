@@ -24,6 +24,7 @@ interface ProofQueueItem {
   proof_end: string | null
   proof_days: number | null
   outcome: string | null
+  done: boolean
   source: 'build' | 'proof_product'
 }
 
@@ -102,22 +103,35 @@ export default function ProofreadQueuePage() {
     { key: 'funnel',  label: 'Funnel',  count: funnelCount   },
   ]
 
-  // Group by week — items without week_number go into a "directly added" group
-  type WeekGroup = { key: string; monthYear: string | null; week: number | null; items: ProofQueueItem[] }
+  // Group by week — directly-added items get their own per-language group
+  type WeekGroup = { key: string; monthYear: string | null; week: number | null; directLang: string | null; items: ProofQueueItem[] }
   const weekGroups = visible
     .reduce<WeekGroup[]>((acc, b) => {
-      const key = b.week_number != null ? `${b.month_year}-w${b.week_number}` : 'direct'
+      let key: string
+      if (b.source === 'proof_product') {
+        key = `direct-${b.language ?? 'unknown'}`
+      } else {
+        key = b.week_number != null ? `${b.month_year}-w${b.week_number}` : 'direct-unknown'
+      }
       let group = acc.find(g => g.key === key)
       if (!group) {
-        group = { key, monthYear: b.month_year, week: b.week_number, items: [] }
+        group = {
+          key,
+          monthYear: b.month_year,
+          week: b.week_number,
+          directLang: b.source === 'proof_product' ? (b.language ?? null) : null,
+          items: [],
+        }
         acc.push(group)
       }
       group.items.push(b)
       return acc
     }, [])
     .sort((a, b) => {
-      if (a.key === 'direct') return 1
-      if (b.key === 'direct') return -1
+      const aIsDirect = a.key.startsWith('direct-')
+      const bIsDirect = b.key.startsWith('direct-')
+      if (aIsDirect && !bIsDirect) return 1
+      if (!aIsDirect && bIsDirect) return -1
       return a.key.localeCompare(b.key)
     })
 
@@ -207,9 +221,13 @@ export default function ProofreadQueuePage() {
                   <TableCell colSpan={colSpan} className="py-2.5 px-4">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold text-foreground">
-                        {group.week != null ? `Week ${group.week}` : 'Added directly'}
+                        {group.directLang !== null
+                          ? `Added directly — ${group.directLang}`
+                          : group.week != null
+                            ? `Week ${group.week}`
+                            : 'Added directly'}
                       </span>
-                      {group.monthYear && (
+                      {group.monthYear && !group.directLang && (
                         <span className="text-xs text-text-muted font-mono">
                           {formatMonthYear(group.monthYear)}
                         </span>
@@ -222,7 +240,7 @@ export default function ProofreadQueuePage() {
                 </TableRow>
                 {group.items.map(b => {
                   const days = daysInProofread(b)
-                  const done = b.proof_end !== null
+                  const done = b.done
                   const flagged = !done && days !== null && days > 3
                   const trackerHref = b.type === 'jewelry' ? '/jewelry-tracker' : b.type === 'funnel' ? '/funnel-tracker' : '/copy-review'
 
