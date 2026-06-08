@@ -2,12 +2,13 @@
 import { useEffect, useState, useCallback } from 'react'
 import { api } from '@/lib/api'
 import { useRealtimeRefresh } from '@/lib/use-realtime-refresh'
-import { formatDate, currentMonth } from '@/lib/utils'
+import { formatDate, currentMonth, cn } from '@/lib/utils'
 import Link from 'next/link'
 import { PageHeader } from '@/components/ui/page-header'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Tabs } from '@/components/ui/tabs'
 import { createClient } from '@/lib/supabase'
 import { Search, X } from 'lucide-react'
 
@@ -28,7 +29,7 @@ interface ProofQueueItem {
   source: 'build' | 'proof_product'
 }
 
-type TypeFilter = 'all' | 'jewelry' | 'funnel'
+type WeekTab = 'all' | 'direct' | 'duplicates' | number
 
 function daysInProofread(item: ProofQueueItem): number | null {
   if (!item.into_proofread) return null
@@ -36,15 +37,11 @@ function daysInProofread(item: ProofQueueItem): number | null {
   return Math.round((Date.now() - new Date(item.into_proofread).getTime()) / 86_400_000)
 }
 
-function formatMonthYear(monthYear: string): string {
-  const d = new Date(monthYear + 'T00:00:00')
-  return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-}
-
 export default function ProofreadQueuePage() {
   const [items, setItems] = useState<ProofQueueItem[]>([])
   const [month, setMonth] = useState(currentMonth())
-  const [filter, setFilter] = useState<TypeFilter>('all')
+  const [weekTab, setWeekTab] = useState<WeekTab>('all')
+  const [langTab, setLangTab] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [isAdmin, setIsAdmin] = useState(false)
   const [advancing, setAdvancing] = useState<string | null>(null)
@@ -66,6 +63,9 @@ export default function ProofreadQueuePage() {
     })
   }, [load])
 
+  // Reset tabs when month changes
+  useEffect(() => { setWeekTab('all'); setLangTab('all') }, [month])
+
   async function endProofread(item: ProofQueueItem) {
     if (!item.build_id) return
     setAdvancing(item.id)
@@ -79,63 +79,124 @@ export default function ProofreadQueuePage() {
     }
   }
 
-  const byType = items.filter(b =>
-    filter === 'all' ||
-    (filter === 'jewelry' && b.type === 'jewelry') ||
-    (filter === 'funnel'  && b.type === 'funnel')
-  )
+  // ── Derived state ──────────────────────────────────────────────────────
+
+  // Unique sorted week numbers (builds only)
+  const weekNumbers = Array.from(new Set(
+    items.filter(b => b.source === 'build' && b.week_number != null).map(b => b.week_number!)
+  )).sort((a, b) => a - b)
+
+  const hasDirectItems = items.some(b => b.source === 'proof_product')
+
+  // Duplicates: product_name appears more than once (case-insensitive)
+  const byName = items.reduce<Record<string, ProofQueueItem[]>>((acc, b) => {
+    const key = b.product_name.toLowerCase()
+    if (!acc[key]) acc[key] = []
+    acc[key].push(b)
+    return acc
+  }, {})
+  const duplicateItems = Object.values(byName).filter(g => g.length > 1).flat()
+
+  // Unique languages across all items
+  const uniqueLangs = Array.from(new Set(items.map(b => b.language).filter(Boolean))).sort() as string[]
+
+  // Apply week tab filter
+  const weekFiltered: ProofQueueItem[] =
+    weekTab === 'all'        ? items :
+    weekTab === 'direct'     ? items.filter(b => b.source === 'proof_product') :
+    weekTab === 'duplicates' ? duplicateItems :
+    items.filter(b => b.week_number === (weekTab as number))
+
+  // Apply language tab filter
+  const langFiltered = langTab === 'all' ? weekFiltered : weekFiltered.filter(b => b.language === langTab)
+
+  // Apply search
   const q = searchQuery.trim().toLowerCase()
   const visible = q
-    ? byType.filter(b =>
+    ? langFiltered.filter(b =>
         b.product_name.toLowerCase().includes(q) ||
         (b.proofreader ?? '').toLowerCase().includes(q) ||
         (b.language ?? '').toLowerCase().includes(q)
       )
-    : byType
+    : langFiltered
 
-  const jewelryCount = items.filter(b => b.type === 'jewelry').length
-  const funnelCount  = items.filter(b => b.type === 'funnel').length
-  const directCount  = items.filter(b => b.source === 'proof_product').length
+  // ── Tab definitions ────────────────────────────────────────────────────
 
-  const FILTERS: { key: TypeFilter; label: string; count: number }[] = [
-    { key: 'all',     label: 'All',     count: items.length },
-    { key: 'jewelry', label: 'Jewelry', count: jewelryCount  },
-    { key: 'funnel',  label: 'Funnel',  count: funnelCount   },
+  const weekTabItems = [
+    { id: 'all' as WeekTab,  label: 'All',  count: items.length },
+    ...weekNumbers.map(w => ({
+      id: w as WeekTab,
+      label: `Week ${w}`,
+      count: items.filter(b => b.week_number === w).length,
+    })),
+    ...(hasDirectItems ? [{
+      id: 'direct' as WeekTab,
+      label: 'Direct',
+      count: items.filter(b => b.source === 'proof_product').length,
+    }] : []),
+    ...(duplicateItems.length > 0 ? [{
+      id: 'duplicates' as WeekTab,
+      label: 'Duplicates',
+      count: duplicateItems.length,
+    }] : []),
   ]
 
-  // Group by week — directly-added items get their own per-language group
-  type WeekGroup = { key: string; monthYear: string | null; week: number | null; directLang: string | null; items: ProofQueueItem[] }
-  const weekGroups = visible
-    .reduce<WeekGroup[]>((acc, b) => {
-      let key: string
-      if (b.source === 'proof_product') {
-        key = `direct-${b.language ?? 'unknown'}`
-      } else {
-        key = b.week_number != null ? `${b.month_year}-w${b.week_number}` : 'direct-unknown'
-      }
-      let group = acc.find(g => g.key === key)
-      if (!group) {
-        group = {
-          key,
-          monthYear: b.month_year,
-          week: b.week_number,
-          directLang: b.source === 'proof_product' ? (b.language ?? null) : null,
-          items: [],
-        }
-        acc.push(group)
-      }
-      group.items.push(b)
-      return acc
-    }, [])
-    .sort((a, b) => {
-      const aIsDirect = a.key.startsWith('direct-')
-      const bIsDirect = b.key.startsWith('direct-')
-      if (aIsDirect && !bIsDirect) return 1
-      if (!aIsDirect && bIsDirect) return -1
-      return a.key.localeCompare(b.key)
-    })
+  // Lang pill counts reflect week filter
+  const langPills = [
+    { id: 'all', label: 'All', count: weekFiltered.length },
+    ...uniqueLangs.map(lang => ({
+      id: lang,
+      label: lang,
+      count: weekFiltered.filter(b => b.language === lang).length,
+    })),
+  ]
 
-  const colSpan = isAdmin ? 8 : 7
+  // ── Row grouping ───────────────────────────────────────────────────────
+
+  // "All" week tab → group rows by week/direct for context
+  // "Duplicates" tab → group rows by product name
+  // Everything else → flat list
+  type RowGroup = { key: string; label: string; items: ProofQueueItem[] }
+
+  const rowGroups: RowGroup[] = (() => {
+    if (weekTab === 'all') {
+      const groups: RowGroup[] = []
+      for (const item of visible) {
+        let key: string, label: string
+        if (item.source === 'proof_product') {
+          key = `direct-${item.language ?? 'unknown'}`
+          label = `Added directly — ${item.language ?? '—'}`
+        } else {
+          key = item.week_number != null ? `w${item.week_number}` : 'no-week'
+          label = item.week_number != null ? `Week ${item.week_number}` : 'Unknown week'
+        }
+        let group = groups.find(g => g.key === key)
+        if (!group) { group = { key, label, items: [] }; groups.push(group) }
+        group.items.push(item)
+      }
+      return groups.sort((a, b) => {
+        if (a.key.startsWith('direct') && !b.key.startsWith('direct')) return 1
+        if (!a.key.startsWith('direct') && b.key.startsWith('direct')) return -1
+        return a.key.localeCompare(b.key)
+      })
+    }
+
+    if (weekTab === 'duplicates') {
+      const groups: RowGroup[] = []
+      const seen = new Set<string>()
+      for (const item of visible) {
+        const key = item.product_name.toLowerCase()
+        if (!seen.has(key)) { seen.add(key); groups.push({ key, label: item.product_name, items: [] }) }
+        groups.find(g => g.key === key)!.items.push(item)
+      }
+      return groups
+    }
+
+    return [{ key: 'flat', label: '', items: visible }]
+  })()
+
+  const showGroupHeaders = weekTab === 'all' || weekTab === 'duplicates'
+  const colSpan = isAdmin ? 9 : 8
 
   return (
     <div>
@@ -153,37 +214,41 @@ export default function ProofreadQueuePage() {
         }
       />
 
-      <div className="flex flex-wrap items-center gap-2 mb-6">
-        <div className="flex items-center gap-1">
-          {FILTERS.map(f => (
+      {/* Primary: week tabs */}
+      <Tabs
+        tabs={weekTabItems}
+        active={weekTab}
+        onChange={v => setWeekTab(v as WeekTab)}
+      />
+
+      {/* Secondary: language pills + search */}
+      <div className="flex items-center gap-3 py-3 mb-4 border-b border-border-subtle">
+        <div className="flex items-center gap-1.5 flex-1 flex-wrap">
+          {langPills.map(p => (
             <button
-              key={f.key}
-              onClick={() => setFilter(f.key)}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors
-                ${filter === f.key
-                  ? 'bg-accent-muted text-accent-bright border border-accent-border/50'
-                  : 'text-text-secondary hover:bg-surface-hover border border-transparent'
-                }`}
+              key={p.id}
+              onClick={() => setLangTab(p.id)}
+              className={cn(
+                'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-colors border',
+                langTab === p.id
+                  ? 'bg-accent-muted text-accent-bright border-accent-border/50'
+                  : 'text-text-secondary hover:bg-surface-hover border-border-subtle',
+              )}
             >
-              {f.label}
-              <span className={`text-xs font-mono px-1 rounded ${filter === f.key ? 'text-accent' : 'text-text-muted'}`}>
-                {f.count}
+              {p.label}
+              <span className={cn('font-mono', langTab === p.id ? 'text-accent' : 'text-text-muted')}>
+                {p.count}
               </span>
             </button>
           ))}
-          {directCount > 0 && (
-            <span className="ml-2 text-xs text-text-muted font-mono">
-              +{directCount} added directly
-            </span>
-          )}
         </div>
-        <div className="relative ml-auto">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted pointer-events-none" />
+        <div className="relative shrink-0">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-muted pointer-events-none" />
           <input
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Search product or proofreader…"
-            className="rounded-md border border-border bg-surface pl-9 pr-8 py-2 text-sm text-foreground placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/40 w-72"
+            placeholder="Search…"
+            className="rounded-md border border-border bg-surface pl-8 pr-7 py-1.5 text-sm text-foreground placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/40 w-52"
           />
           {searchQuery && (
             <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-foreground">
@@ -198,6 +263,7 @@ export default function ProofreadQueuePage() {
           <TableHead>
             <TableRow>
               <TableHeader>Product</TableHeader>
+              <TableHeader>Source</TableHeader>
               <TableHeader>Type</TableHeader>
               <TableHeader>Lang</TableHeader>
               <TableHeader>In Proofread Since</TableHeader>
@@ -215,34 +281,25 @@ export default function ProofreadQueuePage() {
                 </TableCell>
               </TableRow>
             )}
-            {weekGroups.map(group => (
+            {rowGroups.map(group => (
               <>
-                <TableRow key={group.key + '-header'} className="bg-surface-elevated/60 border-t-2 border-border-subtle">
-                  <TableCell colSpan={colSpan} className="py-2.5 px-4">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-foreground">
-                        {group.directLang !== null
-                          ? `Added directly — ${group.directLang}`
-                          : group.week != null
-                            ? `Week ${group.week}`
-                            : 'Added directly'}
-                      </span>
-                      {group.monthYear && !group.directLang && (
-                        <span className="text-xs text-text-muted font-mono">
-                          {formatMonthYear(group.monthYear)}
+                {showGroupHeaders && group.items.length > 0 && (
+                  <TableRow key={group.key + '-hdr'} className="bg-surface-elevated/60 border-t-2 border-border-subtle">
+                    <TableCell colSpan={colSpan} className="py-2.5 px-4">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-foreground">{group.label}</span>
+                        <span className="ml-auto text-xs font-mono text-text-muted">
+                          {group.items.length} {group.items.length === 1 ? 'item' : 'items'}
                         </span>
-                      )}
-                      <span className="ml-auto text-xs font-mono text-text-muted">
-                        {group.items.length} {group.items.length === 1 ? 'item' : 'items'}
-                      </span>
-                    </div>
-                  </TableCell>
-                </TableRow>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
                 {group.items.map(b => {
                   const days = daysInProofread(b)
                   const done = b.done
                   const flagged = !done && days !== null && days > 3
-                  const trackerHref = b.type === 'jewelry' ? '/jewelry-tracker' : b.type === 'funnel' ? '/funnel-tracker' : '/copy-review'
+                  const trackerHref = b.type === 'funnel' ? '/funnel-tracker' : b.source === 'proof_product' ? '/copy-review' : '/jewelry-tracker'
 
                   return (
                     <TableRow key={b.id} className={flagged ? 'bg-danger-muted/20' : done ? 'opacity-60' : undefined}>
@@ -250,6 +307,12 @@ export default function ProofreadQueuePage() {
                         <Link href={trackerHref} className="hover:text-accent transition-colors">
                           {b.product_name}
                         </Link>
+                      </TableCell>
+
+                      <TableCell>
+                        {b.source === 'proof_product'
+                          ? <Badge variant="muted">Direct</Badge>
+                          : <Badge variant="default">Tracker</Badge>}
                       </TableCell>
 
                       <TableCell>
@@ -263,6 +326,7 @@ export default function ProofreadQueuePage() {
                       </TableCell>
 
                       <TableCell mono>{b.language ?? '—'}</TableCell>
+
                       <TableCell mono className="whitespace-nowrap">
                         {b.into_proofread ? formatDate(b.into_proofread) : <span className="text-text-muted">—</span>}
                       </TableCell>
