@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs } from '@/components/ui/tabs'
 import { createClient } from '@/lib/supabase'
-import { Search, X } from 'lucide-react'
+import { Search, X, CheckCircle2, Clock } from 'lucide-react'
 
 interface ProofQueueItem {
   id: string
@@ -29,22 +29,25 @@ interface ProofQueueItem {
   source: 'build' | 'proof_product'
 }
 
-type WeekTab = 'all' | 'direct' | 'duplicates' | number
+type ViewMode = 'active' | 'done'
+type WeekTab  = 'all' | 'direct' | 'duplicates' | number
 
 function daysInProofread(item: ProofQueueItem): number | null {
   if (!item.into_proofread) return null
   if (item.proof_days !== null) return item.proof_days
-  return Math.round((Date.now() - new Date(item.into_proofread).getTime()) / 86_400_000)
+  const end = item.proof_end ? new Date(item.proof_end) : new Date()
+  return Math.round((end.getTime() - new Date(item.into_proofread).getTime()) / 86_400_000)
 }
 
 export default function ProofreadQueuePage() {
-  const [items, setItems] = useState<ProofQueueItem[]>([])
-  const [month, setMonth] = useState(currentMonth())
-  const [weekTab, setWeekTab] = useState<WeekTab>('all')
-  const [langTab, setLangTab] = useState<string>('all')
+  const [items, setItems]           = useState<ProofQueueItem[]>([])
+  const [month, setMonth]           = useState(currentMonth())
+  const [viewMode, setViewMode]     = useState<ViewMode>('active')
+  const [weekTab, setWeekTab]       = useState<WeekTab>('all')
+  const [langTab, setLangTab]       = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [advancing, setAdvancing] = useState<string | null>(null)
+  const [isAdmin, setIsAdmin]       = useState(false)
+  const [advancing, setAdvancing]   = useState<string | null>(null)
 
   const load = useCallback(() => {
     api.get<ProofQueueItem[]>(`/api/builds/proofread-queue?month=${month}`)
@@ -63,8 +66,8 @@ export default function ProofreadQueuePage() {
     })
   }, [load])
 
-  // Reset tabs when month changes
-  useEffect(() => { setWeekTab('all'); setLangTab('all') }, [month])
+  // Reset navigation when month or view changes
+  useEffect(() => { setWeekTab('all'); setLangTab('all'); setSearchQuery('') }, [month, viewMode])
 
   async function endProofread(item: ProofQueueItem) {
     if (!item.build_id) return
@@ -79,17 +82,19 @@ export default function ProofreadQueuePage() {
     }
   }
 
-  // ── Derived state ──────────────────────────────────────────────────────
+  // ── Split into active / done ───────────────────────────────────────────
+  const activeItems = items.filter(b => !b.done)
+  const doneItems   = items.filter(b => b.done)
+  const baseItems   = viewMode === 'active' ? activeItems : doneItems
 
-  // Unique sorted week numbers (builds only)
+  // ── Derived: unique week numbers and languages ─────────────────────────
   const weekNumbers = Array.from(new Set(
-    items.filter(b => b.source === 'build' && b.week_number != null).map(b => b.week_number!)
+    activeItems.filter(b => b.source === 'build' && b.week_number != null).map(b => b.week_number!)
   )).sort((a, b) => a - b)
 
-  const hasDirectItems = items.some(b => b.source === 'proof_product')
+  const hasDirectItems = activeItems.some(b => b.source === 'proof_product')
 
-  // Duplicates: product_name appears more than once (case-insensitive)
-  const byName = items.reduce<Record<string, ProofQueueItem[]>>((acc, b) => {
+  const byName = activeItems.reduce<Record<string, ProofQueueItem[]>>((acc, b) => {
     const key = b.product_name.toLowerCase()
     if (!acc[key]) acc[key] = []
     acc[key].push(b)
@@ -97,20 +102,21 @@ export default function ProofreadQueuePage() {
   }, {})
   const duplicateItems = Object.values(byName).filter(g => g.length > 1).flat()
 
-  // Unique languages across all items
-  const uniqueLangs = Array.from(new Set(items.map(b => b.language).filter(Boolean))).sort() as string[]
+  const uniqueLangs = Array.from(new Set(baseItems.map(b => b.language).filter(Boolean))).sort() as string[]
 
-  // Apply week tab filter
-  const weekFiltered: ProofQueueItem[] =
-    weekTab === 'all'        ? items :
-    weekTab === 'direct'     ? items.filter(b => b.source === 'proof_product') :
+  // ── Apply filters ──────────────────────────────────────────────────────
+
+  // Week filter (active view only)
+  const weekFiltered: ProofQueueItem[] = viewMode !== 'active' ? baseItems :
+    weekTab === 'all'        ? baseItems :
+    weekTab === 'direct'     ? baseItems.filter(b => b.source === 'proof_product') :
     weekTab === 'duplicates' ? duplicateItems :
-    items.filter(b => b.week_number === (weekTab as number))
+    baseItems.filter(b => b.week_number === (weekTab as number))
 
-  // Apply language tab filter
+  // Lang filter
   const langFiltered = langTab === 'all' ? weekFiltered : weekFiltered.filter(b => b.language === langTab)
 
-  // Apply search
+  // Search
   const q = searchQuery.trim().toLowerCase()
   const visible = q
     ? langFiltered.filter(b =>
@@ -123,16 +129,16 @@ export default function ProofreadQueuePage() {
   // ── Tab definitions ────────────────────────────────────────────────────
 
   const weekTabItems = [
-    { id: 'all' as WeekTab,  label: 'All',  count: items.length },
+    { id: 'all' as WeekTab,  label: 'All',  count: activeItems.length },
     ...weekNumbers.map(w => ({
       id: w as WeekTab,
       label: `Week ${w}`,
-      count: items.filter(b => b.week_number === w).length,
+      count: activeItems.filter(b => b.week_number === w).length,
     })),
     ...(hasDirectItems ? [{
       id: 'direct' as WeekTab,
       label: 'Direct',
-      count: items.filter(b => b.source === 'proof_product').length,
+      count: activeItems.filter(b => b.source === 'proof_product').length,
     }] : []),
     ...(duplicateItems.length > 0 ? [{
       id: 'duplicates' as WeekTab,
@@ -141,7 +147,6 @@ export default function ProofreadQueuePage() {
     }] : []),
   ]
 
-  // Lang pill counts reflect week filter
   const langPills = [
     { id: 'all', label: 'All', count: weekFiltered.length },
     ...uniqueLangs.map(lang => ({
@@ -151,14 +156,12 @@ export default function ProofreadQueuePage() {
     })),
   ]
 
-  // ── Row grouping ───────────────────────────────────────────────────────
-
-  // "All" week tab → group rows by week/direct for context
-  // "Duplicates" tab → group rows by product name
-  // Everything else → flat list
+  // ── Row grouping (active view only) ───────────────────────────────────
   type RowGroup = { key: string; label: string; items: ProofQueueItem[] }
 
   const rowGroups: RowGroup[] = (() => {
+    if (viewMode !== 'active') return [{ key: 'flat', label: '', items: visible }]
+
     if (weekTab === 'all') {
       const groups: RowGroup[] = []
       for (const item of visible) {
@@ -195,7 +198,7 @@ export default function ProofreadQueuePage() {
     return [{ key: 'flat', label: '', items: visible }]
   })()
 
-  const showGroupHeaders = weekTab === 'all' || weekTab === 'duplicates'
+  const showGroupHeaders = viewMode === 'active' && (weekTab === 'all' || weekTab === 'duplicates')
   const colSpan = isAdmin ? 9 : 8
 
   return (
@@ -214,14 +217,48 @@ export default function ProofreadQueuePage() {
         }
       />
 
-      {/* Primary: week tabs */}
-      <Tabs
-        tabs={weekTabItems}
-        active={weekTab}
-        onChange={v => setWeekTab(v as WeekTab)}
-      />
+      {/* ── View mode toggle ──────────────────────────────────────────── */}
+      <div className="flex items-center gap-2 mb-5">
+        {([
+          { id: 'active', label: 'Active', icon: Clock,         count: activeItems.length },
+          { id: 'done',   label: 'Done Proofreading', icon: CheckCircle2, count: doneItems.length },
+        ] as const).map(v => (
+          <button
+            key={v.id}
+            onClick={() => setViewMode(v.id)}
+            className={cn(
+              'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors border',
+              viewMode === v.id
+                ? v.id === 'done'
+                  ? 'bg-green-500/10 text-green-400 border-green-500/30'
+                  : 'bg-accent-muted text-accent-bright border-accent-border/50'
+                : 'text-text-secondary hover:bg-surface-hover border-border-subtle',
+            )}
+          >
+            <v.icon className="h-4 w-4" />
+            {v.label}
+            <span className={cn(
+              'text-xs font-mono px-1.5 py-0.5 rounded',
+              viewMode === v.id
+                ? v.id === 'done' ? 'text-green-400 bg-green-500/10' : 'text-accent bg-accent-muted'
+                : 'text-text-muted bg-surface',
+            )}>
+              {v.count}
+            </span>
+          </button>
+        ))}
+      </div>
 
-      {/* Secondary: language pills + search */}
+      {/* ── Week tabs (active view only) ──────────────────────────────── */}
+      {viewMode === 'active' && (
+        <Tabs
+          tabs={weekTabItems}
+          active={weekTab}
+          onChange={v => setWeekTab(v as WeekTab)}
+        />
+      )}
+
+      {/* ── Language pills + search ───────────────────────────────────── */}
       <div className="flex items-center gap-3 py-3 mb-4 border-b border-border-subtle">
         <div className="flex items-center gap-1.5 flex-1 flex-wrap">
           {langPills.map(p => (
@@ -258,6 +295,7 @@ export default function ProofreadQueuePage() {
         </div>
       </div>
 
+      {/* ── Table ─────────────────────────────────────────────────────── */}
       <div className="overflow-x-auto">
         <Table>
           <TableHead>
@@ -267,8 +305,10 @@ export default function ProofreadQueuePage() {
               <TableHeader>Type</TableHeader>
               <TableHeader>Lang</TableHeader>
               <TableHeader>In Proofread Since</TableHeader>
-              <TableHeader className="text-right">Days</TableHeader>
-              <TableHeader>Flag</TableHeader>
+              {viewMode === 'done'
+                ? <TableHeader>Completed</TableHeader>
+                : <TableHeader className="text-right">Days</TableHeader>}
+              {viewMode === 'active' && <TableHeader>Flag</TableHeader>}
               <TableHeader>Proofreader</TableHeader>
               {isAdmin && <TableHeader />}
             </TableRow>
@@ -277,7 +317,11 @@ export default function ProofreadQueuePage() {
             {visible.length === 0 && (
               <TableRow>
                 <TableCell colSpan={colSpan} className="text-center text-text-muted py-12">
-                  {searchQuery ? `No results for "${searchQuery}"` : 'Queue is empty — all clear.'}
+                  {searchQuery
+                    ? `No results for "${searchQuery}"`
+                    : viewMode === 'done'
+                      ? 'No completed items for this month.'
+                      : 'Queue is empty — all clear.'}
                 </TableCell>
               </TableRow>
             )}
@@ -296,13 +340,15 @@ export default function ProofreadQueuePage() {
                   </TableRow>
                 )}
                 {group.items.map(b => {
-                  const days = daysInProofread(b)
-                  const done = b.done
-                  const flagged = !done && days !== null && days > 3
+                  const days    = daysInProofread(b)
+                  const flagged = viewMode === 'active' && days !== null && days > 3
                   const trackerHref = b.type === 'funnel' ? '/funnel-tracker' : b.source === 'proof_product' ? '/copy-review' : '/jewelry-tracker'
 
                   return (
-                    <TableRow key={b.id} className={flagged ? 'bg-danger-muted/20' : done ? 'opacity-60' : undefined}>
+                    <TableRow
+                      key={b.id}
+                      className={viewMode === 'done' ? 'opacity-70' : flagged ? 'bg-danger-muted/20' : undefined}
+                    >
                       <TableCell className="font-medium text-foreground">
                         <Link href={trackerHref} className="hover:text-accent transition-colors">
                           {b.product_name}
@@ -331,25 +377,30 @@ export default function ProofreadQueuePage() {
                         {b.into_proofread ? formatDate(b.into_proofread) : <span className="text-text-muted">—</span>}
                       </TableCell>
 
-                      <TableCell mono className="text-right">
-                        <span className={flagged ? 'text-danger font-medium' : 'text-foreground'}>
-                          {days ?? '—'}
-                        </span>
-                      </TableCell>
-
-                      <TableCell>
-                        {done
-                          ? <Badge variant="muted">Done</Badge>
-                          : flagged
-                            ? <Badge variant="danger">RED</Badge>
-                            : <span className="text-text-muted">—</span>}
-                      </TableCell>
+                      {viewMode === 'done' ? (
+                        <TableCell mono className="whitespace-nowrap">
+                          {b.proof_end ? formatDate(b.proof_end) : <span className="text-text-muted">—</span>}
+                        </TableCell>
+                      ) : (
+                        <>
+                          <TableCell mono className="text-right">
+                            <span className={flagged ? 'text-danger font-medium' : 'text-foreground'}>
+                              {days ?? '—'}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            {flagged
+                              ? <Badge variant="danger">RED</Badge>
+                              : <span className="text-text-muted">—</span>}
+                          </TableCell>
+                        </>
+                      )}
 
                       <TableCell>{b.proofreader ?? <span className="text-text-muted">—</span>}</TableCell>
 
                       {isAdmin && (
                         <TableCell className="text-right whitespace-nowrap">
-                          {!done && b.build_id && (
+                          {viewMode === 'active' && b.build_id && (
                             <div className="flex items-center justify-end gap-3">
                               <Link href={`/qa-checklist/${b.build_id}`} className="text-sm text-accent hover:text-accent-bright">
                                 QA
