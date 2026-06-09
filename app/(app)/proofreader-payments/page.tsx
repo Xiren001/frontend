@@ -11,22 +11,20 @@ import { Button } from '@/components/ui/button'
 import { Tabs } from '@/components/ui/tabs'
 import { DollarSign, Check, RotateCcw, User } from 'lucide-react'
 
-interface ProofProduct {
-  id: string
+interface PaymentItem {
+  id: string | null
   language: string | null
   proofreader: string | null
   product_name: string
-  done: boolean
+  proof_end: string | null
   paid: boolean
   paid_at: string | null
-  into_proofread: string | null
-  updated_at: string
 }
 
 type PayFilter = 'unpaid' | 'paid' | 'all'
 
-function groupByProofreader(products: ProofProduct[]) {
-  const map = new Map<string, ProofProduct[]>()
+function groupByProofreader(products: PaymentItem[]) {
+  const map = new Map<string, PaymentItem[]>()
   for (const p of products) {
     const key = p.proofreader || '(unassigned)'
     if (!map.has(key)) map.set(key, [])
@@ -43,39 +41,45 @@ function groupByProofreader(products: ProofProduct[]) {
 
 export default function ProofreaderPaymentsPage() {
   const { role } = useRole()
-  const [products, setProducts]   = useState<ProofProduct[]>([])
-  const [payFilter, setPayFilter] = useState<PayFilter>('unpaid')
-  const [langTab, setLangTab]     = useState<string>('all')
-  const [togglingId, setTogglingId] = useState<string | null>(null)
+  const [products, setProducts]     = useState<PaymentItem[]>([])
+  const [payFilter, setPayFilter]   = useState<PayFilter>('unpaid')
+  const [langTab, setLangTab]       = useState<string>('all')
+  const [togglingKey, setTogglingKey] = useState<string | null>(null)
 
   const canPay = role === 'admin' || role === 'management'
 
   const load = useCallback(() => {
-    api.get<ProofProduct[]>('/api/proof-corrections/products')
-      .then(data => setProducts(data.filter(p => p.done)))
+    api.get<PaymentItem[]>('/api/builds/payment-overview')
+      .then(setProducts)
       .catch(console.error)
   }, [])
 
   useRealtimeRefresh('proof_products', load)
+  useRealtimeRefresh('builds', load)
 
   useEffect(() => { load() }, [load])
 
-  async function togglePaid(product: ProofProduct) {
+  async function togglePaid(product: PaymentItem) {
     if (!canPay) return
-    setTogglingId(product.id)
+    const key = product.id ?? `${product.product_name}|${product.language}`
+    setTogglingKey(key)
     try {
       const today = new Date().toISOString().split('T')[0]
-      await api.put(`/api/proof-corrections/products/${product.id}`, {
-        paid:    !product.paid,
-        paid_at: !product.paid ? today : null,
+      await api.post('/api/builds/mark-paid', {
+        id:           product.id,
+        product_name: product.product_name,
+        language:     product.language,
+        proofreader:  product.proofreader,
+        paid:         !product.paid,
+        paid_at:      !product.paid ? today : null,
       })
       load()
     } finally {
-      setTogglingId(null)
+      setTogglingKey(null)
     }
   }
 
-  // Derive language list from done products
+  // Derive language list
   const langs = Array.from(new Set(products.map(p => p.language).filter(Boolean) as string[])).sort()
 
   const filtered = products
@@ -154,9 +158,11 @@ export default function ProofreaderPaymentsPage() {
 
                 {/* Product rows */}
                 <div className="divide-y divide-border-subtle">
-                  {items.map(product => (
+                  {items.map(product => {
+                    const itemKey = product.id ?? `${product.product_name}|${product.language}`
+                    return (
                     <div
-                      key={product.id}
+                      key={itemKey}
                       className={cn(
                         'flex items-center gap-3 px-4 py-3 text-sm',
                         product.paid ? 'opacity-60' : ''
@@ -191,7 +197,7 @@ export default function ProofreaderPaymentsPage() {
                           {canPay && (
                             <button
                               onClick={() => togglePaid(product)}
-                              disabled={togglingId === product.id}
+                              disabled={togglingKey === itemKey}
                               className="text-xs text-text-muted hover:text-foreground transition-colors flex items-center gap-1"
                               title="Undo payment"
                             >
@@ -202,7 +208,7 @@ export default function ProofreaderPaymentsPage() {
                       ) : canPay ? (
                         <Button
                           size="sm"
-                          disabled={togglingId === product.id}
+                          disabled={togglingKey === itemKey}
                           onClick={() => togglePaid(product)}
                           className="shrink-0 h-7 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
                         >
@@ -213,7 +219,8 @@ export default function ProofreaderPaymentsPage() {
                         <span className="text-xs text-amber-600 shrink-0">Unpaid</span>
                       )}
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             )
