@@ -93,6 +93,12 @@ export default function ProofreadQueuePage() {
 
   const hasDirectItems = activeItems.some(b => b.source === 'proof_product')
 
+  const doneWeekNumbers = Array.from(new Set(
+    doneItems.filter(b => b.source === 'build' && b.week_number != null).map(b => b.week_number!)
+  )).sort((a, b) => a - b)
+
+  const hasDoneDirectItems = doneItems.some(b => b.source === 'proof_product')
+
   const byName = activeItems.reduce<Record<string, ProofQueueItem[]>>((acc, b) => {
     const key = b.product_name.toLowerCase()
     if (!acc[key]) acc[key] = []
@@ -104,10 +110,10 @@ export default function ProofreadQueuePage() {
   const uniqueLangs = Array.from(new Set(baseItems.map(b => b.language).filter(Boolean))).sort() as string[]
 
   // ── Filters ────────────────────────────────────────────────────────────
-  const weekFiltered: ProofQueueItem[] = viewMode !== 'active' ? baseItems :
+  const weekFiltered: ProofQueueItem[] =
     weekTab === 'all'        ? baseItems :
     weekTab === 'direct'     ? baseItems.filter(b => b.source === 'proof_product') :
-    weekTab === 'duplicates' ? duplicateItems :
+    weekTab === 'duplicates' ? (viewMode === 'active' ? duplicateItems : baseItems) :
     baseItems.filter(b => b.week_number === (weekTab as number))
 
   const langFiltered = langTab === 'all' ? weekFiltered : weekFiltered.filter(b => b.language === langTab)
@@ -129,6 +135,12 @@ export default function ProofreadQueuePage() {
     ...(duplicateItems.length > 0 ? [{ id: 'duplicates' as WeekTab, label: 'Duplicates', count: duplicateItems.length }] : []),
   ]
 
+  const doneWeekTabItems = [
+    { id: 'all' as WeekTab, label: 'All', count: doneItems.length },
+    ...doneWeekNumbers.map(w => ({ id: w as WeekTab, label: `Week ${w}`, count: doneItems.filter(b => b.week_number === w).length })),
+    ...(hasDoneDirectItems ? [{ id: 'direct' as WeekTab, label: 'Direct', count: doneItems.filter(b => b.source === 'proof_product').length }] : []),
+  ]
+
   const langPills = [
     { id: 'all', label: 'All', count: weekFiltered.length },
     ...uniqueLangs.map(lang => ({ id: lang, label: lang, count: weekFiltered.filter(b => b.language === lang).length })),
@@ -138,8 +150,6 @@ export default function ProofreadQueuePage() {
   type RowGroup = { key: string; label: string; items: ProofQueueItem[] }
 
   const rowGroups: RowGroup[] = (() => {
-    if (viewMode !== 'active') return [{ key: 'flat', label: '', items: visible }]
-
     if (weekTab === 'all') {
       const groups: RowGroup[] = []
       for (const item of visible) {
@@ -162,7 +172,7 @@ export default function ProofreadQueuePage() {
       })
     }
 
-    if (weekTab === 'duplicates') {
+    if (weekTab === 'duplicates' && viewMode === 'active') {
       const groups: RowGroup[] = []
       const seen = new Set<string>()
       for (const item of visible) {
@@ -176,7 +186,7 @@ export default function ProofreadQueuePage() {
     return [{ key: 'flat', label: '', items: visible }]
   })()
 
-  const showGroupHeaders = viewMode === 'active' && (weekTab === 'all' || weekTab === 'duplicates')
+  const showGroupHeaders = weekTab === 'all' || (weekTab === 'duplicates' && viewMode === 'active')
   const colSpan = isAdmin ? 9 : 8
 
   // ── Shared item renderer helpers ───────────────────────────────────────
@@ -251,9 +261,12 @@ export default function ProofreadQueuePage() {
         ))}
       </div>
 
-      {/* ── Week tabs (active only) ── */}
+      {/* ── Week tabs ── */}
       {viewMode === 'active' && (
         <Tabs tabs={weekTabItems} active={weekTab} onChange={v => setWeekTab(v as WeekTab)} />
+      )}
+      {viewMode === 'done' && doneWeekTabItems.length > 1 && (
+        <Tabs tabs={doneWeekTabItems} active={weekTab} onChange={v => setWeekTab(v as WeekTab)} />
       )}
 
       {/* ── Lang pills + search ── */}
