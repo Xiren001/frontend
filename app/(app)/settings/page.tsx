@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Modal, FormField } from '@/components/ui/modal'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import { Plus, Trash2, RefreshCw, Copy, Check as CheckIcon } from 'lucide-react'
+import { Plus, Trash2, RefreshCw, Copy, Check as CheckIcon, Download, FileText } from 'lucide-react'
 
 const PIPELINE_FIELDS: { key: keyof Settings; label: string; unit: string }[] = [
   { key: 'build_target_days',  label: 'Build target',          unit: 'days' },
@@ -315,6 +315,63 @@ export default function SettingsPage() {
             </Card>
           </div>
         )}
+
+        {/* ── SOPs ── */}
+        <div>
+          <div className="mb-3">
+            <h2 className="text-sm font-medium text-foreground">Standard Operating Procedures</h2>
+            <p className="text-xs text-text-muted mt-0.5">Download SOPs for each team. Open the file in any browser.</p>
+          </div>
+
+          <Card className="divide-y divide-border-subtle">
+            {[
+              {
+                href: '/sop-proofreader.html',
+                label: 'Proofreader SOP',
+                description: 'Review standards, daily workflow, and quality guidelines',
+                color: 'text-[#5b4aff]',
+                bg: 'bg-[#ede9ff]',
+              },
+              {
+                href: '/sop-web.html',
+                label: 'Web Team SOP',
+                description: 'Funnel tracker, QA checklist, testing, and decisions',
+                color: 'text-[#0ea5e9]',
+                bg: 'bg-[#e0f2fe]',
+              },
+              {
+                href: '/sop-ads.html',
+                label: 'Ads Team SOP',
+                description: 'Build creation, campaign launch, performance, and scaling',
+                color: 'text-[#e85d04]',
+                bg: 'bg-[#fef3e2]',
+              },
+            ].map(sop => (
+              <div key={sop.href} className="px-5 py-3.5 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={cn('flex items-center justify-center w-8 h-8 rounded-lg shrink-0', sop.bg)}>
+                    <FileText className={cn('h-4 w-4', sop.color)} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground">{sop.label}</p>
+                    <p className="text-xs text-text-muted truncate">{sop.description}</p>
+                  </div>
+                </div>
+                <a
+                  href={sop.href}
+                  download
+                  className={cn(
+                    'shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
+                    'bg-surface-elevated border border-border text-text-secondary hover:text-foreground hover:bg-surface-hover shadow-sm',
+                  )}
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Download
+                </a>
+              </div>
+            ))}
+          </Card>
+        </div>
       </div>
 
       {/* Create user modal */}

@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Proofreader SOP — Myko Ops Hub</title>
+<style>
+  :root {
+    --ink:       #0f0f11;
+    --ink-2:     #3d3d45;
+    --ink-3:     #7a7a88;
+    --line:      #e4e4ec;
+    --surface:   #f7f7fb;
+    --accent:    #5b4aff;
+    --accent-2:  #ede9ff;
+    --green:     #16a34a;
+    --green-bg:  #dcfce7;
+    --amber:     #b45309;
+    --amber-bg:  #fef3c7;
+    --red:       #dc2626;
+    --red-bg:    #fee2e2;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--ink);
+    background: #fff;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 48px 40px 80px;
+  }
+
+  /* ── Cover ── */
+  .cover {
+    background: linear-gradient(135deg, #1a1333 0%, #2d1b6e 60%, #3d2a8a 100%);
+    border-radius: 16px;
+    padding: 48px 48px 44px;
+    color: #fff;
+    margin-bottom: 48px;
+    position: relative;
+    overflow: hidden;
+  }
+  .cover::before {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 240px; height: 240px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 50%;
+  }
+  .cover-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.8);
+    margin-bottom: 20px;
+  }
+  .cover h1 {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    line-height: 1.2;
+    margin-bottom: 10px;
+  }
+  .cover-subtitle {
+    font-size: 15px;
+    color: rgba(255,255,255,0.65);
+    margin-bottom: 32px;
+  }
+  .cover-meta {
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+  }
+  .cover-meta-item { }
+  .cover-meta-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.45);
+    margin-bottom: 2px;
+  }
+  .cover-meta-value {
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.85);
+  }
+
+  /* ── TOC ── */
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin-bottom: 40px;
+  }
+  .toc-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-bottom: 14px;
+  }
+  .toc-list {
+    list-style: none;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 24px;
+  }
+  .toc-list li a {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--accent);
+    text-decoration: none;
+    padding: 3px 0;
+  }
+  .toc-list li a:hover { text-decoration: underline; }
+  .toc-num {
+    font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-3);
+    min-width: 20px;
+  }
+
+  /* ── Sections ── */
+  .section { margin-bottom: 44px; }
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--line);
+  }
+  .section-num {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px; height: 30px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    border-radius: 8px;
+    flex-shrink: 0;
+  }
+  .section h2 {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+    color: var(--ink);
+  }
+
+  h3 {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink);
+    margin: 20px 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  p { margin-bottom: 10px; color: var(--ink-2); }
+
+  /* ── Steps ── */
+  .steps { list-style: none; counter-reset: step; margin: 12px 0; }
+  .steps li {
+    counter-increment: step;
+    display: flex;
+    gap: 12px;
+    margin-bottom: 10px;
+    align-items: flex-start;
+  }
+  .steps li::before {
+    content: counter(step);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px; height: 24px;
+    background: var(--accent-2);
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .steps li span { color: var(--ink-2); }
+
+  /* ── Bullets ── */
+  .bullets { list-style: none; margin: 10px 0; }
+  .bullets li {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 7px;
+    color: var(--ink-2);
+    align-items: flex-start;
+  }
+  .bullets li::before {
+    content: '';
+    display: block;
+    min-width: 6px; height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    margin-top: 7px;
+    flex-shrink: 0;
+  }
+
+  /* ── Table ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0;
+    font-size: 13px;
+  }
+  thead tr { background: var(--accent); color: #fff; }
+  thead th {
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+  }
+  thead th:first-child { border-radius: 8px 0 0 0; }
+  thead th:last-child  { border-radius: 0 8px 0 0; }
+  tbody tr { border-bottom: 1px solid var(--line); }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:nth-child(even) { background: var(--surface); }
+  tbody td { padding: 10px 14px; color: var(--ink-2); vertical-align: top; }
+  tbody td strong { color: var(--ink); font-weight: 600; }
+
+  /* ── Callouts ── */
+  .callout {
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin: 16px 0;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .callout-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .callout-body { flex: 1; }
+  .callout-title { font-weight: 700; font-size: 13px; margin-bottom: 3px; }
+  .callout-text { font-size: 13px; color: var(--ink-2); }
+
+  .callout.info    { background: var(--accent-2); border-left: 3px solid var(--accent); }
+  .callout.info .callout-title { color: var(--accent); }
+
+  .callout.success { background: var(--green-bg); border-left: 3px solid var(--green); }
+  .callout.success .callout-title { color: var(--green); }
+
+  .callout.warning { background: var(--amber-bg); border-left: 3px solid var(--amber); }
+  .callout.warning .callout-title { color: var(--amber); }
+
+  .callout.danger  { background: var(--red-bg);   border-left: 3px solid var(--red); }
+  .callout.danger .callout-title { color: var(--red); }
+
+  /* ── Badge ── */
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .badge.green  { background: var(--green-bg);  color: var(--green); }
+  .badge.amber  { background: var(--amber-bg);  color: var(--amber); }
+  .badge.red    { background: var(--red-bg);    color: var(--red);   }
+  .badge.purple { background: var(--accent-2);  color: var(--accent);}
+
+  /* ── Footer ── */
+  .footer {
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    color: var(--ink-3);
+  }
+
+  @media print {
+    body { padding: 20px; }
+    .cover { break-inside: avoid; }
+    .section { break-inside: avoid; }
+    a { color: inherit; text-decoration: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Cover -->
+<div class="cover">
+  <div class="cover-tag">📋 Standard Operating Procedure</div>
+  <h1>Proofreader SOP</h1>
+  <p class="cover-subtitle">Quality review guidelines for language-specific proofreaders at Faszik</p>
+  <div class="cover-meta">
+    <div class="cover-meta-item">
+      <div class="cover-meta-label">Department</div>
+      <div class="cover-meta-value">Quality &amp; Proofread</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="cover-meta-label">Applies To</div>
+      <div class="cover-meta-value">All Proofreader Roles</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="cover-meta-label">Platform</div>
+      <div class="cover-meta-value">Myko Ops Hub</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="cover-meta-label">Version</div>
+      <div class="cover-meta-value">1.0</div>
+    </div>
+  </div>
+</div>
+
+<!-- TOC -->
+<div class="toc">
+  <div class="toc-title">Table of Contents</div>
+  <ul class="toc-list">
+    <li><a href="#s1"><span class="toc-num">01</span> Role Overview</a></li>
+    <li><a href="#s2"><span class="toc-num">02</span> System Access</a></li>
+    <li><a href="#s3"><span class="toc-num">03</span> Daily Workflow</a></li>
+    <li><a href="#s4"><span class="toc-num">04</span> Review Standards</a></li>
+    <li><a href="#s5"><span class="toc-num">05</span> Language Guidelines</a></li>
+    <li><a href="#s6"><span class="toc-num">06</span> Common Mistakes</a></li>
+    <li><a href="#s7"><span class="toc-num">07</span> Escalation Process</a></li>
+    <li><a href="#s8"><span class="toc-num">08</span> Quality Standards</a></li>
+  </ul>
+</div>
+
+<!-- Section 1 -->
+<div class="section" id="s1">
+  <div class="section-header">
+    <div class="section-num">1</div>
+    <h2>Role Overview</h2>
+  </div>
+  <p>As a Proofreader at Faszik, your primary responsibility is ensuring that all product copy — ads, landing pages, and product descriptions — meets the linguistic and quality standards of your assigned language before products advance through the build pipeline.</p>
+  <p>Your reviews are a critical quality gate. A product cannot move from the <strong>Proofread phase</strong> to the <strong>Testing phase</strong> without a completed proofread sign-off.</p>
+
+  <div class="callout info">
+    <div class="callout-icon">💡</div>
+    <div class="callout-body">
+      <div class="callout-title">Your Scope</div>
+      <div class="callout-text">You only see products assigned to your language. This is by design — stay focused on your language queue and do not attempt to access other language queues.</div>
+    </div>
+  </div>
+
+  <h3>Key Responsibilities</h3>
+  <ul class="bullets">
+    <li>Review all copy submitted to your language's proofread queue daily</li>
+    <li>Check grammar, spelling, punctuation, and tone</li>
+    <li>Verify copy is culturally appropriate and natural-sounding for native speakers</li>
+    <li>Flag issues clearly with specific notes so the ads/web team can action them</li>
+    <li>Approve or reject each item with a clear written rationale</li>
+    <li>Maintain a turnaround time of <strong>24 hours</strong> per item in queue</li>
+  </ul>
+</div>
+
+<!-- Section 2 -->
+<div class="section" id="s2">
+  <div class="section-header">
+    <div class="section-num">2</div>
+    <h2>System Access</h2>
+  </div>
+  <p>You access the Myko Ops Hub using the credentials provided by your admin. Your account is scoped specifically to your language role.</p>
+
+  <table>
+    <thead>
+      <tr><th>Area</th><th>Access Level</th><th>Notes</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Proofread Queue</strong></td><td><span class="badge green">Full Access</span></td><td>Your primary workspace</td></tr>
+      <tr><td><strong>Copy Review</strong></td><td><span class="badge green">Full Access</span></td><td>View and annotate copy submissions</td></tr>
+      <tr><td><strong>Dashboard</strong></td><td><span class="badge purple">Read Only</span></td><td>View queue depth KPIs</td></tr>
+      <tr><td><strong>Builds / Tracker</strong></td><td><span class="badge amber">Limited</span></td><td>View only — your language's builds</td></tr>
+      <tr><td><strong>Settings / Admin</strong></td><td><span class="badge red">No Access</span></td><td>Admin-restricted</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout warning">
+    <div class="callout-icon">⚠️</div>
+    <div class="callout-body">
+      <div class="callout-title">Login Issues</div>
+      <div class="callout-text">If you cannot log in or see an incorrect language queue, contact your admin immediately. Do not attempt to use another team member's credentials.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Section 3 -->
+<div class="section" id="s3">
+  <div class="section-header">
+    <div class="section-num">3</div>
+    <h2>Daily Workflow</h2>
+  </div>
+
+  <h3>Morning Routine (Start of Shift)</h3>
+  <ol class="steps">
+    <li><span>Log in to Myko Ops Hub and navigate to <strong>Proofread Queue</strong>.</span></li>
+    <li><span>Check the queue depth indicator — note how many items are pending review.</span></li>
+    <li><span>Sort by submission date — oldest first. Process in FIFO order unless flagged as urgent.</span></li>
+    <li><span>For each item: open the copy, review against the standards in Section 4, then approve or flag.</span></li>
+  </ol>
+
+  <h3>Processing Each Item</h3>
+  <ol class="steps">
+    <li><span>Open the product entry in the queue.</span></li>
+    <li><span>Read the full copy from start to finish without editing.</span></li>
+    <li><span>Re-read and note any issues (grammar, spelling, tone, cultural fit).</span></li>
+    <li><span>Navigate to <strong>Copy Review</strong> to view the structured copy fields.</span></li>
+    <li><span>Add line-by-line comments for each issue found — be specific (e.g., "Line 3: 'kaufen' should be 'erwerben' for formal tone").</span></li>
+    <li><span>Set the status to <strong>Approved</strong> or <strong>Needs Revision</strong>.</span></li>
+    <li><span>Submit the review. The build pipeline will update automatically.</span></li>
+  </ol>
+
+  <h3>Target Turnaround</h3>
+  <table>
+    <thead><tr><th>Priority</th><th>Target Time</th><th>Trigger</th></tr></thead>
+    <tbody>
+      <tr><td><span class="badge red">Urgent</span></td><td>4 hours</td><td>Marked urgent by ads/web team</td></tr>
+      <tr><td><span class="badge amber">Standard</span></td><td>24 hours</td><td>Default for all queue items</td></tr>
+      <tr><td><span class="badge purple">Backlog</span></td><td>48 hours</td><td>Items older than 24h still in queue</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Section 4 -->
+<div class="section" id="s4">
+  <div class="section-header">
+    <div class="section-num">4</div>
+    <h2>Review Standards</h2>
+  </div>
+  <p>Apply the following checklist to every piece of copy you review. Each item must pass before you can approve.</p>
+
+  <h3>Grammar &amp; Spelling</h3>
+  <ul class="bullets">
+    <li>No spelling errors — use your language's standard dictionary</li>
+    <li>Correct verb conjugation and tense consistency throughout</li>
+    <li>Proper noun capitalization per language rules</li>
+    <li>Correct use of articles (where applicable to the language)</li>
+    <li>Punctuation follows language-specific conventions (e.g., spacing before/after punctuation in French)</li>
+  </ul>
+
+  <h3>Tone &amp; Style</h3>
+  <ul class="bullets">
+    <li>Tone matches the product type — persuasive but not pushy for ads; informative for product pages</li>
+    <li>Consistent formality level throughout (formal vs. informal "you" must not mix)</li>
+    <li>No awkward literal translations — copy should read as if written by a native speaker</li>
+    <li>Avoid clichés or overly generic phrases</li>
+    <li>Calls to action are clear, natural, and compelling</li>
+  </ul>
+
+  <h3>Cultural Fit</h3>
+  <ul class="bullets">
+    <li>References, idioms, and examples are culturally relevant</li>
+    <li>Pricing references, units, and formats are localized (€ vs $, comma vs period for decimals)</li>
+    <li>No culturally insensitive language</li>
+    <li>Seasonal or timely references are appropriate for the target market</li>
+  </ul>
+
+  <h3>Technical Accuracy</h3>
+  <ul class="bullets">
+    <li>Product names and brand names are spelled correctly and consistently</li>
+    <li>URLs, discount codes, or special instructions are not altered</li>
+    <li>Placeholder text (e.g., [PRODUCT NAME]) has been properly replaced</li>
+  </ul>
+</div>
+
+<!-- Section 5 -->
+<div class="section" id="s5">
+  <div class="section-header">
+    <div class="section-num">5</div>
+    <h2>Language-Specific Guidelines</h2>
+  </div>
+  <p>Beyond the universal standards above, apply these language-specific considerations:</p>
+
+  <table>
+    <thead><tr><th>Area</th><th>Guideline</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Formal vs. Informal</strong></td><td>Establish the correct register for each language (e.g., "Sie" vs "du" in German, "vous" vs "tu" in French) and enforce it consistently</td></tr>
+      <tr><td><strong>Gender Agreement</strong></td><td>For gendered languages, all adjectives, articles, and pronouns must agree with the noun's gender</td></tr>
+      <tr><td><strong>Character Limits</strong></td><td>Some languages expand significantly in translation — flag if copy is too long for its intended format (e.g., ad headline limits)</td></tr>
+      <tr><td><strong>Local Idioms</strong></td><td>Replace English idioms with natural-sounding local equivalents rather than direct translations</td></tr>
+      <tr><td><strong>Numbers &amp; Dates</strong></td><td>Verify date formats and number separators match local standards</td></tr>
+      <tr><td><strong>Legal Terms</strong></td><td>Do not alter any legal disclaimers or guarantee language — flag for admin review if they appear incorrect</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Section 6 -->
+<div class="section" id="s6">
+  <div class="section-header">
+    <div class="section-num">6</div>
+    <h2>Common Mistakes to Catch</h2>
+  </div>
+  <p>These are the most frequently occurring issues in translated copy. Be especially vigilant about these:</p>
+
+  <table>
+    <thead><tr><th>Issue</th><th>Example</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr><td><strong>False Friends</strong></td><td>"actually" translated literally in German/French</td><td>Flag and suggest correct equivalent</td></tr>
+      <tr><td><strong>Mixed Formality</strong></td><td>Switching between formal and informal mid-copy</td><td>Flag all instances, recommend consistent choice</td></tr>
+      <tr><td><strong>Untranslated English</strong></td><td>English words left in copy that should be translated</td><td>Flag with suggested translation</td></tr>
+      <tr><td><strong>Currency/Units</strong></td><td>"$" used instead of "€" for European market</td><td>Flag with correct format</td></tr>
+      <tr><td><strong>Awkward Syntax</strong></td><td>Word order following English structure, not target language</td><td>Rewrite suggestion in comments</td></tr>
+      <tr><td><strong>Brand Name Errors</strong></td><td>Brand name misspelled or inconsistently styled</td><td>Flag with correct spelling</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Section 7 -->
+<div class="section" id="s7">
+  <div class="section-header">
+    <div class="section-num">7</div>
+    <h2>Escalation Process</h2>
+  </div>
+  <p>Not every issue can be resolved through the standard review workflow. Use these escalation paths when needed:</p>
+
+  <h3>When to Escalate</h3>
+  <ul class="bullets">
+    <li>Copy contains potential legal liability (false claims, misleading guarantees)</li>
+    <li>Product description is factually incorrect about the product itself</li>
+    <li>Copy has already been revised twice and still fails quality standards</li>
+    <li>You are unsure whether content is culturally appropriate — when in doubt, escalate</li>
+    <li>Queue contains 10+ items — notify your manager to avoid pipeline blockage</li>
+  </ul>
+
+  <h3>Escalation Steps</h3>
+  <ol class="steps">
+    <li><span>Add a detailed note in the Copy Review comments explaining the issue and why you are escalating.</span></li>
+    <li><span>Set the item status to <strong>Escalated</strong> (if available) or <strong>Needs Revision</strong> with "ESCALATE:" prefix in comments.</span></li>
+    <li><span>Notify your team lead directly (message or email) with the build ID and a brief description of the issue.</span></li>
+    <li><span>Do not hold up other queue items while waiting for escalation resolution. Continue with the rest of the queue.</span></li>
+  </ol>
+
+  <div class="callout danger">
+    <div class="callout-icon">🚨</div>
+    <div class="callout-body">
+      <div class="callout-title">Never Approve Uncertain Copy</div>
+      <div class="callout-text">If you have any doubt about copy quality or appropriateness, do not approve it. It is better to delay a build than to approve copy that could harm brand reputation or violate regulations.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Section 8 -->
+<div class="section" id="s8">
+  <div class="section-header">
+    <div class="section-num">8</div>
+    <h2>Quality Standards &amp; KPIs</h2>
+  </div>
+  <p>Your performance is tracked against the following metrics in the Myko Ops Hub dashboard:</p>
+
+  <table>
+    <thead><tr><th>Metric</th><th>Target</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Queue Turnaround</strong></td><td>&lt; 24 hours</td><td>Average time from submission to review completion</td></tr>
+      <tr><td><strong>Queue Depth</strong></td><td>≤ 5 items</td><td>Number of items awaiting your review at any time</td></tr>
+      <tr><td><strong>Revision Rate</strong></td><td>&lt; 30%</td><td>Percentage of items you send back for revision (too high may indicate over-strictness or unclear feedback)</td></tr>
+      <tr><td><strong>Re-Submission Rate</strong></td><td>&lt; 10%</td><td>Items returned to you a second time after revision — should be low if your feedback was clear</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout success">
+    <div class="callout-icon">✅</div>
+    <div class="callout-body">
+      <div class="callout-title">Your Goal</div>
+      <div class="callout-text">Be thorough, be fast, and be specific. Clear feedback on the first review prevents multiple revision cycles and keeps the pipeline moving. Quality and speed are both valued.</div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <span>Myko Ops Hub — Proofreader SOP v1.0</span>
+  <span>faszik.com · Internal Use Only</span>
+</div>
+
+</body>
+</html>

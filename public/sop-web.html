@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Web Team SOP — Myko Ops Hub</title>
+<style>
+  :root {
+    --ink:       #0f0f11;
+    --ink-2:     #3d3d45;
+    --ink-3:     #7a7a88;
+    --line:      #e4e4ec;
+    --surface:   #f7f7fb;
+    --accent:    #0ea5e9;
+    --accent-2:  #e0f2fe;
+    --green:     #16a34a;
+    --green-bg:  #dcfce7;
+    --amber:     #b45309;
+    --amber-bg:  #fef3c7;
+    --red:       #dc2626;
+    --red-bg:    #fee2e2;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--ink);
+    background: #fff;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 48px 40px 80px;
+  }
+
+  .cover {
+    background: linear-gradient(135deg, #0c2340 0%, #0f4c81 60%, #1565a8 100%);
+    border-radius: 16px;
+    padding: 48px 48px 44px;
+    color: #fff;
+    margin-bottom: 48px;
+    position: relative;
+    overflow: hidden;
+  }
+  .cover::before {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 240px; height: 240px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 50%;
+  }
+  .cover-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.8);
+    margin-bottom: 20px;
+  }
+  .cover h1 {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    line-height: 1.2;
+    margin-bottom: 10px;
+  }
+  .cover-subtitle {
+    font-size: 15px;
+    color: rgba(255,255,255,0.65);
+    margin-bottom: 32px;
+  }
+  .cover-meta { display: flex; gap: 32px; flex-wrap: wrap; }
+  .cover-meta-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.45);
+    margin-bottom: 2px;
+  }
+  .cover-meta-value { font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.85); }
+
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin-bottom: 40px;
+  }
+  .toc-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-bottom: 14px;
+  }
+  .toc-list {
+    list-style: none;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 24px;
+  }
+  .toc-list li a {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--accent);
+    text-decoration: none;
+    padding: 3px 0;
+  }
+  .toc-list li a:hover { text-decoration: underline; }
+  .toc-num { font-size: 11px; font-weight: 700; color: var(--ink-3); min-width: 20px; }
+
+  .section { margin-bottom: 44px; }
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--line);
+  }
+  .section-num {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px; height: 30px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    border-radius: 8px;
+    flex-shrink: 0;
+  }
+  .section h2 { font-size: 17px; font-weight: 700; letter-spacing: -0.2px; color: var(--ink); }
+
+  h3 {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink);
+    margin: 20px 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  p { margin-bottom: 10px; color: var(--ink-2); }
+
+  .steps { list-style: none; counter-reset: step; margin: 12px 0; }
+  .steps li {
+    counter-increment: step;
+    display: flex;
+    gap: 12px;
+    margin-bottom: 10px;
+    align-items: flex-start;
+  }
+  .steps li::before {
+    content: counter(step);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px; height: 24px;
+    background: var(--accent-2);
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .steps li span { color: var(--ink-2); }
+
+  .bullets { list-style: none; margin: 10px 0; }
+  .bullets li {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 7px;
+    color: var(--ink-2);
+    align-items: flex-start;
+  }
+  .bullets li::before {
+    content: '';
+    display: block;
+    min-width: 6px; height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    margin-top: 7px;
+    flex-shrink: 0;
+  }
+
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13px; }
+  thead tr { background: var(--accent); color: #fff; }
+  thead th {
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+  }
+  thead th:first-child { border-radius: 8px 0 0 0; }
+  thead th:last-child  { border-radius: 0 8px 0 0; }
+  tbody tr { border-bottom: 1px solid var(--line); }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:nth-child(even) { background: var(--surface); }
+  tbody td { padding: 10px 14px; color: var(--ink-2); vertical-align: top; }
+  tbody td strong { color: var(--ink); font-weight: 600; }
+
+  .callout {
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin: 16px 0;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .callout-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .callout-body { flex: 1; }
+  .callout-title { font-weight: 700; font-size: 13px; margin-bottom: 3px; }
+  .callout-text { font-size: 13px; color: var(--ink-2); }
+  .callout.info    { background: var(--accent-2); border-left: 3px solid var(--accent); }
+  .callout.info .callout-title { color: var(--accent); }
+  .callout.success { background: var(--green-bg); border-left: 3px solid var(--green); }
+  .callout.success .callout-title { color: var(--green); }
+  .callout.warning { background: var(--amber-bg); border-left: 3px solid var(--amber); }
+  .callout.warning .callout-title { color: var(--amber); }
+  .callout.danger  { background: var(--red-bg);   border-left: 3px solid var(--red); }
+  .callout.danger .callout-title { color: var(--red); }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .badge.green  { background: var(--green-bg);  color: var(--green);  }
+  .badge.amber  { background: var(--amber-bg);  color: var(--amber);  }
+  .badge.red    { background: var(--red-bg);    color: var(--red);    }
+  .badge.blue   { background: var(--accent-2);  color: var(--accent); }
+
+  .phase-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin: 16px 0;
+  }
+  .phase-box {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px;
+    text-align: center;
+    background: var(--surface);
+  }
+  .phase-box.active { border-color: var(--accent); background: var(--accent-2); }
+  .phase-icon { font-size: 22px; margin-bottom: 6px; }
+  .phase-name { font-size: 12px; font-weight: 700; color: var(--ink); }
+  .phase-desc { font-size: 11px; color: var(--ink-3); margin-top: 3px; }
+
+  .footer {
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    color: var(--ink-3);
+  }
+
+  @media print {
+    body { padding: 20px; }
+    .cover { break-inside: avoid; }
+    .section { break-inside: avoid; }
+    a { color: inherit; text-decoration: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Cover -->
+<div class="cover">
+  <div class="cover-tag">🌐 Standard Operating Procedure</div>
+  <h1>Web Team SOP</h1>
+  <p class="cover-subtitle">Funnel build management, QA process, and testing workflow for the Web team at Faszik</p>
+  <div class="cover-meta">
+    <div class="cover-meta-item">
+      <div class="cover-meta-label">Department</div>
+      <div class="cover-meta-value">Web / Funnel</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="cover-meta-label">Applies To</div>
+      <div class="cover-meta-value">Web Team Members</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="cover-meta-label">Platform</div>
+      <div class="cover-meta-value">Myko Ops Hub</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="cover-meta-label">Version</div>
+      <div class="cover-meta-value">1.0</div>
+    </div>
+  </div>
+</div>
+
+<!-- TOC -->
+<div class="toc">
+  <div class="toc-title">Table of Contents</div>
+  <ul class="toc-list">
+    <li><a href="#s1"><span class="toc-num">01</span> Role Overview</a></li>
+    <li><a href="#s2"><span class="toc-num">02</span> Build Pipeline</a></li>
+    <li><a href="#s3"><span class="toc-num">03</span> Funnel Tracker</a></li>
+    <li><a href="#s4"><span class="toc-num">04</span> QA Checklist Process</a></li>
+    <li><a href="#s5"><span class="toc-num">05</span> Testing Phase</a></li>
+    <li><a href="#s6"><span class="toc-num">06</span> Decision Rights</a></li>
+    <li><a href="#s7"><span class="toc-num">07</span> Mistake Logging</a></li>
+    <li><a href="#s8"><span class="toc-num">08</span> Reporting &amp; KPIs</a></li>
+  </ul>
+</div>
+
+<!-- Section 1 -->
+<div class="section" id="s1">
+  <div class="section-header">
+    <div class="section-num">1</div>
+    <h2>Role Overview</h2>
+  </div>
+  <p>The Web team is responsible for building, testing, and optimizing funnel products at Faszik. Your work spans the full product lifecycle — from initial build setup through testing and into the expansion phase.</p>
+  <p>You operate within the <strong>Funnel Tracker</strong> in Myko Ops Hub. Every funnel build you work on must be tracked in the system — no builds exist outside the platform.</p>
+
+  <h3>Key Responsibilities</h3>
+  <ul class="bullets">
+    <li>Create and maintain funnel build entries in the tracker</li>
+    <li>Submit copy for proofreading when ready for language review</li>
+    <li>Complete QA checklists before builds advance to testing</li>
+    <li>Manage the testing phase — monitor performance, document findings</li>
+    <li>Make or escalate kill/expand decisions based on performance data</li>
+    <li>Log all mistakes and quality issues in the Mistake Log</li>
+    <li>Contribute to weekly and monthly reports</li>
+  </ul>
+</div>
+
+<!-- Section 2 -->
+<div class="section" id="s2">
+  <div class="section-header">
+    <div class="section-num">2</div>
+    <h2>Build Pipeline</h2>
+  </div>
+  <p>Every funnel build follows the same pipeline. Understanding the pipeline is essential to knowing what action is required at each stage.</p>
+
+  <div class="phase-grid">
+    <div class="phase-box">
+      <div class="phase-icon">🔨</div>
+      <div class="phase-name">Phase 1</div>
+      <div class="phase-desc">Build &amp; copy creation</div>
+    </div>
+    <div class="phase-box">
+      <div class="phase-icon">✍️</div>
+      <div class="phase-name">Proofread</div>
+      <div class="phase-desc">Language review by proofreader</div>
+    </div>
+    <div class="phase-box active">
+      <div class="phase-icon">🧪</div>
+      <div class="phase-name">Testing</div>
+      <div class="phase-desc">Web team live testing</div>
+    </div>
+    <div class="phase-box">
+      <div class="phase-icon">📊</div>
+      <div class="phase-name">Decision</div>
+      <div class="phase-desc">Kill or expand</div>
+    </div>
+  </div>
+
+  <table>
+    <thead><tr><th>Phase</th><th>Web Team Action</th><th>Gating Requirement</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Phase 1</strong></td><td>Create build entry, write/upload copy</td><td>Build entry created in Funnel Tracker</td></tr>
+      <tr><td><strong>Proofread</strong></td><td>Submit copy for review; address revision requests</td><td>Proofreader approval required</td></tr>
+      <tr><td><strong>Testing</strong></td><td>Launch funnel, monitor KPIs, complete QA checklist</td><td>QA checklist fully completed</td></tr>
+      <tr><td><strong>Decision</strong></td><td>Review data, recommend kill or expand</td><td>Decision authority approval (see Section 6)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout info">
+    <div class="callout-icon">💡</div>
+    <div class="callout-body">
+      <div class="callout-title">Pipeline Targets</div>
+      <div class="callout-text">Each phase has a target completion time configured in Settings. KPI colors on the dashboard reflect whether you're on track (green), at risk (amber), or overdue (red).</div>
+    </div>
+  </div>
+</div>
+
+<!-- Section 3 -->
+<div class="section" id="s3">
+  <div class="section-header">
+    <div class="section-num">3</div>
+    <h2>Funnel Tracker</h2>
+  </div>
+  <p>The Funnel Tracker is your primary workspace. Every funnel build must have an entry here — it is the single source of truth for funnel build status.</p>
+
+  <h3>Creating a New Build</h3>
+  <ol class="steps">
+    <li><span>Navigate to <strong>Funnel Tracker</strong> in the sidebar.</span></li>
+    <li><span>Click <strong>+ New Build</strong> and fill in all required fields: product name, target language, assigned web team member, and start date.</span></li>
+    <li><span>Set the initial phase to <strong>Phase 1</strong>.</span></li>
+    <li><span>Attach or link the relevant copy documents in the Copy Review section.</span></li>
+    <li><span>Save the entry — it will now appear in the pipeline view.</span></li>
+  </ol>
+
+  <h3>Updating Build Status</h3>
+  <ol class="steps">
+    <li><span>Open the build entry in the Funnel Tracker.</span></li>
+    <li><span>Update the current phase only when all gating requirements for that phase are met.</span></li>
+    <li><span>Add a note when advancing phases — briefly explain what was completed.</span></li>
+    <li><span>Keep the build entry up to date daily — stale entries affect KPI accuracy for the whole team.</span></li>
+  </ol>
+
+  <div class="callout warning">
+    <div class="callout-icon">⚠️</div>
+    <div class="callout-body">
+      <div class="callout-title">Never Skip Phases</div>
+      <div class="callout-text">Do not manually advance a build past the Proofread phase without proofreader approval. Bypassing quality gates is a recordable mistake.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Section 4 -->
+<div class="section" id="s4">
+  <div class="section-header">
+    <div class="section-num">4</div>
+    <h2>QA Checklist Process</h2>
+  </div>
+  <p>Before any funnel build can enter the Testing phase, a full QA checklist must be completed. The checklist is accessible from within each build entry.</p>
+
+  <h3>Accessing the Checklist</h3>
+  <ol class="steps">
+    <li><span>Open the build entry in the Funnel Tracker.</span></li>
+    <li><span>Click <strong>QA Checklist</strong> — this opens the build-specific checklist page.</span></li>
+    <li><span>Work through every item sequentially. Do not skip items.</span></li>
+    <li><span>Mark each item as passed, failed, or N/A with a brief note where needed.</span></li>
+    <li><span>Submit the checklist when all items are resolved.</span></li>
+  </ol>
+
+  <h3>QA Areas Covered</h3>
+  <table>
+    <thead><tr><th>Area</th><th>What to Check</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Page Load</strong></td><td>All pages load without errors; no broken images or missing assets</td></tr>
+      <tr><td><strong>Mobile Responsiveness</strong></td><td>Funnel displays correctly on mobile, tablet, and desktop</td></tr>
+      <tr><td><strong>Form Functionality</strong></td><td>All opt-in forms, order forms, and upsell flows work correctly</td></tr>
+      <tr><td><strong>Tracking</strong></td><td>Pixel fires confirmed; conversion events tracked correctly</td></tr>
+      <tr><td><strong>Copy Accuracy</strong></td><td>Approved copy is live — no draft or placeholder text visible</td></tr>
+      <tr><td><strong>Payment Flow</strong></td><td>Checkout tested end-to-end; no errors in payment processing</td></tr>
+      <tr><td><strong>Upsells/Downsells</strong></td><td>All OTO pages display correctly and pricing is accurate</td></tr>
+      <tr><td><strong>Thank You Page</strong></td><td>Confirmation email and thank you page deliver correctly</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout danger">
+    <div class="callout-icon">🚨</div>
+    <div class="callout-body">
+      <div class="callout-title">Failed QA Items</div>
+      <div class="callout-text">If any QA item fails, fix it before advancing to Testing. Log the issue in the Mistake Log if it caused a delay of more than 2 hours.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Section 5 -->
+<div class="section" id="s5">
+  <div class="section-header">
+    <div class="section-num">5</div>
+    <h2>Testing Phase</h2>
+  </div>
+  <p>Testing is where live traffic data determines whether a funnel will be expanded or killed. Your job during this phase is to monitor performance diligently and document findings accurately.</p>
+
+  <h3>Launching a Test</h3>
+  <ol class="steps">
+    <li><span>Confirm QA checklist is fully completed and build is in <strong>Testing</strong> phase in the tracker.</span></li>
+    <li><span>Coordinate with the Ads team to ensure traffic is being directed to the funnel.</span></li>
+    <li><span>Set the test start date in the build entry.</span></li>
+    <li><span>Define the test duration and minimum spend threshold with your team lead.</span></li>
+  </ol>
+
+  <h3>Monitoring During Testing</h3>
+  <ul class="bullets">
+    <li>Check funnel metrics daily — conversion rate, revenue per visitor, AOV</li>
+    <li>Monitor for technical issues (broken pages, tracking failures) at least twice daily</li>
+    <li>Document any anomalies or issues in the build entry notes</li>
+    <li>Communicate issues to the Ads team immediately if they affect data quality</li>
+    <li>Update the build entry with key metrics at the end of each test day</li>
+  </ul>
+
+  <h3>Test Completion Criteria</h3>
+  <table>
+    <thead><tr><th>Metric</th><th>Minimum Threshold</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Test Duration</strong></td><td>As defined per product type (check your team lead)</td></tr>
+      <tr><td><strong>Statistical Significance</strong></td><td>Sufficient data to make a confident decision</td></tr>
+      <tr><td><strong>Technical Stability</strong></td><td>No unresolved tracking or page errors in final 48h</td></tr>
+      <tr><td><strong>Data Quality</strong></td><td>No periods of incorrect tracking that would skew results</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Section 6 -->
+<div class="section" id="s6">
+  <div class="section-header">
+    <div class="section-num">6</div>
+    <h2>Decision Rights</h2>
+  </div>
+  <p>After testing, every build requires a Kill or Expand decision. Decision rights are defined by the authority matrix — not everyone can make every decision.</p>
+
+  <table>
+    <thead><tr><th>Decision Type</th><th>Who Can Decide</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Kill (standard test)</strong></td><td>Web Team Lead + Ads Team</td><td>Both teams must agree; document rationale</td></tr>
+      <tr><td><strong>Expand (standard)</strong></td><td>Web Team Lead</td><td>Document expansion plan in build entry</td></tr>
+      <tr><td><strong>Kill (high spend)</strong></td><td>Management approval required</td><td>See approval threshold in Settings</td></tr>
+      <tr><td><strong>Scale to Winning Products</strong></td><td>Management</td><td>Nominated by Web Lead, approved by management</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Documenting a Decision</h3>
+  <ol class="steps">
+    <li><span>Navigate to the build entry and click <strong>Decision</strong> in the pipeline phase selector.</span></li>
+    <li><span>Select <strong>Kill</strong> or <strong>Expand</strong>.</span></li>
+    <li><span>Add a mandatory decision note — include key metrics that drove the decision.</span></li>
+    <li><span>If escalating for management approval, tag the relevant manager and set status to <strong>Pending Approval</strong>.</span></li>
+  </ol>
+
+  <div class="callout info">
+    <div class="callout-icon">📊</div>
+    <div class="callout-body">
+      <div class="callout-title">Decision Rights Reference</div>
+      <div class="callout-text">The full authority matrix is available under <strong>Decision Rights</strong> in the navigation. Review it whenever you are unsure who has the authority to approve a specific action.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Section 7 -->
+<div class="section" id="s7">
+  <div class="section-header">
+    <div class="section-num">7</div>
+    <h2>Mistake Logging</h2>
+  </div>
+  <p>All quality issues, errors, and process failures must be logged in the <strong>Mistake Log</strong>. This is not punitive — it is how the team improves. Accurate logging is required.</p>
+
+  <h3>What to Log</h3>
+  <ul class="bullets">
+    <li>Technical errors that delayed a build going live</li>
+    <li>Tracking failures discovered post-launch</li>
+    <li>Copy errors that were missed in QA</li>
+    <li>Pipeline phase skips or process violations</li>
+    <li>Data quality issues that invalidated test results</li>
+    <li>Any issue that caused a delay of more than 2 hours</li>
+  </ul>
+
+  <h3>How to Log a Mistake</h3>
+  <ol class="steps">
+    <li><span>Navigate to <strong>Mistake Log</strong> in the sidebar.</span></li>
+    <li><span>Click <strong>+ New Entry</strong>.</span></li>
+    <li><span>Fill in: build ID, date, category, description of what happened, root cause, and corrective action taken.</span></li>
+    <li><span>Be honest and specific — vague entries do not help the team improve.</span></li>
+    <li><span>Submit the entry.</span></li>
+  </ol>
+
+  <div class="callout success">
+    <div class="callout-icon">✅</div>
+    <div class="callout-body">
+      <div class="callout-title">Logging Culture</div>
+      <div class="callout-text">Logging your own mistakes is expected and respected. Teams with accurate mistake logs improve faster. A team that doesn't log mistakes makes the same ones repeatedly.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Section 8 -->
+<div class="section" id="s8">
+  <div class="section-header">
+    <div class="section-num">8</div>
+    <h2>Reporting &amp; KPIs</h2>
+  </div>
+  <p>The Web team contributes to and reviews both weekly and monthly reports. Keep your build data current so reports are accurate.</p>
+
+  <h3>Weekly Responsibilities</h3>
+  <ul class="bullets">
+    <li>Ensure all active builds have up-to-date phase and notes before weekly report generation</li>
+    <li>Review the weekly report once generated — flag any inaccurate data to your team lead</li>
+    <li>Attend the weekly review meeting with current status on all your active builds</li>
+  </ul>
+
+  <h3>Key KPIs Tracked for Web</h3>
+  <table>
+    <thead><tr><th>KPI</th><th>Target</th><th>What It Measures</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Build Cycle Time</strong></td><td>Per settings</td><td>Days from build creation to testing launch</td></tr>
+      <tr><td><strong>Testing Cycle Time</strong></td><td>Per settings</td><td>Days in testing phase</td></tr>
+      <tr><td><strong>QA Pass Rate</strong></td><td>&gt; 90%</td><td>Builds that pass QA on first attempt</td></tr>
+      <tr><td><strong>Decision Rate</strong></td><td>100%</td><td>Builds with documented kill/expand decisions</td></tr>
+      <tr><td><strong>Active Test Count</strong></td><td>Per team capacity</td><td>Number of builds currently in testing</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout info">
+    <div class="callout-icon">📈</div>
+    <div class="callout-body">
+      <div class="callout-title">Winning Products</div>
+      <div class="callout-text">Funnels that meet expansion criteria are nominated to the <strong>Winning Products</strong> tracker. Monitor this section to understand what's scaling and what contributed to those wins.</div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <span>Myko Ops Hub — Web Team SOP v1.0</span>
+  <span>faszik.com · Internal Use Only</span>
+</div>
+
+</body>
+</html>
