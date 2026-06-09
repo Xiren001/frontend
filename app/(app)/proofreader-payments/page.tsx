@@ -107,28 +107,26 @@ export default function ProofreaderPaymentsPage() {
   ]
 
   return (
-    <div className="flex flex-col h-[calc(100vh-theme(spacing.14)-theme(spacing.12)*2)] lg:h-[calc(100vh-theme(spacing.12)*2)]">
-      <div className="shrink-0 space-y-4 pb-4">
-        <PageHeader
-          title="Proofreader Payments"
-          description="Track which products have been paid to proofreaders"
-        />
+    <div className="space-y-6 pb-12">
+      <PageHeader
+        title="Proofreader Payments"
+        description="Track which products have been paid to proofreaders"
+      />
 
-        {/* Filter row */}
-        <div className="flex flex-wrap items-center gap-3">
+      {/* Filter row */}
+      <div className="flex flex-wrap items-center gap-3">
+        <Tabs
+          tabs={payTabs}
+          active={payFilter}
+          onChange={v => setPayFilter(v as PayFilter)}
+        />
+        {langs.length > 1 && (
           <Tabs
-            tabs={payTabs}
-            active={payFilter}
-            onChange={v => setPayFilter(v as PayFilter)}
+            tabs={langTabs}
+            active={langTab}
+            onChange={v => setLangTab(String(v))}
           />
-          {langs.length > 1 && (
-            <Tabs
-              tabs={langTabs}
-              active={langTab}
-              onChange={v => setLangTab(String(v))}
-            />
-          )}
-        </div>
+        )}
       </div>
 
       {groups.length === 0 ? (
@@ -136,7 +134,7 @@ export default function ProofreaderPaymentsPage() {
           {payFilter === 'unpaid' ? 'No unpaid products — all caught up!' : 'No products found.'}
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto space-y-6 pr-1 pb-6">
+        <div className="space-y-6">
           {groups.map(([proofreader, items]) => {
             const unpaid = items.filter(i => !i.paid).length
             const paid   = items.filter(i =>  i.paid).length
