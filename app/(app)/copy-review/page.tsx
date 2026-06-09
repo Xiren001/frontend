@@ -22,6 +22,8 @@ interface ProofProduct {
   pdp_url: string | null
   drive_folder: string | null
   done: boolean
+  website_done: boolean
+  ads_done: boolean
   ready_for_revision: boolean
   created_at: string
   updated_at: string
@@ -47,7 +49,7 @@ interface ProofCorrection {
 const SELECT_CLS = 'w-full rounded-md border border-border bg-surface-elevated px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent/40'
 
 function emptyProductForm(): Partial<ProofProduct> {
-  return { language: 'ES', proofreader: '', product_name: '', pdp_url: '', drive_folder: '', done: false, ready_for_revision: false }
+  return { language: 'ES', proofreader: '', product_name: '', pdp_url: '', drive_folder: '', done: false, website_done: false, ads_done: false, ready_for_revision: false }
 }
 
 function emptyCorrectionForm(): Partial<ProofCorrection> {
@@ -189,16 +191,22 @@ export default function CopyReviewPage() {
     if (corrections[id] === undefined) loadCorrections(id)
   }
 
-  async function toggleProductDone(product: ProofProduct) {
+  async function toggleTeamDone(product: ProofProduct) {
     if (!canMarkDone) return
+    const isWebsite = role === 'website'
+    const isAds     = role === 'ads'
+    const myDone = isWebsite ? product.website_done : isAds ? product.ads_done : product.done
     // Block marking Done if not yet ready (Reopen is always allowed)
-    if (!product.done && !product.ready_for_revision) {
+    if (!myDone && !product.ready_for_revision) {
       setDoneShakeKey(k => k + 1)
       return
     }
     setTogglingDone(true)
     try {
-      await api.put(`/api/proof-corrections/products/${product.id}`, { done: !product.done })
+      const payload = isWebsite ? { website_done: !product.website_done }
+                    : isAds     ? { ads_done:     !product.ads_done }
+                    : { done: !product.done }
+      await api.put(`/api/proof-corrections/products/${product.id}`, payload)
       loadProducts()
     } finally { setTogglingDone(false) }
   }
@@ -513,7 +521,11 @@ export default function CopyReviewPage() {
                       <div className="flex items-center justify-between mt-2.5 gap-1">
                         <div className="flex items-center gap-1">
                           {langFilter === 'all' && p.language && <Badge variant="accent">{p.language}</Badge>}
-                          {p.done && <Badge variant="muted">Done</Badge>}
+                          {(p.website_done || p.ads_done || p.done) && (
+                            <Badge variant={p.done ? 'muted' : 'default'}>
+                              Done {p.done ? 2 : (p.website_done ? 1 : 0) + (p.ads_done ? 1 : 0)}/2
+                            </Badge>
+                          )}
                           {isReady && !p.done && <Badge variant="default">Ready</Badge>}
                           {noLinks && <Badge variant="warn">Needs links</Badge>}
                         </div>
@@ -616,7 +628,11 @@ export default function CopyReviewPage() {
                       {selectedProduct.proofreader && (
                         <span className="text-xs text-text-muted truncate">{selectedProduct.proofreader}</span>
                       )}
-                      {selectedProduct.done && <Badge variant="muted">Done</Badge>}
+                      {(selectedProduct.website_done || selectedProduct.ads_done || selectedProduct.done) && (
+                        <Badge variant={selectedProduct.done ? 'muted' : 'default'}>
+                          Done {selectedProduct.done ? 2 : (selectedProduct.website_done ? 1 : 0) + (selectedProduct.ads_done ? 1 : 0)}/2
+                        </Badge>
+                      )}
                       <span className="text-xs text-text-muted font-mono">
                         {L.resolvedOf(selectedCorrections.filter(c => c.done).length, selectedProduct.correction_count)}
                       </span>
@@ -694,29 +710,37 @@ export default function CopyReviewPage() {
                           }
                         </button>
                       )}
-                      {canMarkDone && (
-                        <span key={doneShakeKey} className={cn('flex-1 sm:flex-none inline-flex', doneShakeKey > 0 && 'animate-proof-shake')}>
-                          <button
-                            onClick={() => toggleProductDone(selectedProduct)}
-                            disabled={togglingDone}
-                            title={!selectedProduct.done && !selectedProduct.ready_for_revision ? 'Mark as Ready first' : undefined}
-                            className={cn(
-                              'flex w-full items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all active:scale-95 border',
-                              !selectedProduct.done && !selectedProduct.ready_for_revision
-                                ? 'opacity-40 cursor-not-allowed text-text-muted border-border-subtle'
-                                : selectedProduct.done
-                                  ? 'text-text-muted border-border-subtle hover:text-foreground hover:bg-surface-hover'
-                                  : 'text-text-muted border-border-subtle hover:text-foreground hover:bg-surface-hover',
-                              togglingDone && 'opacity-60 cursor-wait',
-                            )}
-                          >
-                            {togglingDone
-                              ? <><Spinner />…</>
-                              : selectedProduct.done ? '↩ Reopen' : '✓ Done'
-                            }
-                          </button>
-                        </span>
-                      )}
+                      {canMarkDone && (() => {
+                        const isWebsite = role === 'website'
+                        const isAds     = role === 'ads'
+                        const myDone    = isWebsite ? selectedProduct.website_done : isAds ? selectedProduct.ads_done : selectedProduct.done
+                        const doneCount = selectedProduct.done ? 2 : (selectedProduct.website_done ? 1 : 0) + (selectedProduct.ads_done ? 1 : 0)
+                        const canAct    = myDone || selectedProduct.ready_for_revision
+                        return (
+                          <span key={doneShakeKey} className={cn('flex-1 sm:flex-none inline-flex', doneShakeKey > 0 && 'animate-proof-shake')}>
+                            <button
+                              onClick={() => toggleTeamDone(selectedProduct)}
+                              disabled={togglingDone}
+                              title={!canAct ? 'Mark as Ready first' : undefined}
+                              className={cn(
+                                'flex w-full items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all active:scale-95 border',
+                                !canAct
+                                  ? 'opacity-40 cursor-not-allowed text-text-muted border-border-subtle'
+                                  : myDone
+                                    ? 'bg-green-500/10 text-green-400 border-green-500/30 hover:bg-green-500/20'
+                                    : 'text-text-muted border-border-subtle hover:text-foreground hover:bg-surface-hover',
+                                togglingDone && 'opacity-60 cursor-wait',
+                              )}
+                            >
+                              {togglingDone ? <><Spinner />…</> :
+                               selectedProduct.done ? '↩ Reopen' : (
+                                 <>{myDone && <Check className="h-3.5 w-3.5" />}Done <span className="font-mono text-[11px] opacity-75">{doneCount}/2</span></>
+                               )
+                              }
+                            </button>
+                          </span>
+                        )
+                      })()}
                     </div>
                   )}
                 </div>
