@@ -59,9 +59,13 @@ export function canAccessPath(role: UserRole | null, path: string): boolean {
     return base === '/proofread-queue' || base === '/copy-review'
   }
 
-  // Management and Website: all pages except settings
-  if (role === 'management' || role === 'website') {
+  // Management: all pages except settings
+  if (role === 'management') {
     return base !== '/settings'
+  }
+  // Website: all pages except settings and proofreader-payments
+  if (role === 'website') {
+    return base !== '/settings' && base !== '/proofreader-payments'
   }
 
   return false

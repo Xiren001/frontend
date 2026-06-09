@@ -22,6 +22,7 @@ import {
   Menu,
   X,
   ClipboardList,
+  Wallet,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase'
@@ -33,8 +34,9 @@ const NAV = [
   { href: '/jewelry-tracker', label: 'Jewelry Tracker',  icon: Gem },
   { href: '/funnel-tracker',  label: 'Funnel Tracker',   icon: Filter },
   { href: '/proofread-queue', label: 'Proofread Queue',  icon: ListChecks },
-  { href: '/copy-review',     label: 'Proofreading',     icon: FileCheck },
-  { href: '/mistake-log',     label: 'Mistake Log',      icon: AlertTriangle },
+  { href: '/copy-review',             label: 'Proofreading',        icon: FileCheck },
+  { href: '/proofreader-payments',   label: 'Proofreader Payments', icon: Wallet   },
+  { href: '/mistake-log',            label: 'Mistake Log',          icon: AlertTriangle },
   { href: '/product-ranking', label: 'Product Ranking',  icon: Star },
   { href: '/winning-products',label: 'Winning Products', icon: Trophy },
   { href: '/weekly-report',   label: 'Weekly Report',    icon: CalendarDays },
@@ -76,8 +78,11 @@ export function NavSidebar() {
     if (role === 'proofreader' || role === 'ads') {
       return item.href === '/proofread-queue' || item.href === '/copy-review'
     }
-    if (role === 'management' || role === 'website') {
+    if (role === 'management') {
       return item.href !== '/settings'
+    }
+    if (role === 'website') {
+      return item.href !== '/settings' && item.href !== '/proofreader-payments'
     }
     return false
   })
