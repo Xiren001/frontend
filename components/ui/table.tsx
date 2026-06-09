@@ -1,9 +1,9 @@
 import { cn } from '@/lib/utils'
 import { type HTMLAttributes, type TdHTMLAttributes, type ThHTMLAttributes } from 'react'
 
-export function Table({ className, ...props }: HTMLAttributes<HTMLTableElement>) {
+export function Table({ className, containerClassName, ...props }: HTMLAttributes<HTMLTableElement> & { containerClassName?: string }) {
   return (
-    <div className="rounded-xl border border-border-subtle bg-surface-elevated shadow-sm md:overflow-x-auto">
+    <div className={cn('rounded-xl border border-border-subtle bg-surface-elevated shadow-sm overflow-x-auto', containerClassName)}>
       <table className={cn('w-full text-sm', className)} {...props} />
     </div>
   )
@@ -12,7 +12,7 @@ export function Table({ className, ...props }: HTMLAttributes<HTMLTableElement>)
 export function TableHead({ className, ...props }: HTMLAttributes<HTMLTableSectionElement>) {
   return (
     <thead
-      className={cn('bg-surface border-b border-border-subtle', className)}
+      className={cn('bg-surface border-b border-border-subtle sticky top-0 z-10', className)}
       {...props}
     />
   )

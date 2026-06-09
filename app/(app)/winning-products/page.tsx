@@ -618,6 +618,7 @@ export default function WinningProductsPage() {
                       data={demand}
                       rowKey={r => r.title}
                       emptyMessage="No products meet the criteria."
+                      tableContainerClassName="overflow-y-auto max-h-[60vh]"
                     />
                   )}
                 </>
@@ -639,6 +640,7 @@ export default function WinningProductsPage() {
                       data={momentum}
                       rowKey={r => r.title}
                       emptyMessage="No products are currently growing."
+                      tableContainerClassName="overflow-y-auto max-h-[60vh]"
                     />
                   )}
                 </>

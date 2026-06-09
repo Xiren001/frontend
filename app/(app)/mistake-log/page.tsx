@@ -211,6 +211,7 @@ export default function MistakeLogPage() {
                 <button onClick={() => setDeleteId(m.id)} className="text-xs text-danger/70 hover:text-danger">Del</button>
               </div>
             ) : undefined}
+            tableContainerClassName="overflow-y-auto max-h-[60vh]"
           />
         </div>
 

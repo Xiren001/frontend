@@ -280,6 +280,7 @@ export default function ProductRankingPage() {
                   ? 'bg-accent-muted/40'
                   : undefined
               }
+              tableContainerClassName="overflow-y-auto max-h-[60vh]"
             />
           )}
           {tab === 'expanding' && (
@@ -288,6 +289,7 @@ export default function ProductRankingPage() {
               data={expanding}
               rowKey={b => b.id}
               emptyMessage={searchQuery || typeFilter !== 'all' || langFilter !== 'all' ? 'No matching products.' : 'No products currently expanding.'}
+              tableContainerClassName="overflow-y-auto max-h-[60vh]"
             />
           )}
         </div>

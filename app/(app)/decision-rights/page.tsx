@@ -125,7 +125,7 @@ export default function DecisionRightsPage() {
                 <p className="text-xs font-medium uppercase tracking-widest text-text-muted">{group.section}</p>
               </CardHeader>
 
-              <div className="divide-y divide-border-subtle">
+              <div className="divide-y divide-border-subtle max-h-64 overflow-y-auto">
                 {group.items.map(item => (
                   <div key={item.id} className="px-4 py-3 flex items-start gap-3">
                     <p className="flex-1 text-sm text-foreground">{item.decision}</p>

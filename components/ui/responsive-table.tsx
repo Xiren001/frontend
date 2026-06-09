@@ -31,6 +31,7 @@ interface ResponsiveTableProps<T> {
   mobileSubtitle?: (row: T) => ReactNode
   mobileActions?: (row: T) => ReactNode
   className?: string
+  tableContainerClassName?: string
 }
 
 function alignClass(align?: 'left' | 'right' | 'center') {
@@ -49,6 +50,7 @@ export function ResponsiveTable<T>({
   mobileSubtitle,
   mobileActions,
   className,
+  tableContainerClassName,
 }: ResponsiveTableProps<T>) {
   const mobileColumns = columns.filter(c => !c.hideOnMobile)
 
@@ -122,7 +124,7 @@ export function ResponsiveTable<T>({
 
       {/* Desktop: table layout */}
       <div className="hidden md:block">
-        <Table>
+        <Table containerClassName={tableContainerClassName}>
           <TableHead>
             <TableRow>
               {columns.map(col => (

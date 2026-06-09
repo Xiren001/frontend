@@ -243,7 +243,7 @@ export default function TeamTasksPage() {
 
               {/* Pending tasks */}
               {pendingTasks.length > 0 && (
-                <div className="space-y-2 mb-8">
+                <div className="space-y-2 mb-8 max-h-[50vh] overflow-y-auto pr-1">
                   {pendingTasks.map(task => (
                     <div
                       key={task.id}
@@ -320,7 +320,7 @@ export default function TeamTasksPage() {
                     </button>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-2 max-h-[30vh] overflow-y-auto pr-1">
                     {doneTasks.map(task => (
                       <div
                         key={task.id}

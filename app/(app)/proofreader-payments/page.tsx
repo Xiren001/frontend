@@ -157,7 +157,7 @@ export default function ProofreaderPaymentsPage() {
                 </div>
 
                 {/* Product rows */}
-                <div className="divide-y divide-border-subtle">
+                <div className="divide-y divide-border-subtle max-h-56 overflow-y-auto">
                   {items.map(product => {
                     const itemKey = product.id ?? `${product.product_name}|${product.language}`
                     return (

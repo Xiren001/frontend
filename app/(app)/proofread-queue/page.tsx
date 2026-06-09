@@ -408,8 +408,8 @@ export default function ProofreadQueuePage() {
       </div>
 
       {/* ── Desktop: table ── */}
-      <div className="hidden md:block overflow-x-auto">
-        <Table>
+      <div className="hidden md:block">
+        <Table containerClassName="overflow-y-auto max-h-[60vh]">
           <TableHead>
             <TableRow>
               <TableHeader>Product</TableHeader>
