@@ -17,6 +17,7 @@ interface BuildFormModalProps {
   initial?: Partial<Build>
   defaultWeek?: number
   saving?: boolean
+  batches?: { value: number; label: string }[]
 }
 
 function emptyBuild(type: BuildType, week: number): Partial<Build> {
@@ -32,6 +33,7 @@ export function BuildFormModal({
   initial,
   defaultWeek = 1,
   saving = false,
+  batches = [],
 }: BuildFormModalProps) {
   const [form, setForm] = useState<Partial<Build>>(emptyBuild(type, defaultWeek))
 
@@ -98,6 +100,22 @@ export function BuildFormModal({
             />
           </FormField>
         </div>
+
+        {/* Batch — create mode only, when batches exist */}
+        {mode === 'create' && batches.length > 0 && (
+          <FormField label="Add to batch">
+            <select
+              className={SELECT_CLS}
+              value={form.batch_group ?? ''}
+              onChange={e => setField('batch_group', e.target.value ? Number(e.target.value) : null)}
+            >
+              <option value="">None</option>
+              {batches.map(b => (
+                <option key={b.value} value={b.value}>{b.label}</option>
+              ))}
+            </select>
+          </FormField>
+        )}
 
         {/* Week + Approved + Outcome + Proofreader */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

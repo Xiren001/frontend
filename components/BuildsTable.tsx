@@ -387,14 +387,18 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchM
     }
   }, [activeWeek])
 
+  const sortedDisplayBuilds = [...displayBuilds].sort((a, b) =>
+    new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  )
+
   const bq = searchQuery.trim().toLowerCase()
   const filteredBuilds = bq
-    ? displayBuilds.filter(b =>
+    ? sortedDisplayBuilds.filter(b =>
         b.product_name.toLowerCase().includes(bq) ||
         (b.language ?? '').toLowerCase().includes(bq) ||
         (b.proofreader ?? '').toLowerCase().includes(bq)
       )
-    : displayBuilds
+    : sortedDisplayBuilds
 
   const buildAvg = avgNum(displayBuilds.map(b => b.build_days))
   const proofAvg = avgNum(displayBuilds.map(b => b.proof_days))
@@ -1122,6 +1126,7 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchM
         initial={editBuild ?? undefined}
         defaultWeek={activeWeek}
         saving={saving}
+        batches={batchEntries.map(([num]) => ({ value: num, label: batchDisplayName(num) }))}
       />
 
       <ConfirmModal
