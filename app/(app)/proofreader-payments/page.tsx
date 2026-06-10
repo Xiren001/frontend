@@ -9,7 +9,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs } from '@/components/ui/tabs'
-import { DollarSign, Check, RotateCcw, User } from 'lucide-react'
+import { DollarSign, Check, RotateCcw, User, Search, X } from 'lucide-react'
 
 type ProductStatus = 'done' | 'in_proofread' | 'ready' | 'needs_links' | 'active'
 
@@ -60,11 +60,12 @@ function groupByProofreader(products: PaymentItem[]) {
 
 export default function ProofreaderPaymentsPage() {
   const { role } = useRole()
-  const [products, setProducts]       = useState<PaymentItem[]>([])
-  const [payFilter, setPayFilter]     = useState<PayFilter>('unpaid')
+  const [products, setProducts]         = useState<PaymentItem[]>([])
+  const [payFilter, setPayFilter]       = useState<PayFilter>('unpaid')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
-  const [langTab, setLangTab]         = useState<string>('all')
-  const [togglingKey, setTogglingKey] = useState<string | null>(null)
+  const [langTab, setLangTab]           = useState<string>('all')
+  const [search, setSearch]             = useState('')
+  const [togglingKey, setTogglingKey]   = useState<string | null>(null)
 
   const canPay = role === 'admin' || role === 'management'
 
@@ -103,6 +104,7 @@ export default function ProofreaderPaymentsPage() {
 
   const langFiltered = products.filter(p => langTab === 'all' || p.language === langTab)
 
+  const q = search.trim().toLowerCase()
   const filtered = langFiltered
     .filter(p => {
       if (payFilter === 'unpaid') return !p.paid
@@ -110,6 +112,7 @@ export default function ProofreaderPaymentsPage() {
       return true
     })
     .filter(p => statusFilter === 'all' || p.status === statusFilter)
+    .filter(p => !q || p.product_name.toLowerCase().includes(q) || (p.proofreader ?? '').toLowerCase().includes(q))
 
   const groups = groupByProofreader(filtered)
 
@@ -140,6 +143,25 @@ export default function ProofreaderPaymentsPage() {
           title="Proofreader Payments"
           description="Track which products have been paid to proofreaders"
         />
+
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-muted pointer-events-none" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search by product or proofreader…"
+            className="w-full rounded-md border border-border bg-surface-elevated pl-8 pr-7 py-2 text-sm text-foreground placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/40"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
 
         {/* Filter row */}
         <div className="flex flex-wrap items-center gap-3">
@@ -187,11 +209,19 @@ export default function ProofreaderPaymentsPage() {
             ))}
           </div>
         )}
+
+        {/* Result count */}
+        {filtered.length > 0 && (
+          <p className="text-xs text-text-muted">
+            {filtered.length} product{filtered.length !== 1 ? 's' : ''}
+            {q ? ` matching "${search}"` : ''}
+          </p>
+        )}
       </div>
 
       {groups.length === 0 ? (
         <div className="rounded-xl border border-border-subtle bg-surface-elevated p-10 text-center text-text-muted">
-          {payFilter === 'unpaid' ? 'No unpaid products — all caught up!' : 'No products found.'}
+          {q ? `No products matching "${search}".` : payFilter === 'unpaid' ? 'No unpaid products — all caught up!' : 'No products found.'}
         </div>
       ) : (
         <div className="flex-1 min-h-0 overflow-y-auto space-y-6 pb-6">
