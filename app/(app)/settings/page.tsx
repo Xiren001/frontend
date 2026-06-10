@@ -324,7 +324,14 @@ export default function SettingsPage() {
           </div>
 
           <Card className="divide-y divide-border-subtle">
-            {[
+            [
+              {
+                href: '/sop-management.html',
+                label: 'Management SOP',
+                description: 'Proofreader payments, queue monitoring, and tracker overview',
+                color: 'text-[#059669]',
+                bg: 'bg-[#d1fae5]',
+              },
               {
                 href: '/sop-proofreader.html',
                 label: 'Proofreader SOP',
