@@ -154,20 +154,26 @@ function BuildCard({ b, isAdmin, advancing, phaseSequence, onOpenNotes, onOpenEd
   const nextKey = getNextPhaseKey(b, phaseSequence)
   const nextInfo = nextKey ? PHASE_KEY_INFO[String(nextKey)] : null
 
+  // Date grid: only show fields that have a value
+  const dateFields = [
+    { label: 'Approved',   value: b.approved_date   },
+    { label: 'Build start', value: b.phase1_start    },
+    { label: 'Proofread',  value: b.into_proofread  },
+    { label: 'Testing',    value: b.into_testing     },
+  ].filter(f => f.value)
+
   return (
     <div
-      className="bg-surface-elevated border border-border-subtle rounded-lg p-4 cursor-pointer hover:bg-surface-hover transition-colors active:scale-[0.995]"
+      className="bg-surface-elevated border border-border-subtle rounded-xl p-4 cursor-pointer hover:bg-surface-hover transition-colors active:scale-[0.995]"
       onClick={() => onOpenNotes(b)}
     >
+      {/* ── Name + admin actions ── */}
       <div className="flex items-start justify-between gap-2 mb-3">
-        <div className="min-w-0">
-          <p className="font-medium text-foreground text-sm truncate">{b.product_name}</p>
-          <p className="text-xs text-text-muted font-mono mt-0.5">
-            {[b.language, `Wk ${b.week_number}`].filter(Boolean).join(' · ')}
-          </p>
-        </div>
+        <p className="text-[15px] font-medium text-foreground leading-snug line-clamp-2 flex-1">
+          {b.product_name}
+        </p>
         {isAdmin && (
-          <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center gap-0.5 shrink-0" onClick={e => e.stopPropagation()}>
             <Link
               href={`/qa-checklist/${b.id}`}
               className="p-1.5 rounded text-text-muted hover:text-accent hover:bg-accent-muted transition-colors"
@@ -193,36 +199,71 @@ function BuildCard({ b, isAdmin, advancing, phaseSequence, onOpenNotes, onOpenEd
         )}
       </div>
 
-      <div className="flex items-center gap-2 mb-3 flex-wrap" onClick={e => e.stopPropagation()}>
+      {/* ── Badges: phase, language, week, batch ── */}
+      <div className="flex items-center gap-1.5 flex-wrap mb-4">
         <span className={`text-xs px-2 py-0.5 rounded border font-medium ${PHASE_BADGE_CLS[b.phase] ?? PHASE_BADGE_CLS.pending}`}>
           {b.phase.charAt(0).toUpperCase() + b.phase.slice(1)}
         </span>
+        {b.language && (
+          <span className="text-xs font-mono bg-surface border border-border-subtle px-1.5 py-0.5 rounded text-text-secondary">
+            {b.language}
+          </span>
+        )}
+        {b.week_number != null && (
+          <span className="text-xs font-mono bg-surface border border-border-subtle px-1.5 py-0.5 rounded text-text-muted">
+            Wk {b.week_number}
+          </span>
+        )}
         {batchName && (
-          <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded border bg-accent-muted text-accent border-accent-border/60">
+          <span className="inline-flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded border bg-accent-muted text-accent border-accent-border/60">
             <Layers className="h-2.5 w-2.5 shrink-0" />{batchName}
           </span>
         )}
-        {isAdmin && nextKey && nextInfo && (
-          <button
-            onClick={() => onPhaseSet(b.id, nextKey)}
-            disabled={advancing === b.id + String(nextKey)}
-            className={`text-xs font-medium px-2 py-0.5 rounded border transition-colors disabled:opacity-40 ${PHASE_BTN[nextInfo.variant]}`}
-          >
-            {advancing === b.id + String(nextKey) ? '…' : `${nextInfo.label} →`}
-          </button>
-        )}
       </div>
 
-      <div className="flex items-center justify-between text-xs text-text-muted" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center gap-3">
-          {b.approved_date && <span>Approved {formatDate(b.approved_date)}</span>}
-          {b.total_days !== null && <span className="font-mono font-medium text-foreground">{b.total_days}d</span>}
+      {/* ── Date grid ── */}
+      {dateFields.length > 0 && (
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3 mb-4">
+          {dateFields.map(f => (
+            <div key={f.label}>
+              <p className="text-xs text-text-muted mb-0.5">{f.label}</p>
+              <p className="font-mono text-text-secondary text-xs">{formatDate(f.value)}</p>
+            </div>
+          ))}
+          {b.total_days !== null && (
+            <div>
+              <p className="text-xs text-text-muted mb-0.5">Total days</p>
+              <p className="font-mono font-semibold text-foreground text-sm">{b.total_days}d</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Bottom: next phase action + outcome ── */}
+      <div
+        className="flex items-center justify-between gap-2 pt-3 border-t border-border-subtle"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex-1 min-w-0">
+          {isAdmin && nextKey && nextInfo ? (
+            <button
+              onClick={() => onPhaseSet(b.id, nextKey)}
+              disabled={advancing === b.id + String(nextKey)}
+              className={`text-xs font-medium px-2.5 py-1.5 rounded border transition-colors disabled:opacity-40 ${PHASE_BTN[nextInfo.variant]}`}
+            >
+              {advancing === b.id + String(nextKey) ? '…' : `${nextInfo.label} →`}
+            </button>
+          ) : (
+            b.proofreader ? (
+              <span className="text-xs text-text-muted truncate">{b.proofreader}</span>
+            ) : null
+          )}
         </div>
         {isAdmin ? (
           <select
             value={b.outcome ?? ''}
             onChange={e => onOutcomeChange(b.id, (e.target.value as BuildOutcome) || null)}
-            className="text-xs bg-surface-elevated border border-border rounded px-1.5 py-0.5 text-foreground cursor-pointer focus:outline-none focus:ring-1 focus:ring-accent/40"
+            className="text-xs bg-surface-elevated border border-border rounded px-1.5 py-1 text-foreground cursor-pointer focus:outline-none focus:ring-1 focus:ring-accent/40 shrink-0"
           >
             <option value="">—</option>
             <option value="stopped">Stopped</option>
