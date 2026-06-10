@@ -95,6 +95,14 @@ input[type="checkbox"] {
   background: var(--text-muted);
 }
 
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 @keyframes marquee-bounce {
   0%,  20%  { transform: translateX(0px); }
   45%, 55%  { transform: translateX(var(--marquee-offset, 0px)); }

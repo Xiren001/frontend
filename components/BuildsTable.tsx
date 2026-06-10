@@ -576,7 +576,7 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchM
         </div>
 
         {/* Pills — horizontal scroll on mobile, wrap on desktop */}
-        <div className="flex gap-2 overflow-x-auto pb-1 md:flex-wrap md:overflow-x-visible scrollbar-none">
+        <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1 no-scrollbar md:flex-wrap md:overflow-x-visible">
           {batchEntries.map(([batchNum, batchBuilds]) => {
             const name = batchDisplayName(batchNum)
             const isActive = activeBatch === batchNum
