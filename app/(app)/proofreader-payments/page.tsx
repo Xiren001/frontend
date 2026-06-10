@@ -101,7 +101,7 @@ export default function ProofreaderPaymentsPage() {
 
   // ── Derived ──────────────────────────────────────────────────────────────
   const viewFiltered = items.filter(i => {
-    if (payView === 'unpaid') return !i.paid && i.status === 'done'
+    if (payView === 'unpaid') return !i.paid && (i.status === 'done' || i.status === 'ready')
     if (payView === 'paid')   return  i.paid
     return true
   })
@@ -134,7 +134,7 @@ export default function ProofreaderPaymentsPage() {
 
   // ── Tab counts ────────────────────────────────────────────────────────────
   const allCount    = items.length
-  const unpaidCount = items.filter(i => !i.paid && i.status === 'done').length
+  const unpaidCount = items.filter(i => !i.paid && (i.status === 'done' || i.status === 'ready')).length
   const paidCount   = items.filter(i => i.paid).length
 
   const weekTabItems = [
@@ -393,7 +393,7 @@ export default function ProofreaderPaymentsPage() {
                               <RotateCcw className="h-3.5 w-3.5" /> Undo
                             </button>
                           )
-                        ) : canPay && item.status === 'done' ? (
+                        ) : canPay && (item.status === 'done' || item.status === 'ready') ? (
                           <Button
                             size="sm"
                             disabled={togglingKey === itemKey}
@@ -492,7 +492,7 @@ export default function ProofreaderPaymentsPage() {
                                   <RotateCcw className="h-3.5 w-3.5" /> Undo
                                 </button>
                               </div>
-                            ) : item.status === 'done' ? (
+                            ) : item.status === 'done' || item.status === 'ready' ? (
                               <Button
                                 size="sm"
                                 disabled={togglingKey === itemKey}
