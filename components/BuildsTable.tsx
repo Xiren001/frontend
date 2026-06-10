@@ -147,23 +147,48 @@ interface CardProps {
   onDelete: (id: string) => void
   onPhaseSet: (id: string, field: keyof Build) => void
   onOutcomeChange: (id: string, outcome: BuildOutcome) => void
+  selected?: boolean
+  onToggleSelect?: (id: string) => void
+  batchName?: string
 }
 
-function BuildCard({ b, isAdmin, advancing, phaseSequence, onOpenNotes, onOpenEdit, onDelete, onPhaseSet, onOutcomeChange }: CardProps) {
+function BuildCard({ b, isAdmin, advancing, phaseSequence, onOpenNotes, onOpenEdit, onDelete, onPhaseSet, onOutcomeChange, selected, onToggleSelect, batchName }: CardProps) {
   const nextKey = getNextPhaseKey(b, phaseSequence)
   const nextInfo = nextKey ? PHASE_KEY_INFO[String(nextKey)] : null
 
   return (
     <div
-      className="bg-surface-elevated border border-border-subtle rounded-lg p-4 cursor-pointer hover:bg-surface-hover transition-colors active:scale-[0.995]"
+      className={cn(
+        'border rounded-lg p-4 cursor-pointer transition-colors active:scale-[0.995]',
+        selected
+          ? 'bg-accent-muted/30 border-accent-border hover:bg-accent-muted/40'
+          : 'bg-surface-elevated border-border-subtle hover:bg-surface-hover',
+      )}
       onClick={() => onOpenNotes(b)}
     >
       <div className="flex items-start justify-between gap-2 mb-3">
-        <div className="min-w-0">
-          <p className="font-medium text-foreground text-sm truncate">{b.product_name}</p>
-          <p className="text-xs text-text-muted font-mono mt-0.5">
-            {[b.language, `Wk ${b.week_number}`].filter(Boolean).join(' · ')}
-          </p>
+        <div className="flex items-start gap-2.5 min-w-0">
+          {onToggleSelect && (
+            <div className="shrink-0 mt-0.5" onClick={e => { e.stopPropagation(); onToggleSelect(b.id) }}>
+              <input
+                type="checkbox"
+                checked={selected ?? false}
+                onChange={() => onToggleSelect(b.id)}
+                className="cursor-pointer accent-accent h-4 w-4"
+              />
+            </div>
+          )}
+          <div className="min-w-0">
+            <p className="font-medium text-foreground text-sm truncate">{b.product_name}</p>
+            <p className="text-xs text-text-muted font-mono mt-0.5">
+              {[b.language, `Wk ${b.week_number}`].filter(Boolean).join(' · ')}
+            </p>
+            {batchName && (
+              <span className="inline-flex items-center gap-1 mt-1 text-[11px] font-medium px-1.5 py-0.5 rounded bg-accent-muted text-accent border border-accent-border/50">
+                <Layers className="h-2.5 w-2.5" />{batchName}
+              </span>
+            )}
+          </div>
         </div>
         {isAdmin && (
           <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
@@ -561,7 +586,7 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchM
           <span className="text-xs text-text-muted font-medium">Batches</span>
         </div>
         <div className="flex items-center gap-1.5 flex-wrap flex-1">
-          {batchEntries.map(([batchNum]) => {
+          {batchEntries.map(([batchNum, batchBuilds]) => {
             const name = batchDisplayName(batchNum)
             const isActive = activeBatch === batchNum
             const isRenaming = renamingBatch === batchNum
@@ -585,13 +610,19 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchM
                     <button
                       onClick={() => setActiveBatch(isActive ? null : batchNum)}
                       className={cn(
-                        'text-xs px-2.5 py-1 rounded-md border font-medium transition-colors select-none',
+                        'text-xs px-2.5 py-1 rounded-md border font-medium transition-colors select-none flex items-center gap-1.5',
                         isActive
                           ? 'bg-accent-muted text-accent border-accent-border'
                           : 'text-text-secondary border-border-subtle hover:text-foreground hover:border-border hover:bg-surface-hover',
                       )}
                     >
                       {name}
+                      <span className={cn(
+                        'text-[10px] font-normal tabular-nums',
+                        isActive ? 'text-accent/70' : 'text-text-muted',
+                      )}>
+                        {batchBuilds.length}
+                      </span>
                     </button>
                     {isAdmin && (
                       <button
@@ -789,8 +820,46 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchM
               onDelete={setDeleteId}
               onPhaseSet={handlePhaseSet}
               onOutcomeChange={handleOutcomeChange}
+              selected={selectedIds.has(b.id)}
+              onToggleSelect={showToolbar ? toggleSelect : undefined}
+              batchName={b.batch_group != null ? batchDisplayName(b.batch_group) : undefined}
             />
           ))}
+
+          {/* Mobile: sticky batch action bar when items are selected */}
+          {showToolbar && selectedIds.size > 0 && (
+            <div className="sticky bottom-0 bg-surface-elevated border border-border-subtle rounded-xl shadow-lg p-3 flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-medium text-foreground shrink-0">
+                {selectedIds.size} selected
+              </span>
+              <div className="flex items-center gap-2 flex-wrap flex-1">
+                {activeBatch === null ? (
+                  <Button size="sm" variant="secondary" onClick={handleGroupAsBatch} disabled={grouping} className="flex-1 justify-center">
+                    <Layers className="h-3.5 w-3.5 mr-1.5" />
+                    {grouping ? 'Grouping…' : 'Add to Batch'}
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="secondary" onClick={handleRemoveFromBatch} disabled={grouping} className="flex-1 justify-center">
+                    <Layers className="h-3.5 w-3.5 mr-1.5" />
+                    {grouping ? 'Removing…' : `Remove from ${batchDisplayName(activeBatch)}`}
+                  </Button>
+                )}
+                {isAdmin && activeBatch === null && (
+                  <Button size="sm" variant="danger" onClick={() => setBulkDeleteOpen(true)} className="shrink-0">
+                    <Trash2 className="h-3.5 w-3.5 mr-1" />
+                    Delete
+                  </Button>
+                )}
+                <button
+                  onClick={() => setSelectedIds(new Set())}
+                  className="shrink-0 p-1.5 rounded text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                  title="Clear selection"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
           {/* Desktop table layout */}
