@@ -44,6 +44,7 @@ export default function ProofreadQueuePage() {
   const [month, setMonth]             = useState(currentMonth())
   const [viewMode, setViewMode]       = useState<ViewMode>('active')
   const [weekTab, setWeekTab]         = useState<WeekTab>('all')
+  const [directWeek, setDirectWeek]   = useState<number | 'all'>('all')
   const [langTab, setLangTab]         = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [isAdmin, setIsAdmin]         = useState(false)
@@ -66,7 +67,8 @@ export default function ProofreadQueuePage() {
     })
   }, [load])
 
-  useEffect(() => { setWeekTab('all'); setLangTab('all'); setSearchQuery('') }, [month, viewMode])
+  useEffect(() => { setWeekTab('all'); setDirectWeek('all'); setLangTab('all'); setSearchQuery('') }, [month, viewMode])
+  useEffect(() => { setDirectWeek('all') }, [weekTab])
 
   async function endProofread(item: ProofQueueItem) {
     if (!item.build_id) return
@@ -110,9 +112,12 @@ export default function ProofreadQueuePage() {
   const uniqueLangs = Array.from(new Set(baseItems.map(b => b.language).filter(Boolean))).sort() as string[]
 
   // ── Filters ────────────────────────────────────────────────────────────
+  const directItems = baseItems.filter(b => b.source === 'proof_product')
+  const directWeekNums = Array.from(new Set(directItems.map(b => b.week_number).filter((n): n is number => n != null))).sort((a, b) => a - b)
+
   const weekFiltered: ProofQueueItem[] =
     weekTab === 'all'        ? baseItems :
-    weekTab === 'direct'     ? baseItems.filter(b => b.source === 'proof_product') :
+    weekTab === 'direct'     ? (directWeek === 'all' ? directItems : directItems.filter(b => b.week_number === directWeek)) :
     weekTab === 'duplicates' ? (viewMode === 'active' ? duplicateItems : baseItems) :
     baseItems.filter(b => b.week_number === (weekTab as number))
 
@@ -268,6 +273,26 @@ export default function ProofreadQueuePage() {
       )}
       {viewMode === 'done' && doneWeekTabItems.length > 1 && (
         <Tabs tabs={doneWeekTabItems} active={weekTab} onChange={v => setWeekTab(v as WeekTab)} />
+      )}
+
+      {/* ── Direct week sub-filter ── */}
+      {weekTab === 'direct' && directWeekNums.length > 0 && (
+        <div className="flex items-center gap-1.5 flex-wrap pt-2">
+          {[{ id: 'all' as const, label: 'All weeks' }, ...directWeekNums.map(w => ({ id: w as number | 'all', label: `Week ${w}` }))].map(opt => (
+            <button
+              key={String(opt.id)}
+              onClick={() => setDirectWeek(opt.id)}
+              className={cn(
+                'px-2.5 py-1 rounded-full text-xs font-medium transition-colors border',
+                directWeek === opt.id
+                  ? 'bg-accent-muted text-accent-bright border-accent-border/50'
+                  : 'text-text-secondary hover:bg-surface-hover border-border-subtle',
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       )}
 
       {/* ── Lang pills + search ── */}
