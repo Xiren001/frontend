@@ -387,10 +387,10 @@ export default function ProofreaderPaymentsPage() {
                             <button
                               onClick={() => togglePaid(item)}
                               disabled={togglingKey === itemKey}
-                              className="text-text-muted hover:text-foreground transition-colors"
+                              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border text-xs text-text-secondary hover:text-foreground hover:border-border-strong transition-colors disabled:opacity-40"
                               title="Undo payment"
                             >
-                              <RotateCcw className="h-3.5 w-3.5" />
+                              <RotateCcw className="h-3.5 w-3.5" /> Undo
                             </button>
                           )
                         ) : canPay && item.status === 'done' ? (
@@ -486,10 +486,10 @@ export default function ProofreaderPaymentsPage() {
                                 <button
                                   onClick={() => togglePaid(item)}
                                   disabled={togglingKey === itemKey}
-                                  className="text-text-muted hover:text-foreground transition-colors"
+                                  className="flex items-center gap-1 px-2 py-1 rounded border border-border text-xs text-text-secondary hover:text-foreground hover:border-border-strong transition-colors disabled:opacity-40"
                                   title="Undo payment"
                                 >
-                                  <RotateCcw className="h-3 w-3" />
+                                  <RotateCcw className="h-3.5 w-3.5" /> Undo
                                 </button>
                               </div>
                             ) : item.status === 'done' ? (
