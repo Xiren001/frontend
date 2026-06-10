@@ -324,7 +324,7 @@ export default function SettingsPage() {
           </div>
 
           <Card className="divide-y divide-border-subtle">
-            [
+            {[
               {
                 href: '/sop-management.html',
                 label: 'Management SOP',
