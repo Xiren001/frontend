@@ -210,13 +210,15 @@ export default function ProductRankingPage() {
   ]
 
   return (
-    <div>
+    <div className="flex flex-col flex-1 min-h-0">
+      <div className="shrink-0">
       <PageHeader
         title="Product Ranking"
         description="All products currently in testing or expanding, across both jewelry and funnel."
       />
+      </div>
 
-      <div className="border border-border-subtle rounded-xl bg-surface-elevated overflow-hidden">
+      <div className="border border-border-subtle rounded-xl bg-surface-elevated overflow-hidden flex flex-col flex-1 min-h-0">
         <div className="px-4 pt-4 flex items-end justify-between gap-3 flex-wrap">
           <Tabs tabs={tabs} active={tab} onChange={id => setTab(id as TabId)} />
         </div>
@@ -268,7 +270,7 @@ export default function ProductRankingPage() {
           )}
         </div>
 
-        <div className="p-4">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4">
           {tab === 'testing' && (
             <ResponsiveTable
               columns={makeTestingColumns(winningTitles)}
@@ -280,7 +282,6 @@ export default function ProductRankingPage() {
                   ? 'bg-accent-muted/40'
                   : undefined
               }
-              tableContainerClassName="overflow-y-auto max-h-[60vh]"
             />
           )}
           {tab === 'expanding' && (
@@ -289,7 +290,6 @@ export default function ProductRankingPage() {
               data={expanding}
               rowKey={b => b.id}
               emptyMessage={searchQuery || typeFilter !== 'all' || langFilter !== 'all' ? 'No matching products.' : 'No products currently expanding.'}
-              tableContainerClassName="overflow-y-auto max-h-[60vh]"
             />
           )}
         </div>

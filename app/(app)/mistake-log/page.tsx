@@ -145,7 +145,8 @@ export default function MistakeLogPage() {
   ]
 
   return (
-    <div>
+    <div className="flex flex-col flex-1 min-h-0">
+      <div className="shrink-0">
       <PageHeader
         title="Mistake Log"
         description="Track errors by category. Pattern watch flags categories with 3+ occurrences."
@@ -195,6 +196,8 @@ export default function MistakeLogPage() {
         )}
       </div>
 
+      </div>{/* end shrink-0 */}
+      <div className="flex-1 min-h-0 overflow-y-auto">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         {/* ── Mistake table ── */}
         <div className="lg:col-span-2">
@@ -211,7 +214,6 @@ export default function MistakeLogPage() {
                 <button onClick={() => setDeleteId(m.id)} className="text-xs text-danger/70 hover:text-danger">Del</button>
               </div>
             ) : undefined}
-            tableContainerClassName="overflow-y-auto max-h-[60vh]"
           />
         </div>
 
@@ -356,6 +358,7 @@ export default function MistakeLogPage() {
         confirmLabel="Delete"
         loading={deleting}
       />
+      </div>{/* end flex-1 overflow-y-auto */}
     </div>
   )
 }

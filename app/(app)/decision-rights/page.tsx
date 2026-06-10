@@ -104,7 +104,8 @@ export default function DecisionRightsPage() {
   if (ungrouped.length) grouped.push({ section: 'Other', items: ungrouped })
 
   return (
-    <div>
+    <div className="flex flex-col flex-1 min-h-0">
+      <div className="shrink-0">
       <PageHeader
         title="Decision Rights"
         description="Who decides, recommends, approves, or is informed for each action."
@@ -112,20 +113,21 @@ export default function DecisionRightsPage() {
           <Button variant="secondary" size="sm" onClick={openCreate}>+ Add</Button>
         ) : undefined}
       />
+      </div>
 
       {items.length === 0 ? (
         <p className="text-sm text-text-muted py-12 text-center">
           No decision rights yet.{isAdmin && <> <button onClick={openCreate} className="text-accent hover:text-accent-bright">Add one</button></>}
         </p>
       ) : (
-        <div className="space-y-6">
+        <div className="flex-1 min-h-0 overflow-y-auto space-y-6 pt-6">
           {grouped.map(group => (
             <Card key={group.section} className="overflow-hidden">
               <CardHeader>
                 <p className="text-xs font-medium uppercase tracking-widest text-text-muted">{group.section}</p>
               </CardHeader>
 
-              <div className="divide-y divide-border-subtle max-h-64 overflow-y-auto">
+              <div className="divide-y divide-border-subtle">
                 {group.items.map(item => (
                   <div key={item.id} className="px-4 py-3 flex items-start gap-3">
                     <p className="flex-1 text-sm text-foreground">{item.decision}</p>

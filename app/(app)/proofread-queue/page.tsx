@@ -213,7 +213,8 @@ export default function ProofreadQueuePage() {
       : 'Queue is empty — all clear.'
 
   return (
-    <div>
+    <div className="flex flex-col flex-1 min-h-0">
+      <div className="shrink-0">
       <PageHeader
         title="Proofread Queue"
         description="Proofread builds grouped by week. Items flagged red exceed the 3-day target."
@@ -303,7 +304,9 @@ export default function ProofreadQueuePage() {
           )}
         </div>
       </div>
+      </div>{/* end shrink-0 */}
 
+      <div className="flex-1 min-h-0 overflow-y-auto">
       {/* ── Mobile: card list ── */}
       <div className="md:hidden">
         {visible.length === 0 ? (
@@ -409,7 +412,7 @@ export default function ProofreadQueuePage() {
 
       {/* ── Desktop: table ── */}
       <div className="hidden md:block">
-        <Table containerClassName="overflow-y-auto max-h-[60vh]">
+        <Table>
           <TableHead>
             <TableRow>
               <TableHeader>Product</TableHeader>
@@ -505,6 +508,7 @@ export default function ProofreadQueuePage() {
           </TableBody>
         </Table>
       </div>
+      </div>{/* end flex-1 overflow-y-auto */}
     </div>
   )
 }

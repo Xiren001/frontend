@@ -151,7 +151,8 @@ export default function TeamTasksPage() {
     .sort((a, b) => (b.done_at ?? b.created_at).localeCompare(a.done_at ?? a.created_at))
 
   return (
-    <div>
+    <div className="flex flex-col flex-1 min-h-0">
+      <div className="shrink-0">
       <PageHeader
         title="Team Tasks"
         description="Per-person task list for the team."
@@ -161,6 +162,7 @@ export default function TeamTasksPage() {
           </Button>
         ) : undefined}
       />
+      </div>
 
       {members.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
@@ -172,9 +174,9 @@ export default function TeamTasksPage() {
           )}
         </div>
       ) : (
-        <>
+        <div className="flex flex-col flex-1 min-h-0">
           {/* Person tabs */}
-          <div className="flex items-end border-b border-border-subtle mb-6 overflow-x-auto gap-0.5">
+          <div className="flex items-end border-b border-border-subtle mb-0 overflow-x-auto gap-0.5 shrink-0">
             {members.map(m => {
               const isActive = activeMemberId === m.id
               return (
@@ -208,6 +210,7 @@ export default function TeamTasksPage() {
           </div>
 
           {activeMemberId && (
+            <div className="flex-1 min-h-0 overflow-y-auto pt-6">
             <div className="max-w-2xl">
               {/* Add task input */}
               <div className="flex gap-2 mb-3">
@@ -243,7 +246,7 @@ export default function TeamTasksPage() {
 
               {/* Pending tasks */}
               {pendingTasks.length > 0 && (
-                <div className="space-y-2 mb-8 max-h-[50vh] overflow-y-auto pr-1">
+                <div className="space-y-2 mb-8">
                   {pendingTasks.map(task => (
                     <div
                       key={task.id}
@@ -320,7 +323,7 @@ export default function TeamTasksPage() {
                     </button>
                   </div>
 
-                  <div className="space-y-2 max-h-[30vh] overflow-y-auto pr-1">
+                  <div className="space-y-2">
                     {doneTasks.map(task => (
                       <div
                         key={task.id}
@@ -382,8 +385,9 @@ export default function TeamTasksPage() {
                 <p className="text-sm text-text-muted text-center py-10">No tasks match &ldquo;{taskSearch}&rdquo;</p>
               )}
             </div>
+            </div>
           )}
-        </>
+        </div>
       )}
 
       {/* Add person modal */}
