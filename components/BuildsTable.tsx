@@ -147,9 +147,10 @@ interface CardProps {
   onDelete: (id: string) => void
   onPhaseSet: (id: string, field: keyof Build) => void
   onOutcomeChange: (id: string, outcome: BuildOutcome) => void
+  batchName?: string
 }
 
-function BuildCard({ b, isAdmin, advancing, phaseSequence, onOpenNotes, onOpenEdit, onDelete, onPhaseSet, onOutcomeChange }: CardProps) {
+function BuildCard({ b, isAdmin, advancing, phaseSequence, onOpenNotes, onOpenEdit, onDelete, onPhaseSet, onOutcomeChange, batchName }: CardProps) {
   const nextKey = getNextPhaseKey(b, phaseSequence)
   const nextInfo = nextKey ? PHASE_KEY_INFO[String(nextKey)] : null
 
@@ -192,10 +193,15 @@ function BuildCard({ b, isAdmin, advancing, phaseSequence, onOpenNotes, onOpenEd
         )}
       </div>
 
-      <div className="flex items-center gap-2 mb-3" onClick={e => e.stopPropagation()}>
+      <div className="flex items-center gap-2 mb-3 flex-wrap" onClick={e => e.stopPropagation()}>
         <span className={`text-xs px-2 py-0.5 rounded border font-medium ${PHASE_BADGE_CLS[b.phase] ?? PHASE_BADGE_CLS.pending}`}>
           {b.phase.charAt(0).toUpperCase() + b.phase.slice(1)}
         </span>
+        {batchName && (
+          <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded border bg-accent-muted text-accent border-accent-border/60">
+            <Layers className="h-2.5 w-2.5 shrink-0" />{batchName}
+          </span>
+        )}
         {isAdmin && nextKey && nextInfo && (
           <button
             onClick={() => onPhaseSet(b.id, nextKey)}
@@ -555,18 +561,29 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchM
   const BatchSubTabs = () => {
     if (batchEntries.length === 0) return null
     return (
-      <div className="flex items-center gap-2 flex-wrap py-2 border-t border-border-subtle">
-        <div className="flex items-center gap-1 shrink-0">
-          <Layers className="h-3.5 w-3.5 text-text-muted" />
-          <span className="text-xs text-text-muted font-medium">Batches</span>
+      <div className="border-t border-border-subtle pt-2 pb-1">
+        {/* Label row */}
+        <div className="flex items-center justify-between gap-2 mb-2 px-0.5">
+          <div className="flex items-center gap-1.5">
+            <Layers className="h-3.5 w-3.5 text-text-muted" />
+            <span className="text-xs text-text-muted font-medium">Batches</span>
+          </div>
+          {activeBatch !== null && isAdmin && (
+            <Button variant="ghost" size="sm" onClick={() => handleUngroup(activeBatch)}>
+              Ungroup
+            </Button>
+          )}
         </div>
-        <div className="flex items-center gap-1.5 flex-wrap flex-1">
-          {batchEntries.map(([batchNum]) => {
+
+        {/* Pills — horizontal scroll on mobile, wrap on desktop */}
+        <div className="flex gap-2 overflow-x-auto pb-1 md:flex-wrap md:overflow-x-visible scrollbar-none">
+          {batchEntries.map(([batchNum, batchBuilds]) => {
             const name = batchDisplayName(batchNum)
             const isActive = activeBatch === batchNum
             const isRenaming = renamingBatch === batchNum
+            const count = batchBuilds.length
             return (
-              <div key={batchNum} className="flex items-center gap-0.5">
+              <div key={batchNum} className="shrink-0">
                 {isRenaming ? (
                   <input
                     ref={renameInputRef}
@@ -578,40 +595,51 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchM
                       if (e.key === 'Enter') { e.preventDefault(); handleRenameCommit() }
                       if (e.key === 'Escape') setRenamingBatch(null)
                     }}
-                    className="text-xs px-2 py-1 rounded border border-accent/60 bg-surface-elevated text-foreground w-28 focus:outline-none focus:ring-1 focus:ring-accent/40"
+                    className="text-xs px-2.5 py-2 rounded-lg border border-accent/60 bg-surface-elevated text-foreground w-32 focus:outline-none focus:ring-1 focus:ring-accent/40"
                   />
                 ) : (
-                  <>
+                  <div className={cn(
+                    'flex items-center rounded-lg border transition-colors',
+                    isActive
+                      ? 'bg-accent-muted border-accent-border'
+                      : 'border-border-subtle hover:border-border hover:bg-surface-hover',
+                  )}>
                     <button
                       onClick={() => setActiveBatch(isActive ? null : batchNum)}
                       className={cn(
-                        'text-xs px-2.5 py-1 rounded-md border font-medium transition-colors select-none',
-                        isActive
-                          ? 'bg-accent-muted text-accent border-accent-border'
-                          : 'text-text-secondary border-border-subtle hover:text-foreground hover:border-border hover:bg-surface-hover',
+                        'flex items-center gap-2 text-xs font-medium px-3 py-2 select-none',
+                        isActive ? 'text-accent' : 'text-text-secondary',
                       )}
                     >
                       {name}
+                      <span className={cn(
+                        'text-[10px] tabular-nums px-1.5 py-0.5 rounded-full font-normal',
+                        isActive
+                          ? 'bg-accent/20 text-accent'
+                          : 'bg-surface text-text-muted',
+                      )}>
+                        {count}
+                      </span>
                     </button>
                     {isAdmin && (
                       <button
                         onClick={() => startRename(batchNum)}
-                        title="Rename batch"
-                        className="p-1 rounded text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                        title="Rename"
+                        className={cn(
+                          'pr-2.5 pl-0.5 py-2 rounded-r-lg transition-colors',
+                          isActive
+                            ? 'text-accent/60 hover:text-accent'
+                            : 'text-text-muted hover:text-foreground',
+                        )}
                       >
                         <Pencil className="h-3 w-3" />
                       </button>
                     )}
-                  </>
+                  </div>
                 )}
               </div>
             )
           })}
-          {activeBatch !== null && isAdmin && (
-            <Button variant="ghost" size="sm" onClick={() => handleUngroup(activeBatch)}>
-              Ungroup
-            </Button>
-          )}
         </div>
       </div>
     )
@@ -789,6 +817,7 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchM
               onDelete={setDeleteId}
               onPhaseSet={handlePhaseSet}
               onOutcomeChange={handleOutcomeChange}
+              batchName={b.batch_group != null ? batchDisplayName(b.batch_group) : undefined}
             />
           ))}
         </div>
