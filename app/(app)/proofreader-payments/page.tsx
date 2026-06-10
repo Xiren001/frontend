@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button'
 import { Tabs } from '@/components/ui/tabs'
 import { DollarSign, Check, RotateCcw, User } from 'lucide-react'
 
+type ProductStatus = 'done' | 'in_proofread' | 'ready' | 'needs_links' | 'active'
+
 interface PaymentItem {
   id: string | null
   language: string | null
@@ -19,9 +21,27 @@ interface PaymentItem {
   proof_end: string | null
   paid: boolean
   paid_at: string | null
+  status: ProductStatus
 }
 
 type PayFilter = 'unpaid' | 'paid' | 'all'
+type StatusFilter = 'all' | ProductStatus
+
+const STATUS_LABEL: Record<ProductStatus, string> = {
+  done:        'Done',
+  in_proofread: 'In Proofread',
+  ready:       'Ready',
+  needs_links: 'Needs Links',
+  active:      'Active',
+}
+
+const STATUS_CLS: Record<ProductStatus, string> = {
+  done:        'bg-emerald-500/15 text-emerald-600 border-emerald-500/20',
+  in_proofread: 'bg-blue-500/15 text-blue-600 border-blue-500/20',
+  ready:       'bg-violet-500/15 text-violet-600 border-violet-500/20',
+  needs_links: 'bg-amber-500/15 text-amber-600 border-amber-500/20',
+  active:      'bg-zinc-500/15 text-zinc-500 border-zinc-500/20',
+}
 
 function groupByProofreader(products: PaymentItem[]) {
   const map = new Map<string, PaymentItem[]>()
@@ -30,10 +50,9 @@ function groupByProofreader(products: PaymentItem[]) {
     if (!map.has(key)) map.set(key, [])
     map.get(key)!.push(p)
   }
-  // Sort: groups with unpaid first, then alphabetical
   return Array.from(map.entries()).sort(([aKey, aItems], [bKey, bItems]) => {
-    const aUnpaid = aItems.filter(i => !i.paid).length
-    const bUnpaid = bItems.filter(i => !i.paid).length
+    const aUnpaid = aItems.filter(i => !i.paid && i.status === 'done').length
+    const bUnpaid = bItems.filter(i => !i.paid && i.status === 'done').length
     if (bUnpaid !== aUnpaid) return bUnpaid - aUnpaid
     return aKey.localeCompare(bKey)
   })
@@ -41,9 +60,10 @@ function groupByProofreader(products: PaymentItem[]) {
 
 export default function ProofreaderPaymentsPage() {
   const { role } = useRole()
-  const [products, setProducts]     = useState<PaymentItem[]>([])
-  const [payFilter, setPayFilter]   = useState<PayFilter>('unpaid')
-  const [langTab, setLangTab]       = useState<string>('all')
+  const [products, setProducts]       = useState<PaymentItem[]>([])
+  const [payFilter, setPayFilter]     = useState<PayFilter>('unpaid')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [langTab, setLangTab]         = useState<string>('all')
   const [togglingKey, setTogglingKey] = useState<string | null>(null)
 
   const canPay = role === 'admin' || role === 'management'
@@ -79,21 +99,23 @@ export default function ProofreaderPaymentsPage() {
     }
   }
 
-  // Derive language list
   const langs = Array.from(new Set(products.map(p => p.language).filter(Boolean) as string[])).sort()
 
-  const filtered = products
-    .filter(p => langTab === 'all' || p.language === langTab)
+  const langFiltered = products.filter(p => langTab === 'all' || p.language === langTab)
+
+  const filtered = langFiltered
     .filter(p => {
       if (payFilter === 'unpaid') return !p.paid
       if (payFilter === 'paid')   return  p.paid
       return true
     })
+    .filter(p => statusFilter === 'all' || p.status === statusFilter)
 
   const groups = groupByProofreader(filtered)
 
-  const totalUnpaid = products.filter(p => !p.paid && (langTab === 'all' || p.language === langTab)).length
-  const totalPaid   = products.filter(p =>  p.paid && (langTab === 'all' || p.language === langTab)).length
+  // Counts for tabs (lang-filtered)
+  const totalUnpaid = langFiltered.filter(p => !p.paid).length
+  const totalPaid   = langFiltered.filter(p =>  p.paid).length
 
   const payTabs = [
     { id: 'unpaid', label: 'Unpaid', count: totalUnpaid > 0 ? totalUnpaid : undefined },
@@ -105,6 +127,11 @@ export default function ProofreaderPaymentsPage() {
     { id: 'all', label: 'All' },
     ...langs.map(l => ({ id: l, label: l })),
   ]
+
+  // Status filter tabs (only statuses that exist in current lang-filtered set)
+  const existingStatuses = Array.from(new Set(langFiltered.map(p => p.status))) as ProductStatus[]
+  const statusOrder: ProductStatus[] = ['done', 'ready', 'in_proofread', 'needs_links', 'active']
+  const sortedStatuses = statusOrder.filter(s => existingStatuses.includes(s))
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
@@ -119,7 +146,7 @@ export default function ProofreaderPaymentsPage() {
           <Tabs
             tabs={payTabs}
             active={payFilter}
-            onChange={v => setPayFilter(v as PayFilter)}
+            onChange={v => { setPayFilter(v as PayFilter); setStatusFilter('all') }}
           />
           {langs.length > 1 && (
             <Tabs
@@ -129,6 +156,37 @@ export default function ProofreaderPaymentsPage() {
             />
           )}
         </div>
+
+        {/* Status filter pills */}
+        {sortedStatuses.length > 1 && (
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              onClick={() => setStatusFilter('all')}
+              className={cn(
+                'rounded-full px-3 py-1 text-xs font-medium border transition-colors',
+                statusFilter === 'all'
+                  ? 'bg-foreground text-background border-foreground'
+                  : 'bg-surface-elevated text-text-muted border-border-subtle hover:text-foreground'
+              )}
+            >
+              All statuses
+            </button>
+            {sortedStatuses.map(s => (
+              <button
+                key={s}
+                onClick={() => setStatusFilter(s)}
+                className={cn(
+                  'rounded-full px-3 py-1 text-xs font-medium border transition-colors',
+                  statusFilter === s
+                    ? STATUS_CLS[s] + ' font-semibold'
+                    : 'bg-surface-elevated text-text-muted border-border-subtle hover:text-foreground'
+                )}
+              >
+                {STATUS_LABEL[s]}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {groups.length === 0 ? (
@@ -138,12 +196,13 @@ export default function ProofreaderPaymentsPage() {
       ) : (
         <div className="flex-1 min-h-0 overflow-y-auto space-y-6 pb-6">
           {groups.map(([proofreader, items]) => {
-            const unpaid = items.filter(i => !i.paid).length
+            const unpaid = items.filter(i => !i.paid && i.status === 'done').length
             const paid   = items.filter(i =>  i.paid).length
+            const pending = items.filter(i => !i.paid && i.status !== 'done').length
             return (
               <div key={proofreader} className="rounded-xl border border-border-subtle bg-surface-elevated overflow-hidden">
                 {/* Group header */}
-                <div className="flex items-center gap-3 px-4 py-3 border-b border-border-subtle bg-surface">
+                <div className="flex items-center gap-3 px-4 py-3 border-b border-border-subtle bg-surface flex-wrap">
                   <User className="h-4 w-4 text-text-muted shrink-0" />
                   <span className="font-semibold text-sm text-foreground">{proofreader}</span>
                   {unpaid > 0 && (
@@ -156,6 +215,11 @@ export default function ProofreaderPaymentsPage() {
                       {paid} paid
                     </Badge>
                   )}
+                  {pending > 0 && (
+                    <Badge className="text-xs bg-zinc-500/15 text-zinc-500 border-zinc-500/20">
+                      {pending} in progress
+                    </Badge>
+                  )}
                 </div>
 
                 {/* Product rows */}
@@ -163,64 +227,69 @@ export default function ProofreaderPaymentsPage() {
                   {items.map(product => {
                     const itemKey = product.id ?? `${product.product_name}|${product.language}`
                     return (
-                    <div
-                      key={itemKey}
-                      className={cn(
-                        'flex items-center gap-3 px-4 py-3 text-sm',
-                        product.paid ? 'opacity-60' : ''
-                      )}
-                    >
-                      {/* Language pill */}
-                      {product.language && (
-                        <span className="shrink-0 rounded px-1.5 py-0.5 text-xs font-medium bg-accent/10 text-accent">
-                          {product.language}
-                        </span>
-                      )}
-
-                      {/* Product name */}
-                      <span className={cn('flex-1 min-w-0 truncate', product.paid && 'line-through')}>
-                        {product.product_name}
-                      </span>
-
-                      {/* Paid date */}
-                      {product.paid && product.paid_at && (
-                        <span className="shrink-0 text-xs text-text-muted">
-                          {formatDate(product.paid_at)}
-                        </span>
-                      )}
-
-                      {/* Status / action */}
-                      {product.paid ? (
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="flex items-center gap-1 text-xs text-emerald-600">
-                            <Check className="h-3.5 w-3.5" />
-                            Paid
+                      <div
+                        key={itemKey}
+                        className={cn(
+                          'flex items-center gap-3 px-4 py-3 text-sm',
+                          product.paid ? 'opacity-60' : ''
+                        )}
+                      >
+                        {/* Language pill */}
+                        {product.language && (
+                          <span className="shrink-0 rounded px-1.5 py-0.5 text-xs font-medium bg-accent/10 text-accent">
+                            {product.language}
                           </span>
-                          {canPay && (
-                            <button
-                              onClick={() => togglePaid(product)}
-                              disabled={togglingKey === itemKey}
-                              className="text-xs text-text-muted hover:text-foreground transition-colors flex items-center gap-1"
-                              title="Undo payment"
-                            >
-                              <RotateCcw className="h-3 w-3" />
-                            </button>
-                          )}
-                        </div>
-                      ) : canPay ? (
-                        <Button
-                          size="sm"
-                          disabled={togglingKey === itemKey}
-                          onClick={() => togglePaid(product)}
-                          className="shrink-0 h-7 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-                        >
-                          <DollarSign className="h-3 w-3 mr-1" />
-                          Mark Paid
-                        </Button>
-                      ) : (
-                        <span className="text-xs text-amber-600 shrink-0">Unpaid</span>
-                      )}
-                    </div>
+                        )}
+
+                        {/* Product name */}
+                        <span className={cn('flex-1 min-w-0 truncate', product.paid && 'line-through')}>
+                          {product.product_name}
+                        </span>
+
+                        {/* Status badge */}
+                        <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-xs font-medium border', STATUS_CLS[product.status])}>
+                          {STATUS_LABEL[product.status]}
+                        </span>
+
+                        {/* Paid date */}
+                        {product.paid && product.paid_at && (
+                          <span className="shrink-0 text-xs text-text-muted">
+                            {formatDate(product.paid_at)}
+                          </span>
+                        )}
+
+                        {/* Action */}
+                        {product.paid ? (
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="flex items-center gap-1 text-xs text-emerald-600">
+                              <Check className="h-3.5 w-3.5" />
+                              Paid
+                            </span>
+                            {canPay && (
+                              <button
+                                onClick={() => togglePaid(product)}
+                                disabled={togglingKey === itemKey}
+                                className="text-xs text-text-muted hover:text-foreground transition-colors flex items-center gap-1"
+                                title="Undo payment"
+                              >
+                                <RotateCcw className="h-3 w-3" />
+                              </button>
+                            )}
+                          </div>
+                        ) : canPay && product.status === 'done' ? (
+                          <Button
+                            size="sm"
+                            disabled={togglingKey === itemKey}
+                            onClick={() => togglePaid(product)}
+                            className="shrink-0 h-7 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                          >
+                            <DollarSign className="h-3 w-3 mr-1" />
+                            Mark Paid
+                          </Button>
+                        ) : !product.paid ? (
+                          <span className="text-xs text-text-muted shrink-0">—</span>
+                        ) : null}
+                      </div>
                     )
                   })}
                 </div>
@@ -232,4 +301,3 @@ export default function ProofreaderPaymentsPage() {
     </div>
   )
 }
-
