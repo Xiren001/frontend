@@ -59,9 +59,10 @@ export function canAccessPath(role: UserRole | null, path: string): boolean {
     return base === '/proofread-queue' || base === '/copy-review'
   }
 
-  // Management: all pages except settings
+  // Management: most pages except settings and non-relevant tools
   if (role === 'management') {
-    return base !== '/settings'
+    const blocked = ['/settings', '/team-tasks', '/monthly-planner', '/winning-products', '/product-ranking']
+    return !blocked.includes(base)
   }
   // Website: all pages except settings and proofreader-payments
   if (role === 'website') {

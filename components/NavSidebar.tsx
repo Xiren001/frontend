@@ -79,7 +79,8 @@ export function NavSidebar() {
       return item.href === '/proofread-queue' || item.href === '/copy-review'
     }
     if (role === 'management') {
-      return item.href !== '/settings'
+      const blocked = ['/settings', '/team-tasks', '/monthly-planner', '/winning-products', '/product-ranking']
+      return !blocked.includes(item.href)
     }
     if (role === 'website') {
       return item.href !== '/settings' && item.href !== '/proofreader-payments'
