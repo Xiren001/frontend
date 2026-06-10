@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Modal, FormField } from '@/components/ui/modal'
 import { Input } from '@/components/ui/input'
-import { cn } from '@/lib/utils'
+import { cn, currentMonth } from '@/lib/utils'
 import { Pencil, Trash2, Plus, ExternalLink, Languages, ArrowLeft, ChevronRight, HelpCircle, Search, X, Check, RotateCcw } from 'lucide-react'
 import { Tabs } from '@/components/ui/tabs'
 import { translateSeverity, translateIssueType, translateLocation, UI } from '@/lib/proof-translations'
@@ -26,6 +26,7 @@ interface ProofProduct {
   ads_done: boolean
   ready_for_revision: boolean
   week_number: number | null
+  month_year: string | null
   created_at: string
   updated_at: string
   correction_count: number
@@ -50,7 +51,7 @@ interface ProofCorrection {
 const SELECT_CLS = 'w-full rounded-md border border-border bg-surface-elevated px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent/40'
 
 function emptyProductForm(): Partial<ProofProduct> {
-  return { language: 'ES', proofreader: '', product_name: '', pdp_url: '', drive_folder: '', done: false, website_done: false, ads_done: false, ready_for_revision: false, week_number: null }
+  return { language: 'ES', proofreader: '', product_name: '', pdp_url: '', drive_folder: '', done: false, website_done: false, ads_done: false, ready_for_revision: false, week_number: null, month_year: currentMonth() }
 }
 
 function emptyCorrectionForm(): Partial<ProofCorrection> {
@@ -511,15 +512,8 @@ export default function CopyReviewPage() {
                       )}>
                         {p.product_name}
                       </p>
-                      {(p.proofreader || p.week_number != null) && (
-                        <p className="text-sm text-text-muted mt-1 truncate flex items-center gap-1.5">
-                          {p.proofreader && <span className="truncate">{p.proofreader}</span>}
-                          {p.week_number != null && (
-                            <span className="shrink-0 text-xs font-mono bg-surface border border-border-subtle rounded px-1 py-px text-text-muted">
-                              Wk {p.week_number}
-                            </span>
-                          )}
-                        </p>
+                      {p.proofreader && (
+                        <p className="text-sm text-text-muted mt-1 truncate">{p.proofreader}</p>
                       )}
                       {dateSort !== 'status' && (
                         <p className="text-xs text-text-muted mt-0.5 font-mono">
@@ -950,19 +944,30 @@ export default function CopyReviewPage() {
             </FormField>
           </div>
 
-          <FormField label="Week">
-            <select
-              className={SELECT_CLS}
-              value={productForm.week_number ?? ''}
-              onChange={e => setProductForm(f => ({ ...f, week_number: e.target.value ? Number(e.target.value) : null }))}
-            >
-              <option value="">—</option>
-              <option value="1">Week 1</option>
-              <option value="2">Week 2</option>
-              <option value="3">Week 3</option>
-              <option value="4">Week 4</option>
-            </select>
-          </FormField>
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label="Week">
+              <select
+                className={SELECT_CLS}
+                value={productForm.week_number ?? ''}
+                onChange={e => setProductForm(f => ({ ...f, week_number: e.target.value ? Number(e.target.value) : null }))}
+              >
+                <option value="">—</option>
+                <option value="1">Week 1</option>
+                <option value="2">Week 2</option>
+                <option value="3">Week 3</option>
+                <option value="4">Week 4</option>
+              </select>
+            </FormField>
+
+            <FormField label="Month">
+              <Input
+                type="month"
+                value={productForm.month_year ?? ''}
+                onChange={e => setProductForm(f => ({ ...f, month_year: e.target.value || null }))}
+                mono
+              />
+            </FormField>
+          </div>
 
           <FormField label="PDP URL">
             <Input
