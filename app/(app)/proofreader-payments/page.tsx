@@ -174,7 +174,7 @@ export default function ProofreaderPaymentsPage() {
     })
   })()
 
-  const showGroupHeaders = weekTab === 'all'
+  const showGroupHeaders = false
   const colSpan = canPay ? 8 : 7
 
   const emptyMsg = search
