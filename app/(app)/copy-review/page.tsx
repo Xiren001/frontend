@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Modal, FormField } from '@/components/ui/modal'
 import { Input } from '@/components/ui/input'
 import { cn, currentMonth } from '@/lib/utils'
-import { Pencil, Trash2, Plus, ExternalLink, Languages, ArrowLeft, ChevronRight, HelpCircle, Search, X, Check, RotateCcw } from 'lucide-react'
+import { Pencil, Trash2, Plus, ExternalLink, Languages, ArrowLeft, ChevronRight, HelpCircle, Search, X, Check, RotateCcw, Copy } from 'lucide-react'
 import { Tabs } from '@/components/ui/tabs'
 import { translateSeverity, translateIssueType, translateLocation, UI } from '@/lib/proof-translations'
 
@@ -139,6 +139,14 @@ export default function CopyReviewPage() {
   const [togglingDone, setTogglingDone] = useState(false)
   const [doneShakeKey, setDoneShakeKey] = useState(0)
   const [togglingCorrectionId, setTogglingCorrectionId] = useState<string | null>(null)
+  const [copiedKey, setCopiedKey] = useState<string | null>(null)
+
+  function copyText(text: string, key: string) {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedKey(key)
+      setTimeout(() => setCopiedKey(null), 1500)
+    })
+  }
 
   const loadProducts = useCallback(() => {
     api.get<ProofProduct[]>('/api/proof-corrections/products').then(setProducts).catch(console.error)
@@ -857,7 +865,18 @@ export default function CopyReviewPage() {
                                   <div className="space-y-3">
                                     {c.original_text && (
                                       <div className="space-y-1">
-                                        <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">{L.before}</p>
+                                        <div className="flex items-center gap-1.5">
+                                          <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">{L.before}</p>
+                                          <button
+                                            onClick={() => copyText(c.original_text!, `${c.id}-before`)}
+                                            className="flex items-center justify-center w-5 h-5 rounded text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                                            title="Copy"
+                                          >
+                                            {copiedKey === `${c.id}-before`
+                                              ? <Check className="h-3 w-3 text-green-400" />
+                                              : <Copy className="h-3 w-3" />}
+                                          </button>
+                                        </div>
                                         <p className="text-[15px] text-text-secondary leading-relaxed line-through decoration-text-muted/50">
                                           {c.original_text}
                                         </p>
@@ -866,7 +885,18 @@ export default function CopyReviewPage() {
 
                                     {c.corrected_text && (
                                       <div className="space-y-1">
-                                        <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">{L.after}</p>
+                                        <div className="flex items-center gap-1.5">
+                                          <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">{L.after}</p>
+                                          <button
+                                            onClick={() => copyText(c.corrected_text!, `${c.id}-after`)}
+                                            className="flex items-center justify-center w-5 h-5 rounded text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                                            title="Copy"
+                                          >
+                                            {copiedKey === `${c.id}-after`
+                                              ? <Check className="h-3 w-3 text-green-400" />
+                                              : <Copy className="h-3 w-3" />}
+                                          </button>
+                                        </div>
                                         <p className="text-[15px] text-foreground font-medium leading-relaxed">
                                           {c.corrected_text}
                                         </p>
