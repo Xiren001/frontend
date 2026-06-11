@@ -362,12 +362,12 @@ export default function CopyReviewPage() {
     return diff !== 0 ? diff : a.product_name.localeCompare(b.product_name)
   })
 
-  const GROUP_LABELS: Record<number, string> = {
-    0: 'No corrections',
-    1: 'Has corrections',
-    2: 'Ready for revision',
-    3: 'Needs links',
-    4: 'Done',
+  const GROUP_LABELS: Record<number, { label: string; description: string }> = {
+    0: { label: 'No corrections',      description: 'Just added — nothing flagged yet' },
+    1: { label: 'Has corrections',     description: 'Proofreader found issues' },
+    2: { label: 'Ready for revision',  description: 'Writer can now apply the fixes' },
+    3: { label: 'Needs links',         description: 'PDP or Drive folder URL is missing' },
+    4: { label: 'Done',                description: 'Fully resolved' },
   }
 
   return (
@@ -494,7 +494,14 @@ export default function CopyReviewPage() {
                           isReady  ? 'text-green-500/70'  :
                           noLinks  ? 'text-yellow-500/70' : 'text-text-muted',
                         )}>
-                          {GROUP_LABELS[group]}
+                          {GROUP_LABELS[group].label}
+                        </p>
+                        <p className={cn(
+                          'text-[10px] mt-0.5',
+                          isReady  ? 'text-green-500/50'  :
+                          noLinks  ? 'text-yellow-500/50' : 'text-text-muted/60',
+                        )}>
+                          {GROUP_LABELS[group].description}
                         </p>
                       </div>
                     )}
