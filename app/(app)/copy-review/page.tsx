@@ -515,30 +515,12 @@ export default function CopyReviewPage() {
                             : 'bg-surface-elevated border-border-subtle hover:bg-surface-hover/50 md:border-l-transparent',
                       )}
                     >
-                      {!isProofreader && p.pdp_url ? (
-                        <a
-                          href={p.pdp_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={e => e.stopPropagation()}
-                          className="flex items-start gap-1 group -mx-0.5"
-                        >
-                          <span className={cn(
-                            'text-[15px] font-medium leading-snug line-clamp-2 transition-colors',
-                            p.done ? 'text-text-muted line-through' : 'text-accent group-hover:text-accent-bright',
-                          )}>
-                            {p.product_name}
-                          </span>
-                          <ExternalLink className="h-3.5 w-3.5 text-text-muted group-hover:text-accent transition-colors shrink-0 mt-0.5" />
-                        </a>
-                      ) : (
-                        <p className={cn(
-                          'text-[15px] font-medium leading-snug line-clamp-2',
-                          p.done ? 'text-text-muted line-through' : 'text-foreground',
-                        )}>
-                          {p.product_name}
-                        </p>
-                      )}
+                      <p className={cn(
+                        'text-[15px] font-medium leading-snug line-clamp-2',
+                        p.done ? 'text-text-muted line-through' : 'text-foreground',
+                      )}>
+                        {p.product_name}
+                      </p>
                       {p.proofreader && (
                         <p className="text-sm text-text-muted mt-1 truncate">{p.proofreader}</p>
                       )}
