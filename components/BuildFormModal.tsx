@@ -117,6 +117,16 @@ export function BuildFormModal({
           </FormField>
         )}
 
+        {/* Monday URL */}
+        <FormField label="Monday URL">
+          <Input
+            type="url"
+            value={form.monday_url ?? ''}
+            onChange={e => setField('monday_url', e.target.value || null)}
+            placeholder="https://…"
+          />
+        </FormField>
+
         {/* Week + Approved + Outcome + Proofreader */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <FormField label="Week">
