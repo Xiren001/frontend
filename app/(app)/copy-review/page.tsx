@@ -130,7 +130,7 @@ export default function CopyReviewPage() {
 
   // Search + sort
   const [searchQuery, setSearchQuery] = useState('')
-  const [dateSort, setDateSort] = useState<'status' | 'newest' | 'oldest'>('status')
+  const dateSort = 'status' as const
 
   // How to use
   const [howToUseOpen, setHowToUseOpen] = useState(false)
@@ -356,8 +356,6 @@ export default function CopyReviewPage() {
     : visible
 
   const sortedVisible = [...searchFiltered].sort((a, b) => {
-    if (dateSort === 'newest') return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    if (dateSort === 'oldest') return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     const diff = productGroup(a) - productGroup(b)
     return diff !== 0 ? diff : a.product_name.localeCompare(b.product_name)
   })
@@ -449,22 +447,6 @@ export default function CopyReviewPage() {
                   </button>
                 )}
               </div>
-              <div className="flex gap-0.5">
-                {(['status', 'newest', 'oldest'] as const).map(s => (
-                  <button
-                    key={s}
-                    onClick={() => setDateSort(s)}
-                    className={cn(
-                      'flex-1 text-[10px] font-medium px-1.5 py-1 rounded transition-colors',
-                      dateSort === s
-                        ? 'bg-accent-muted text-accent-bright'
-                        : 'text-text-muted hover:text-foreground hover:bg-surface-hover',
-                    )}
-                  >
-                    {s === 'status' ? 'By status' : s === 'newest' ? 'Newest' : 'Oldest'}
-                  </button>
-                ))}
-              </div>
             </div>
 
             <ul className="md:flex-1 md:overflow-y-auto p-3 md:p-0 space-y-2 md:space-y-0">
@@ -531,11 +513,6 @@ export default function CopyReviewPage() {
                       </p>
                       {p.proofreader && (
                         <p className="text-sm text-text-muted mt-1 truncate">{p.proofreader}</p>
-                      )}
-                      {dateSort !== 'status' && (
-                        <p className="text-xs text-text-muted mt-0.5 font-mono">
-                          {new Date(p.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                        </p>
                       )}
                       <div className="flex items-center justify-between mt-2.5 gap-1">
                         <div className="flex items-center gap-1">
