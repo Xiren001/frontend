@@ -85,6 +85,7 @@ function severityBorder(severity: string | null) {
 export default function CopyReviewPage() {
   const { role, userLang } = useRole()
   const isAdmin = role === 'admin'
+  const isProofreader = role === 'proofreader'
   const canManageProducts    = role === 'admin' || role === 'management'
   const canMarkReady         = role === 'admin' || role === 'management' || role === 'proofreader'
   const canMarkDone          = role === 'admin' || role === 'management' || role === 'ads' || role === 'website'
@@ -514,12 +515,30 @@ export default function CopyReviewPage() {
                             : 'bg-surface-elevated border-border-subtle hover:bg-surface-hover/50 md:border-l-transparent',
                       )}
                     >
-                      <p className={cn(
-                        'text-[15px] font-medium leading-snug line-clamp-2',
-                        p.done ? 'text-text-muted line-through' : 'text-foreground',
-                      )}>
-                        {p.product_name}
-                      </p>
+                      {!isProofreader && p.pdp_url ? (
+                        <a
+                          href={p.pdp_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={e => e.stopPropagation()}
+                          className="flex items-start gap-1 group -mx-0.5"
+                        >
+                          <span className={cn(
+                            'text-[15px] font-medium leading-snug line-clamp-2 transition-colors',
+                            p.done ? 'text-text-muted line-through' : 'text-accent group-hover:text-accent-bright',
+                          )}>
+                            {p.product_name}
+                          </span>
+                          <ExternalLink className="h-3.5 w-3.5 text-text-muted group-hover:text-accent transition-colors shrink-0 mt-0.5" />
+                        </a>
+                      ) : (
+                        <p className={cn(
+                          'text-[15px] font-medium leading-snug line-clamp-2',
+                          p.done ? 'text-text-muted line-through' : 'text-foreground',
+                        )}>
+                          {p.product_name}
+                        </p>
+                      )}
                       {p.proofreader && (
                         <p className="text-sm text-text-muted mt-1 truncate">{p.proofreader}</p>
                       )}
@@ -627,8 +646,20 @@ export default function CopyReviewPage() {
                 <div className="shrink-0 px-4 py-4 border-b border-border-subtle bg-surface-elevated/30 space-y-3">
 
                   {/* Name — hidden on mobile (shown in the back bar above) */}
-                  <h2 className="hidden md:block text-base font-semibold text-foreground leading-snug">
-                    {selectedProduct.product_name}
+                  <h2 className="hidden md:block text-base font-semibold leading-snug">
+                    {!isProofreader && selectedProduct.pdp_url ? (
+                      <a
+                        href={selectedProduct.pdp_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 group text-foreground hover:text-accent transition-colors"
+                      >
+                        {selectedProduct.product_name}
+                        <ExternalLink className="h-3.5 w-3.5 text-text-muted group-hover:text-accent transition-colors shrink-0" />
+                      </a>
+                    ) : (
+                      <span className="text-foreground">{selectedProduct.product_name}</span>
+                    )}
                   </h2>
 
                   {/* Badges + icon actions row */}
