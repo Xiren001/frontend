@@ -452,34 +452,16 @@ export default function CopyReviewPage() {
             </div>
 
             {presentGroups.length > 0 && (
-              <div className="shrink-0 px-3 py-2 border-b border-border-subtle flex gap-1">
-                {presentGroups.map(g => {
-                  const isReady = g === 2
-                  const noLinks = g === 3
-                  const count   = sortedVisible.filter(p => productGroup(p) === g).length
-                  return (
-                    <button
-                      key={g}
-                      onClick={() => document.getElementById(`group-${g}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                      className={cn(
-                        'flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded transition-colors',
-                        isReady ? 'text-green-500/70 bg-green-500/5 hover:bg-green-500/10' :
-                        noLinks ? 'text-yellow-500/70 bg-yellow-500/5 hover:bg-yellow-500/10' :
-                                  'text-text-muted bg-surface-elevated/30 hover:bg-surface-elevated hover:text-foreground',
-                      )}
-                    >
-                      {GROUP_LABELS[g].label}
-                      <span className={cn(
-                        'text-[9px] font-semibold rounded px-1 py-px',
-                        isReady ? 'bg-green-500/15 text-green-500/80' :
-                        noLinks ? 'bg-yellow-500/15 text-yellow-500/80' :
-                                  'bg-surface-elevated text-text-muted',
-                      )}>
-                        {count}
-                      </span>
-                    </button>
-                  )
-                })}
+              <div className="shrink-0 px-3 py-2 border-b border-border-subtle flex gap-0.5">
+                {presentGroups.map(g => (
+                  <button
+                    key={g}
+                    onClick={() => document.getElementById(`group-${g}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                    className="flex-1 text-[10px] font-medium px-1.5 py-1 rounded transition-colors text-text-muted hover:text-foreground hover:bg-surface-hover"
+                  >
+                    {GROUP_LABELS[g].label}
+                  </button>
+                ))}
               </div>
             )}
 
