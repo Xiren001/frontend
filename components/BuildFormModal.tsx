@@ -117,6 +117,16 @@ export function BuildFormModal({
           </FormField>
         )}
 
+        {/* Product URL */}
+        <FormField label="Product URL">
+          <Input
+            type="url"
+            value={form.product_url ?? ''}
+            onChange={e => setField('product_url', e.target.value || null)}
+            placeholder="https://…"
+          />
+        </FormField>
+
         {/* Week + Approved + Outcome + Proofreader */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <FormField label="Week">

@@ -10,12 +10,14 @@ import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs } from '@/components/ui/tabs'
 import { createClient } from '@/lib/supabase'
-import { Search, X, CheckCircle2, Clock } from 'lucide-react'
+import { Search, X, CheckCircle2, Clock, ExternalLink } from 'lucide-react'
+import { useRole } from '@/lib/role-context'
 
 interface ProofQueueItem {
   id: string
   build_id: string | null
   product_name: string
+  product_url: string | null
   language: string | null
   proofreader: string | null
   type: string | null
@@ -40,6 +42,8 @@ function daysInProofread(item: ProofQueueItem): number | null {
 }
 
 export default function ProofreadQueuePage() {
+  const { role } = useRole()
+  const isProofreader = role === 'proofreader'
   const [items, setItems]             = useState<ProofQueueItem[]>([])
   const [month, setMonth]             = useState(currentMonth())
   const [viewMode, setViewMode]       = useState<ViewMode>('active')
@@ -195,10 +199,6 @@ export default function ProofreadQueuePage() {
   const colSpan = isAdmin ? 9 : 8
 
   // ── Shared item renderer helpers ───────────────────────────────────────
-  function trackerHref(b: ProofQueueItem) {
-    return b.type === 'funnel' ? '/funnel-tracker' : b.source === 'proof_product' ? '/copy-review' : '/jewelry-tracker'
-  }
-
   function SourceBadge({ b }: { b: ProofQueueItem }) {
     return b.source === 'proof_product'
       ? <Badge variant="muted">Direct</Badge>
@@ -350,7 +350,6 @@ export default function ProofreadQueuePage() {
                 {group.items.map(b => {
                   const days    = daysInProofread(b)
                   const flagged = viewMode === 'active' && days !== null && days > 3
-                  const href    = trackerHref(b)
 
                   return (
                     <div
@@ -364,9 +363,21 @@ export default function ProofreadQueuePage() {
                     >
                       {/* Name + flag */}
                       <div className="flex items-start justify-between gap-2 mb-3">
-                        <Link href={href} className="text-[15px] font-medium text-foreground hover:text-accent transition-colors leading-snug flex-1">
-                          {b.product_name}
-                        </Link>
+                        {!isProofreader && b.product_url ? (
+                          <a
+                            href={b.product_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-start gap-1 group flex-1"
+                          >
+                            <span className="text-[15px] font-medium text-accent group-hover:text-accent-bright transition-colors leading-snug line-clamp-2">{b.product_name}</span>
+                            <ExternalLink className="h-3.5 w-3.5 text-text-muted group-hover:text-accent transition-colors shrink-0 mt-0.5" />
+                          </a>
+                        ) : (
+                          <span className="text-[15px] font-medium text-foreground leading-snug flex-1">
+                            {b.product_name}
+                          </span>
+                        )}
                         {flagged && <Badge variant="danger">RED</Badge>}
                       </div>
 
@@ -478,7 +489,6 @@ export default function ProofreadQueuePage() {
                 {group.items.map(b => {
                   const days    = daysInProofread(b)
                   const flagged = viewMode === 'active' && days !== null && days > 3
-                  const href    = trackerHref(b)
 
                   return (
                     <TableRow
@@ -486,7 +496,19 @@ export default function ProofreadQueuePage() {
                       className={viewMode === 'done' ? 'opacity-70' : flagged ? 'bg-danger-muted/20' : undefined}
                     >
                       <TableCell className="font-medium text-foreground">
-                        <Link href={href} className="hover:text-accent transition-colors">{b.product_name}</Link>
+                        {!isProofreader && b.product_url ? (
+                          <a
+                            href={b.product_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 group text-accent hover:text-accent-bright transition-colors"
+                          >
+                            {b.product_name}
+                            <ExternalLink className="h-3 w-3 text-text-muted group-hover:text-accent transition-colors shrink-0" />
+                          </a>
+                        ) : (
+                          <span>{b.product_name}</span>
+                        )}
                       </TableCell>
                       <TableCell><SourceBadge b={b} /></TableCell>
                       <TableCell><TypeBadge b={b} /> </TableCell>

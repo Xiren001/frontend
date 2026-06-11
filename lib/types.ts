@@ -22,6 +22,7 @@ export interface Build {
   batch_name: string | null
   notes: string | null
   proofreader: string | null
+  product_url: string | null
   // computed
   phase: BuildPhase
   build_days: number | null
