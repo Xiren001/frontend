@@ -452,12 +452,12 @@ export default function CopyReviewPage() {
             </div>
 
             {presentGroups.length > 0 && (
-              <div className="shrink-0 px-3 py-2 border-b border-border-subtle flex gap-0.5">
+              <div className="shrink-0 px-3 py-2 border-b border-border-subtle flex gap-0.5 overflow-x-auto scrollbar-none">
                 {presentGroups.map(g => (
                   <button
                     key={g}
                     onClick={() => document.getElementById(`group-${g}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                    className="flex-1 text-[10px] font-medium px-1.5 py-1 rounded transition-colors text-text-muted hover:text-foreground hover:bg-surface-hover"
+                    className="shrink-0 text-[10px] font-medium px-1.5 py-1 rounded transition-colors text-text-muted hover:text-foreground hover:bg-surface-hover"
                   >
                     {GROUP_LABELS[g].label}
                   </button>
