@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { Tabs } from '@/components/ui/tabs'
 import { ConfirmModal } from '@/components/ui/modal'
-import { ClipboardList, Layers, Pencil, Trash2, Download, Upload, FileDown, ChevronDown, Search, X, ExternalLink } from 'lucide-react'
+import { ClipboardList, Layers, Pencil, Trash2, Download, Upload, FileDown, ChevronDown, Search, X, ExternalLink, HelpCircle } from 'lucide-react'
 import { useRole } from '@/lib/role-context'
 import * as XLSX from 'xlsx'
 
@@ -329,16 +329,25 @@ function toDateStr(val: unknown): string | null {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+const PROOF_DOT: Record<number, { color: string; label: string }> = {
+  0: { color: 'bg-slate-400',   label: 'No corrections yet' },
+  1: { color: 'bg-red-500',     label: 'Has corrections' },
+  2: { color: 'bg-blue-500',    label: 'Ready for revision' },
+  3: { color: 'bg-yellow-500',  label: 'Needs links' },
+  4: { color: 'bg-green-500',   label: 'Done' },
+}
+
 interface Props {
   builds: Build[]
   type: BuildType
   month: string
   onRefresh: () => void
   isAdmin: boolean
-  canBatchManage?: boolean  // management: import/export/template/batch but not add/edit/delete builds
+  canBatchManage?: boolean
+  proofStatusMap?: Record<string, number>
 }
 
-export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchManage = false }: Props) {
+export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchManage = false, proofStatusMap }: Props) {
   const { role } = useRole()
   const isProofreader = role === 'proofreader'
   const isFunnel = type === 'funnel'
@@ -904,6 +913,27 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchM
                     )}
                     <TableHeader>Product</TableHeader>
                     <TableHeader className={`${showClass('md')} whitespace-nowrap`}>Approved</TableHeader>
+                    <TableHeader className={`${showClass('md')} whitespace-nowrap`}>
+                      <div className="relative inline-flex items-center gap-1 group/proof">
+                        Proof
+                        <HelpCircle className="h-3 w-3 text-text-muted" />
+                        <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 opacity-0 group-hover/proof:opacity-100 pointer-events-none transition-opacity">
+                          <div className="bg-surface-elevated border border-border rounded-lg p-3 shadow-lg w-44 text-left">
+                            <p className="text-[10px] font-semibold uppercase tracking-widest text-text-muted mb-2">Proof status</p>
+                            {Object.entries(PROOF_DOT).map(([g, { color, label }]) => (
+                              <div key={g} className="flex items-center gap-2 py-0.5">
+                                <span className={`h-2 w-2 rounded-full shrink-0 ${color}`} />
+                                <span className="text-xs text-foreground">{label}</span>
+                              </div>
+                            ))}
+                            <div className="flex items-center gap-2 py-0.5 mt-1 border-t border-border-subtle pt-1.5">
+                              <span className="h-2 w-2 rounded-full shrink-0 bg-border" />
+                              <span className="text-xs text-text-muted">Not in system</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </TableHeader>
                     {phaseCols.map(col => (
                       <TableHeader key={col.label} className={`whitespace-nowrap ${showClass(col.showFrom)}`}>
                         {col.label}
@@ -963,6 +993,15 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchM
                       </TableCell>
                       <TableCell mono className={`${showClass('md')} whitespace-nowrap`}>
                         {formatDate(b.approved_date)}
+                      </TableCell>
+
+                      <TableCell className={`${showClass('md')} text-center`}>
+                        {(() => {
+                          const group = proofStatusMap?.[b.product_name.toLowerCase().trim()]
+                          if (group === undefined) return <span className="text-text-muted">—</span>
+                          const dot = PROOF_DOT[group]
+                          return <span title={dot.label} className={`inline-block h-2.5 w-2.5 rounded-full ${dot.color}`} />
+                        })()}
                       </TableCell>
 
                       {phaseCols.map(col => {
