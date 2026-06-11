@@ -11,8 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { Tabs } from '@/components/ui/tabs'
 import { ConfirmModal } from '@/components/ui/modal'
-import { ClipboardList, Layers, Pencil, Trash2, Download, Upload, FileDown, ChevronDown, Search, X, ExternalLink } from 'lucide-react'
-import { useRole } from '@/lib/role-context'
+import { ClipboardList, Layers, Pencil, Trash2, Download, Upload, FileDown, ChevronDown, Search, X } from 'lucide-react'
 import * as XLSX from 'xlsx'
 
 // ── Phase config ─────────────────────────────────────────────────────────────
@@ -141,7 +140,6 @@ function statColor(val: number | null, target: number): string {
 interface CardProps {
   b: Build
   isAdmin: boolean
-  isProofreader: boolean
   advancing: string | null
   phaseSequence: (keyof Build)[]
   onOpenNotes: (b: Build) => void
@@ -152,7 +150,7 @@ interface CardProps {
   batchName?: string
 }
 
-function BuildCard({ b, isAdmin, isProofreader, advancing, phaseSequence, onOpenNotes, onOpenEdit, onDelete, onPhaseSet, onOutcomeChange, batchName }: CardProps) {
+function BuildCard({ b, isAdmin, advancing, phaseSequence, onOpenNotes, onOpenEdit, onDelete, onPhaseSet, onOutcomeChange, batchName }: CardProps) {
   const nextKey = getNextPhaseKey(b, phaseSequence)
   const nextInfo = nextKey ? PHASE_KEY_INFO[String(nextKey)] : null
 
@@ -171,22 +169,9 @@ function BuildCard({ b, isAdmin, isProofreader, advancing, phaseSequence, onOpen
     >
       {/* ── Name + admin actions ── */}
       <div className="flex items-start justify-between gap-2 mb-3">
-        {!isProofreader && b.product_url ? (
-          <a
-            href={b.product_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-start gap-1 group flex-1"
-            onClick={e => e.stopPropagation()}
-          >
-            <span className="text-[15px] font-medium text-accent leading-snug line-clamp-2 group-hover:text-accent-bright transition-colors">{b.product_name}</span>
-            <ExternalLink className="h-3.5 w-3.5 text-text-muted group-hover:text-accent transition-colors shrink-0 mt-0.5" />
-          </a>
-        ) : (
-          <p className="text-[15px] font-medium text-foreground leading-snug line-clamp-2 flex-1">
-            {b.product_name}
-          </p>
-        )}
+        <p className="text-[15px] font-medium text-foreground leading-snug line-clamp-2 flex-1">
+          {b.product_name}
+        </p>
         {isAdmin && (
           <div className="flex items-center gap-0.5 shrink-0" onClick={e => e.stopPropagation()}>
             <Link
@@ -339,8 +324,6 @@ interface Props {
 }
 
 export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchManage = false }: Props) {
-  const { role } = useRole()
-  const isProofreader = role === 'proofreader'
   const isFunnel = type === 'funnel'
   const phaseSequence = isFunnel ? FUNNEL_PHASE_SEQUENCE : PHASE_SEQUENCE
   const phaseCols     = isFunnel ? FUNNEL_PHASE_COLS     : PHASE_COLS
@@ -872,7 +855,6 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchM
               key={b.id}
               b={b}
               isAdmin={isAdmin}
-              isProofreader={isProofreader}
               advancing={advancing}
               phaseSequence={phaseSequence}
               onOpenNotes={setNotesBuild}
@@ -943,19 +925,7 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchM
                       )}
                       <TableCell className="font-medium text-foreground" onClick={e => e.stopPropagation()}>
                         <div className="flex flex-col gap-0.5">
-                          {!isProofreader && b.product_url ? (
-                            <a
-                              href={b.product_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-1 group"
-                            >
-                              <MarqueeName name={b.product_name} className="max-w-[160px] text-accent group-hover:text-accent-bright transition-colors" />
-                              <ExternalLink className="h-3 w-3 text-text-muted group-hover:text-accent transition-colors shrink-0" />
-                            </a>
-                          ) : (
-                            <MarqueeName name={b.product_name} className="max-w-[180px]" />
-                          )}
+                          <MarqueeName name={b.product_name} className="max-w-[180px]" />
                           {b.language && (
                             <span className="text-[11px] font-mono text-text-muted">{b.language}</span>
                           )}
