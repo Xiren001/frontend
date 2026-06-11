@@ -360,6 +360,8 @@ export default function CopyReviewPage() {
     return diff !== 0 ? diff : a.product_name.localeCompare(b.product_name)
   })
 
+  const presentGroups = Array.from(new Set(sortedVisible.map(p => productGroup(p)))).sort() as (0|1|2|3|4)[]
+
   const GROUP_LABELS: Record<number, { label: string; description: string }> = {
     0: { label: 'No corrections',      description: 'Just added — nothing flagged yet' },
     1: { label: 'Has corrections',     description: 'Proofreader found issues' },
@@ -449,6 +451,29 @@ export default function CopyReviewPage() {
               </div>
             </div>
 
+            {presentGroups.length > 0 && (
+              <div className="shrink-0 px-3 py-2 border-b border-border-subtle flex flex-wrap gap-1.5">
+                {presentGroups.map(g => {
+                  const isReady = g === 2
+                  const noLinks = g === 3
+                  return (
+                    <button
+                      key={g}
+                      onClick={() => document.getElementById(`group-${g}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                      className={cn(
+                        'text-[10px] font-semibold uppercase tracking-widest px-2 py-0.5 rounded-full border transition-colors',
+                        isReady ? 'border-green-500/30 text-green-500/70 bg-green-500/5 hover:bg-green-500/10' :
+                        noLinks ? 'border-yellow-500/30 text-yellow-500/70 bg-yellow-500/5 hover:bg-yellow-500/10' :
+                                  'border-border text-text-muted bg-surface-elevated/30 hover:bg-surface-elevated',
+                      )}
+                    >
+                      {GROUP_LABELS[g].label}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+
             <ul className="md:flex-1 md:overflow-y-auto p-3 md:p-0 space-y-2 md:space-y-0">
               {sortedVisible.length === 0 && (
                 <li className="px-4 py-8 text-center text-sm text-text-muted">
@@ -466,7 +491,7 @@ export default function CopyReviewPage() {
                 return (
                   <li key={p.id}>
                     {showHeader && (
-                      <div className={cn(
+                      <div id={`group-${group}`} className={cn(
                         'px-4 py-2 md:border-y border-border-subtle rounded-lg md:rounded-none mb-1 md:mb-0',
                         isReady  ? 'bg-green-500/5'  :
                         noLinks  ? 'bg-yellow-500/5' : 'bg-surface-elevated/30',
