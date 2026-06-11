@@ -457,7 +457,7 @@ export default function CopyReviewPage() {
                   <button
                     key={g}
                     onClick={() => document.getElementById(`group-${g}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                    className="shrink-0 text-[10px] font-medium px-1.5 py-1 rounded transition-colors text-text-muted hover:text-foreground hover:bg-surface-hover"
+                    className="shrink-0 text-[10px] font-medium px-2.5 py-1 rounded-full border border-border bg-surface-elevated text-text-muted transition-colors hover:border-accent/50 hover:text-accent-bright hover:bg-accent-muted active:scale-95 cursor-pointer"
                   >
                     {GROUP_LABELS[g].label}
                   </button>
