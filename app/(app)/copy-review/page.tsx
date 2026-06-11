@@ -20,6 +20,7 @@ interface ProofProduct {
   proofreader: string | null
   product_name: string
   pdp_url: string | null
+  monday_url: string | null
   drive_folder: string | null
   done: boolean
   website_done: boolean
@@ -51,7 +52,7 @@ interface ProofCorrection {
 const SELECT_CLS = 'w-full rounded-md border border-border bg-surface-elevated px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent/40'
 
 function emptyProductForm(): Partial<ProofProduct> {
-  return { language: 'ES', proofreader: '', product_name: '', pdp_url: '', drive_folder: '', done: false, website_done: false, ads_done: false, ready_for_revision: false, week_number: null, month_year: currentMonth() }
+  return { language: 'ES', proofreader: '', product_name: '', pdp_url: '', monday_url: '', drive_folder: '', done: false, website_done: false, ads_done: false, ready_for_revision: false, week_number: null, month_year: currentMonth() }
 }
 
 function emptyCorrectionForm(): Partial<ProofCorrection> {
@@ -629,9 +630,9 @@ export default function CopyReviewPage() {
 
                   {/* Name — hidden on mobile (shown in the back bar above) */}
                   <h2 className="hidden md:block text-base font-semibold leading-snug">
-                    {!isProofreader && selectedProduct.pdp_url ? (
+                    {!isProofreader && selectedProduct.monday_url ? (
                       <a
-                        href={selectedProduct.pdp_url}
+                        href={selectedProduct.monday_url}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-1.5 group text-foreground hover:text-accent transition-colors"
@@ -1016,6 +1017,14 @@ export default function CopyReviewPage() {
             <Input
               value={productForm.pdp_url ?? ''}
               onChange={e => setProductForm(f => ({ ...f, pdp_url: e.target.value }))}
+              placeholder="https://…"
+            />
+          </FormField>
+
+          <FormField label="Monday URL">
+            <Input
+              value={productForm.monday_url ?? ''}
+              onChange={e => setProductForm(f => ({ ...f, monday_url: e.target.value }))}
               placeholder="https://…"
             />
           </FormField>
