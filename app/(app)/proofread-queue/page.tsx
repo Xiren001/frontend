@@ -10,12 +10,14 @@ import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs } from '@/components/ui/tabs'
 import { createClient } from '@/lib/supabase'
-import { Search, X, CheckCircle2, Clock } from 'lucide-react'
+import { Search, X, CheckCircle2, Clock, ExternalLink } from 'lucide-react'
+import { useRole } from '@/lib/role-context'
 
 interface ProofQueueItem {
   id: string
   build_id: string | null
   product_name: string
+  monday_url: string | null
   language: string | null
   proofreader: string | null
   type: string | null
@@ -40,6 +42,8 @@ function daysInProofread(item: ProofQueueItem): number | null {
 }
 
 export default function ProofreadQueuePage() {
+  const { role } = useRole()
+  const isProofreader = role === 'proofreader'
   const [items, setItems]             = useState<ProofQueueItem[]>([])
   const [month, setMonth]             = useState(currentMonth())
   const [viewMode, setViewMode]       = useState<ViewMode>('active')
@@ -359,9 +363,21 @@ export default function ProofreadQueuePage() {
                     >
                       {/* Name + flag */}
                       <div className="flex items-start justify-between gap-2 mb-3">
-                        <span className="text-[15px] font-medium text-foreground leading-snug flex-1">
-                          {b.product_name}
-                        </span>
+                        {!isProofreader && b.monday_url ? (
+                          <a
+                            href={b.monday_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-start gap-1 group flex-1"
+                          >
+                            <span className="text-[15px] font-medium text-accent group-hover:text-accent-bright transition-colors leading-snug line-clamp-2">{b.product_name}</span>
+                            <ExternalLink className="h-3.5 w-3.5 text-text-muted group-hover:text-accent transition-colors shrink-0 mt-0.5" />
+                          </a>
+                        ) : (
+                          <span className="text-[15px] font-medium text-foreground leading-snug flex-1">
+                            {b.product_name}
+                          </span>
+                        )}
                         {flagged && <Badge variant="danger">RED</Badge>}
                       </div>
 
@@ -480,7 +496,19 @@ export default function ProofreadQueuePage() {
                       className={viewMode === 'done' ? 'opacity-70' : flagged ? 'bg-danger-muted/20' : undefined}
                     >
                       <TableCell className="font-medium text-foreground">
-                        {b.product_name}
+                        {!isProofreader && b.monday_url ? (
+                          <a
+                            href={b.monday_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 group text-accent hover:text-accent-bright transition-colors"
+                          >
+                            {b.product_name}
+                            <ExternalLink className="h-3 w-3 text-text-muted group-hover:text-accent transition-colors shrink-0" />
+                          </a>
+                        ) : (
+                          <span>{b.product_name}</span>
+                        )}
                       </TableCell>
                       <TableCell><SourceBadge b={b} /></TableCell>
                       <TableCell><TypeBadge b={b} /> </TableCell>
