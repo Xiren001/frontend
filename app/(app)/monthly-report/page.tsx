@@ -88,20 +88,13 @@ function MetricAvgTable({
 
 // ─── Proof queue section ──────────────────────────────────────────────────────
 
-function countOf(v: unknown): number {
-  if (Array.isArray(v)) return v.length
-  if (typeof v === 'number') return v
-  return 0
-}
-
 function ProofQueueSection({ report }: { report: MonthlyReport }) {
-  const q = report.proofQueue as unknown as Record<string, unknown>
   return (
     <div className="mb-8">
       <p className="text-xs font-semibold uppercase tracking-widest text-text-muted mb-3">Proofreading Queue</p>
       <div className="grid grid-cols-2 gap-4">
-        <SummaryCard label="In Progress" value={countOf(q.inProgress)} />
-        <SummaryCard label="Done" value={countOf(q.done)} />
+        <SummaryCard label="In Progress" value={report.proofQueue.inProgress} />
+        <SummaryCard label="Done" value={report.proofQueue.done} />
       </div>
     </div>
   )
@@ -110,13 +103,12 @@ function ProofQueueSection({ report }: { report: MonthlyReport }) {
 // ─── Payment status section ───────────────────────────────────────────────────
 
 function PaymentStatusSection({ report }: { report: MonthlyReport }) {
-  const p = report.paymentStatus as unknown as Record<string, unknown>
   return (
     <div className="mb-8">
       <p className="text-xs font-semibold uppercase tracking-widest text-text-muted mb-3">Payment Status</p>
       <div className="grid grid-cols-2 gap-4">
-        <SummaryCard label="Paid" value={countOf(p.paid)} />
-        <SummaryCard label="Unpaid" value={countOf(p.unpaid)} />
+        <SummaryCard label="Paid" value={report.paymentStatus.paid} />
+        <SummaryCard label="Unpaid" value={report.paymentStatus.unpaid} />
       </div>
     </div>
   )
