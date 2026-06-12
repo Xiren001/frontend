@@ -18,6 +18,8 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Input } from '@/components/ui/input'
 import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import * as XLSX from 'xlsx'
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -322,6 +324,243 @@ function TranslationCard({ week, targets }: { week: WeekData; targets: ReportTar
   )
 }
 
+// ─── Excel Export ─────────────────────────────────────────────────────────────
+
+function fmtExport(val: number | null | undefined, target: number | null | undefined): string {
+  if (val === null || val === undefined) return '—'
+  const d = `${val}d`
+  if (target === null || target === undefined) return d
+  return val <= target ? `${d} ✓` : `${d} ✗`
+}
+
+function buildSummarySheet(report: WeeklyReport, queue: ProofQueue | null, month: string): unknown[][] {
+  const t = report.settings
+  const ws = [1, 2, 3, 4].map(n => report.weeks.find(w => w.week === n) ?? null)
+
+  function row(
+    metric: string,
+    valFn: (w: WeekData | null) => string | number,
+    target = '—',
+    note = '',
+  ): unknown[] {
+    return [metric, valFn(ws[0]), valFn(ws[1]), valFn(ws[2]), valFn(ws[3]), target, note]
+  }
+
+  const v = (fn: (w: WeekData) => number | null | undefined, tgt: number | null | undefined) =>
+    (w: WeekData | null) => w ? fmtExport(fn(w), tgt) : '—'
+
+  return [
+    [`WEEKLY REPORT — ${month.toUpperCase()}`, '', '', '', '', '', ''],
+    ['', '', '', '', '', '', ''],
+    ['METRIC', 'WEEK 1', 'WEEK 2', 'WEEK 3', 'WEEK 4', 'TARGET', 'NOTES'],
+    ['', '', '', '', '', '', ''],
+
+    ['── NEW PRODUCTS BUILT ──', '', '', '', '', '', ''],
+    row('Count', w => w?.newBuilds.count ?? '—'),
+    row('Phase 1 Avg', v(w => w.newBuilds.avgPhase1Days, t?.build_target_days), t ? `${t.build_target_days}d` : '—', 'Phase 1 start → phase 1 end'),
+    row('Proof Avg', v(w => w.newBuilds.avgProofDays, t?.proof_target_days), t ? `${t.proof_target_days}d` : '—', 'Days spent in proofreading'),
+    row('Testing Avg', v(w => w.newBuilds.avgTestDays, t?.test_target_days), t ? `${t.test_target_days}d` : '—', 'Days in testing before outcome'),
+    row('Total Avg', v(w => w.newBuilds.avgTotalDays, t?.total_target_days), t ? `${t.total_target_days}d` : '—', 'Phase 1 start → outcome decision'),
+    ['  Breakdown', '', '', '', '', '', ''],
+    row('  Proofreader Turnaround', v(w => w.newBuilds.avgProofreadTurnaround, t?.proofread_turnaround_target_days), t ? `${t.proofread_turnaround_target_days}d` : '—', 'Submit to proofreader → returned'),
+    row('  Web Revision', v(w => w.newBuilds.avgWebRevisionDays, t?.web_revision_target_days), t ? `${t.web_revision_target_days}d` : '—', 'Days for web revisions post-proof'),
+    row('  Ads Revision', v(w => w.newBuilds.avgAdsRevisionDays, t?.ads_revision_target_days), t ? `${t.ads_revision_target_days}d` : '—', 'Days for ads revisions post-proof'),
+    ['', '', '', '', '', '', ''],
+
+    ['── EXPANDING PRODUCTS ──', '', '', '', '', '', ''],
+    row('Count', w => w?.expandingProducts.count ?? '—'),
+    row('Proof Avg', v(w => w.expandingProducts.avgProofDays, t?.proof_target_days), t ? `${t.proof_target_days}d` : '—', 'Days in proofreading'),
+    ['  Breakdown', '', '', '', '', '', ''],
+    row('  Proofreader Turnaround', v(w => w.expandingProducts.avgProofreadTurnaround, t?.proofread_turnaround_target_days), t ? `${t.proofread_turnaround_target_days}d` : '—'),
+    row('  Web Revision', v(w => w.expandingProducts.avgWebRevisionDays, t?.web_revision_target_days), t ? `${t.web_revision_target_days}d` : '—'),
+    row('  Ads Revision', v(w => w.expandingProducts.avgAdsRevisionDays, t?.ads_revision_target_days), t ? `${t.ads_revision_target_days}d` : '—'),
+    ['', '', '', '', '', '', ''],
+
+    ['── STATUS COUNTS ──', '', '', '', '', '', ''],
+    row('In Testing', w => w?.inTesting.count ?? '—', '', 'Products in testing at end of week'),
+    row('In Expanding — Wave 1', w => w?.inExpanding.wave1Count ?? '—', '', 'Wave 1 products in expanding phase'),
+    row('In Expanding — Wave 2+', w => w?.inExpanding.wave2plusCount ?? '—', '', 'Wave 2 and beyond in expanding'),
+    row('Winning', w => w ? `${w.winning.count} / ${w.winning.totalTested}` : '—', '', 'Won / total tested'),
+    row('Win Rate', w => w?.winning.pct ?? '—', '≥ 50%', '% of tested products that won'),
+    row('Stopped', w => w?.stoppedCount ?? '—', '', 'Products stopped this week'),
+    ['', '', '', '', '', '', ''],
+
+    ['── TRANSLATION TIMES ──', '', '', '', '', '', ''],
+    row('EN Completion', v(w => w.translation.en.avgDays, t?.en_completion_target_days), t ? `${t.en_completion_target_days}d` : '—', 'Days for English content completion'),
+    row('ES + DE Translation', v(w => w.translation.esDe.avgDays, t?.es_de_translation_target_days), t ? `${t.es_de_translation_target_days}d` : '—', 'Days for Spanish + German translation'),
+    row('Total Translation', v(w => w.translation.total.avgDays, t?.total_translation_target_days), t ? `${t.total_translation_target_days}d` : '—', 'Full translation pipeline duration'),
+    ['', '', '', '', '', '', ''],
+
+    ['── PROOFREADING QUEUE (Current) ──', '', '', '', '', '', ''],
+    ['Wave 1 Pending', queue?.wave1 ?? 0, '', '', '', '', 'ES / DE products awaiting proofread'],
+    ['Wave 2+ Pending', queue?.wave2plus ?? 0, '', '', '', '', 'Other languages awaiting proofread'],
+    ['Done', queue?.done ?? 0, '', '', '', '', 'Products with proofreading complete'],
+    ['', '', '', '', '', '', ''],
+
+    ['── PAYMENT STATUS (Month Total) ──', '', '', '', '', '', ''],
+    ['Paid', report.paymentStatus.paid, '', '', '', '', 'Products with payment processed'],
+    ['Unpaid', report.paymentStatus.unpaid, '', '', '', '', 'Products awaiting payment'],
+    ['', '', '', '', '', '', ''],
+    ['✓ = at or below target   ✗ = exceeds target   — = no data', '', '', '', '', '', ''],
+  ]
+}
+
+function buildWeekSheet(weekData: WeekData | null, targets: ReportTargets | null, weekNum: number): unknown[][] {
+  if (!weekData) return [[`WEEK ${weekNum}`, 'No data for this week.', '', '', '']]
+
+  const t = targets
+  const data: unknown[][] = []
+
+  function mRow(label: string, val: number | null | undefined, tgt: number | null | undefined, desc: string): unknown[] {
+    const status = val != null && tgt != null ? (val <= tgt ? '✓ On target' : '✗ Over target') : '—'
+    return [label, val != null ? `${val}d` : '—', tgt != null ? `${tgt}d` : '—', status, desc]
+  }
+
+  data.push([`WEEK ${weekNum} — DETAIL REPORT`, '', '', '', ''])
+  data.push(['', '', '', '', ''])
+
+  data.push([`NEW PRODUCTS BUILT: ${weekData.newBuilds.count}`, '', '', '', ''])
+  data.push(['METRIC', 'AVG', 'TARGET', 'STATUS', 'DESCRIPTION'])
+  data.push(mRow('Phase 1', weekData.newBuilds.avgPhase1Days, t?.build_target_days, 'Days from phase 1 start to end of building'))
+  data.push(mRow('Proof', weekData.newBuilds.avgProofDays, t?.proof_target_days, 'Days the product spent in proofreading'))
+  data.push(mRow('Testing', weekData.newBuilds.avgTestDays, t?.test_target_days, 'Days in testing before an outcome was decided'))
+  data.push(mRow('Total', weekData.newBuilds.avgTotalDays, t?.total_target_days, 'Phase 1 start to final outcome decision'))
+  data.push(['Detailed Breakdown', '', '', '', ''])
+  data.push(mRow('Proofreader Turnaround', weekData.newBuilds.avgProofreadTurnaround, t?.proofread_turnaround_target_days, 'Time from submitting to proofreader to receiving it back'))
+  data.push(mRow('Web Revision', weekData.newBuilds.avgWebRevisionDays, t?.web_revision_target_days, 'Days for website / web content revisions'))
+  data.push(mRow('Ads Revision', weekData.newBuilds.avgAdsRevisionDays, t?.ads_revision_target_days, 'Days for ads revisions after proofread'))
+  if (weekData.newBuilds.products.length > 0) {
+    data.push(['', '', '', '', ''])
+    data.push(['Products Built This Week:', '', '', '', ''])
+    data.push(['#', 'Product Name', 'Language', '', ''])
+    weekData.newBuilds.products.forEach((p, i) => data.push([i + 1, p.product_name, p.language ?? 'EN', '', '']))
+  }
+  data.push(['', '', '', '', ''])
+
+  data.push([`EXPANDING PRODUCTS: ${weekData.expandingProducts.count}`, '', '', '', ''])
+  data.push(['METRIC', 'AVG', 'TARGET', 'STATUS', 'DESCRIPTION'])
+  data.push(mRow('Proof', weekData.expandingProducts.avgProofDays, t?.proof_target_days, 'Days in proofreading for expanding products'))
+  data.push(['Detailed Breakdown', '', '', '', ''])
+  data.push(mRow('Proofreader Turnaround', weekData.expandingProducts.avgProofreadTurnaround, t?.proofread_turnaround_target_days, 'Time from submit to proofreader to received back'))
+  data.push(mRow('Web Revision', weekData.expandingProducts.avgWebRevisionDays, t?.web_revision_target_days, 'Days for web revisions'))
+  data.push(mRow('Ads Revision', weekData.expandingProducts.avgAdsRevisionDays, t?.ads_revision_target_days, 'Days for ads revisions'))
+  if (weekData.expandingProducts.products.length > 0) {
+    data.push(['', '', '', '', ''])
+    data.push(['Products Expanding This Week:', '', '', '', ''])
+    data.push(['#', 'Product Name', 'Language', '', ''])
+    weekData.expandingProducts.products.forEach((p, i) => data.push([i + 1, p.product_name, p.language ?? 'EN', '', '']))
+  }
+  data.push(['', '', '', '', ''])
+
+  data.push(['STATUS COUNTS', '', '', '', ''])
+  data.push(['Category', 'Count', '', 'Notes', ''])
+  data.push(['In Testing', weekData.inTesting.count, '', 'Products currently in testing at end of week', ''])
+  data.push(['In Expanding — Wave 1', weekData.inExpanding.wave1Count, '', 'Wave 1 products in expanding phase', ''])
+  data.push(['In Expanding — Wave 2+', weekData.inExpanding.wave2plusCount, '', 'Wave 2 and beyond in expanding', ''])
+  data.push(['Winning', `${weekData.winning.count} / ${weekData.winning.totalTested}`, '', `${weekData.winning.pct} win rate`, ''])
+  data.push(['Stopped', weekData.stoppedCount, '', 'Products whose testing was stopped', ''])
+  if (weekData.inTesting.products.length > 0) {
+    data.push(['', '', '', '', ''])
+    data.push(['Products in Testing:', '', '', '', ''])
+    data.push(['#', 'Product Name', 'Language', '', ''])
+    weekData.inTesting.products.forEach((p, i) => data.push([i + 1, p.product_name, p.language ?? 'EN', '', '']))
+  }
+  if (weekData.inExpanding.wave1Products.length > 0 || weekData.inExpanding.wave2plusProducts.length > 0) {
+    data.push(['', '', '', '', ''])
+    data.push(['Products in Expanding:', '', '', '', ''])
+    data.push(['#', 'Product Name', 'Language', 'Wave', ''])
+    weekData.inExpanding.wave1Products.forEach((p, i) =>
+      data.push([i + 1, p.product_name, p.language ?? 'EN', 'Wave 1', '']))
+    weekData.inExpanding.wave2plusProducts.forEach((p, i) =>
+      data.push([weekData.inExpanding.wave1Products.length + i + 1, p.product_name, p.language ?? 'EN', 'Wave 2+', '']))
+  }
+  data.push(['', '', '', '', ''])
+
+  data.push(['TRANSLATION TIMES', '', '', '', ''])
+  data.push(['METRIC', 'AVG', 'TARGET', 'STATUS', 'DESCRIPTION'])
+  data.push(mRow('EN Completion', weekData.translation.en.avgDays, t?.en_completion_target_days, 'Days for English content to be fully complete'))
+  data.push(mRow('ES + DE Translation', weekData.translation.esDe.avgDays, t?.es_de_translation_target_days, 'Days for Spanish + German translation'))
+  data.push(mRow('Total Translation', weekData.translation.total.avgDays, t?.total_translation_target_days, 'Full translation pipeline from start to finish'))
+
+  return data
+}
+
+function buildGuideSheet(targets: ReportTargets | null): unknown[][] {
+  const t = targets
+  const tgt = (key: keyof ReportTargets) => t ? `${t[key]}d` : 'see settings'
+
+  return [
+    ['METRIC GUIDE — Weekly Report', '', ''],
+    ['This sheet explains every metric shown in the Summary and Week detail sheets.', '', ''],
+    ['', '', ''],
+    ['METRIC', 'WHAT IT MEASURES', 'TARGET & HOW TO INTERPRET'],
+    ['', '', ''],
+    ['── NEW PRODUCTS BUILT ──', '', ''],
+    ['Count', 'Number of new products that completed the full build pipeline this week.', 'Higher = more output. Compare week-over-week for velocity trends.'],
+    ['Phase 1 Avg', 'Average days from phase 1 start to phase 1 completion (the building phase).', `Target: ${tgt('build_target_days')}. Lower is better. Measures build speed.`],
+    ['Proof Avg', 'Average days a product spent in the proofreading phase (submission to end).', `Target: ${tgt('proof_target_days')}. Lower is better. Includes turnaround + revision time.`],
+    ['Testing Avg', 'Average days from a product entering testing to its outcome being decided.', `Target: ${tgt('test_target_days')}. Lower is better. Reflects testing cycle speed.`],
+    ['Total Avg', 'Average total days from phase 1 start to final outcome decision (end-to-end).', `Target: ${tgt('total_target_days')}. Lower is better. The key overall efficiency metric.`],
+    ['Proofreader Turnaround', 'Average days from submitting a product to the proofreader to receiving it back.', `Target: ${tgt('proofread_turnaround_target_days')}. Lower is better. Measures proofreader responsiveness.`],
+    ['Web Revision', 'Average days for website / web content revisions after proofreading.', `Target: ${tgt('web_revision_target_days')}. Lower is better. Measures web team revision speed.`],
+    ['Ads Revision', 'Average days for ads revisions after the proofreading phase.', `Target: ${tgt('ads_revision_target_days')}. Lower is better. Measures ads team revision speed.`],
+    ['', '', ''],
+    ['── EXPANDING PRODUCTS ──', '', ''],
+    ['Count', 'Number of products that went through the expanding phase this week.', 'Higher = more products moving into the expansion pipeline.'],
+    ['Proof Avg', 'Average days expanding products spent in proofreading.', `Target: ${tgt('proof_target_days')}. Same target as new builds.`],
+    ['Proofreader Turnaround', 'Same metric as above but scoped to expanding products specifically.', `Target: ${tgt('proofread_turnaround_target_days')}.`],
+    ['Web Revision', 'Days for website revisions on expanding products.', `Target: ${tgt('web_revision_target_days')}.`],
+    ['Ads Revision', 'Days for ads revisions on expanding products.', `Target: ${tgt('ads_revision_target_days')}.`],
+    ['', '', ''],
+    ['── STATUS COUNTS ──', '', ''],
+    ['In Testing', 'Number of products currently in the testing phase at the end of the week.', 'Snapshot of testing pipeline depth. No single target — context-dependent.'],
+    ['In Expanding — Wave 1', 'Products currently in expanding, classified as Wave 1 (ES / DE language products).', 'Wave 1 = Spanish and German language products.'],
+    ['In Expanding — Wave 2+', 'Products currently in expanding beyond Wave 1 (all other languages).', 'Wave 2+ = all non-ES/DE language products.'],
+    ['Winning', 'Products that completed testing with a positive (winning) outcome.', 'Expressed as count won / total tested. More winners is better.'],
+    ['Win Rate', 'Percentage of tested products that resulted in a win.', 'Target: ≥ 50%. Low win rate may indicate poor product selection or test quality.'],
+    ['Stopped', 'Products whose testing was stopped (did not achieve a winning outcome).', 'Stopping quickly is healthy — it frees up testing budget for better products.'],
+    ['', '', ''],
+    ['── TRANSLATION TIMES ──', '', ''],
+    ['EN Completion', 'Average days for English content to be fully completed.', `Target: ${tgt('en_completion_target_days')}. Lower is better.`],
+    ['ES + DE Translation', 'Average days for Spanish and German translation after English is done.', `Target: ${tgt('es_de_translation_target_days')}. Lower is better.`],
+    ['Total Translation', 'Average days for the full translation pipeline from start to all languages done.', `Target: ${tgt('total_translation_target_days')}. Lower is better. Key localization efficiency metric.`],
+    ['', '', ''],
+    ['── PROOFREADING QUEUE ──', '', ''],
+    ['Wave 1 Pending', 'ES / DE products currently waiting to be proofread.', 'Lower is better. A high number means the proofreader is the bottleneck.'],
+    ['Wave 2+ Pending', 'Non-ES/DE products currently waiting to be proofread.', 'Lower is better.'],
+    ['Done', 'Products that have completed proofreading (snapshot for current month).', 'Tracks proofreading throughput for the month.'],
+    ['', '', ''],
+    ['── PAYMENT STATUS ──', '', ''],
+    ['Paid', 'Total products in this month with payment already processed.', 'Should grow through the month as products are completed and invoiced.'],
+    ['Unpaid', 'Total products in this month still awaiting payment.', 'Should approach 0 as the month closes.'],
+  ]
+}
+
+function handleExport(report: WeeklyReport, queue: ProofQueue | null, month: string): void {
+  const wb = XLSX.utils.book_new()
+
+  const summaryWs = XLSX.utils.aoa_to_sheet(buildSummarySheet(report, queue, month))
+  summaryWs['!cols'] = [
+    { wch: 30 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 44 },
+  ]
+  XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary')
+
+  for (let w = 1; w <= 4; w++) {
+    const weekData = report.weeks.find(wd => wd.week === w) ?? null
+    const weekWs = XLSX.utils.aoa_to_sheet(buildWeekSheet(weekData, report.settings, w))
+    weekWs['!cols'] = [
+      { wch: 28 }, { wch: 10 }, { wch: 10 }, { wch: 18 }, { wch: 52 },
+    ]
+    XLSX.utils.book_append_sheet(wb, weekWs, `Week ${w}`)
+  }
+
+  const guideWs = XLSX.utils.aoa_to_sheet(buildGuideSheet(report.settings))
+  guideWs['!cols'] = [{ wch: 28 }, { wch: 64 }, { wch: 60 }]
+  XLSX.utils.book_append_sheet(wb, guideWs, 'Metric Guide')
+
+  XLSX.writeFile(wb, `weekly-report-${month}.xlsx`)
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function WeeklyReportPage() {
@@ -354,13 +593,23 @@ export default function WeeklyReportPage() {
       <PageHeader
         title="Weekly Report"
         actions={
-          <Input
-            type="month"
-            value={month}
-            onChange={e => setMonth(e.target.value)}
-            className="w-auto"
-            mono
-          />
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={!report}
+              onClick={() => { if (report) handleExport(report, queue, month) }}
+            >
+              Export .xlsx
+            </Button>
+            <Input
+              type="month"
+              value={month}
+              onChange={e => setMonth(e.target.value)}
+              className="w-auto"
+              mono
+            />
+          </div>
         }
       />
 
