@@ -7,7 +7,7 @@ import type { WeeklyReport, WeekData, ReportTargets, ProofQueue } from '@/lib/ty
 
 const TRACKER_LANGS = new Set(['ES', 'DE'])
 
-function computeQueueStats(products: { language: string | null; done: boolean | null }[]): ProofQueue {
+function computeQueueStats(products: { language: string | null; done: boolean }[]): ProofQueue {
   return {
     wave1:    products.filter(p =>  TRACKER_LANGS.has((p.language || '').toUpperCase()) && !p.done).length,
     wave2plus: products.filter(p => !TRACKER_LANGS.has((p.language || '').toUpperCase()) && !p.done).length,
@@ -322,14 +322,14 @@ export default function WeeklyReportPage() {
   }
 
   async function loadQueue() {
-    const products = await api.get<{ language: string | null; done: boolean | null }[]>('/api/proof-corrections/products')
+    const products = await api.get<{ language: string | null; done: boolean }[]>(`/api/builds/proofread-queue?month=${month}`)
     setQueue(computeQueueStats(products))
   }
 
   useRealtimeRefresh(['builds', 'proof_products'], load)
-  useRealtimeRefresh('proof_products', loadQueue)
+  useRealtimeRefresh(['builds', 'proof_products'], loadQueue)
   useEffect(() => { load() }, [month]) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { loadQueue() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadQueue() }, [month]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const s = report?.settings ?? null
   const weeks = report?.weeks ?? []
