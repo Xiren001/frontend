@@ -91,7 +91,7 @@ export default function CopyReviewPage() {
   const canMarkReady         = role === 'admin' || role === 'management' || role === 'proofreader'
   const canMarkDone          = role === 'admin' || role === 'management' || role === 'ads' || role === 'website'
   const canUpdateLinks       = role === 'admin' || role === 'management' || role === 'website'
-  const canModifyCorrections = role === 'admin' || role === 'management' || role === 'proofreader' || role === 'website'
+  const canModifyCorrections = role === 'admin' || role === 'management' || role === 'proofreader'
   // ads + website can toggle correction done only once product is marked Ready
   const canToggleCorrectionDone = (product: ProofProduct | null) =>
     role === 'admin' || role === 'management' || role === 'proofreader' ||
