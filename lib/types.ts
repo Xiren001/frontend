@@ -180,6 +180,7 @@ export interface WeekData {
   inTesting: { count: number; products: BuildSummaryShort[] }
   inExpanding: InExpanding
   winning: WinningStats
+  translation: TranslationData
 }
 
 export interface ProofQueue {
@@ -206,7 +207,6 @@ export interface WeeklyReport {
   weeks: WeekData[]
   proofQueue: ProofQueue
   paymentStatus: PaymentStatus
-  translation: TranslationData
   settings: ReportTargets | null
 }
 

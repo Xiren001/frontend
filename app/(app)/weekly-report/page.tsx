@@ -240,6 +240,8 @@ function WeekPanel({ week, targets }: { week: WeekData; targets: ReportTargets }
         <InExpandingCard week={week} />
         <WinningCard week={week} />
       </div>
+      {/* §8 Translation */}
+      <TranslationCard week={week} targets={targets} />
     </div>
   )
 }
@@ -278,8 +280,8 @@ function PaymentStatusCard({ report }: { report: WeeklyReport }) {
 
 // ─── §8 Translation Times ─────────────────────────────────────────────────────
 
-function TranslationCard({ report, targets }: { report: WeeklyReport; targets: ReportTargets }) {
-  const { en, esDe, total } = report.translation
+function TranslationCard({ week, targets }: { week: WeekData; targets: ReportTargets }) {
+  const { en, esDe, total } = week.translation
   const rows: MetricRow[] = [
     { label: 'EN', avg: en.avgDays, targetKey: 'en_completion_target_days' },
     { label: 'ES+DE', avg: esDe.avgDays, targetKey: 'es_de_translation_target_days' },
@@ -360,11 +362,10 @@ export default function WeeklyReportPage() {
             <p className="text-sm text-text-muted italic mb-8">No data for Week {activeWeek}.</p>
           )}
 
-          {/* Global sections §6–§8 */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Global sections §6–§7 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <ProofQueueCard report={report} />
             <PaymentStatusCard report={report} />
-            {s && <TranslationCard report={report} targets={s} />}
           </div>
         </>
       )}
