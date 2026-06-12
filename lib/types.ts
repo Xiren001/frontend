@@ -183,9 +183,14 @@ export interface WeekData {
   translation: TranslationData
 }
 
-export interface ProofQueue {
+export interface ProofQueueGroup {
   inProgress: number
   done: number
+}
+
+export interface ProofQueue {
+  tracker: ProofQueueGroup
+  direct: ProofQueueGroup
 }
 
 export interface PaymentStatus {
