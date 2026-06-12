@@ -21,6 +21,15 @@ const PIPELINE_FIELDS: { key: keyof Settings; label: string; unit: string }[] = 
   { key: 'total_target_days',  label: 'Total pipeline target', unit: 'days' },
 ]
 
+const REPORT_TARGET_FIELDS: { key: keyof Settings; label: string; unit: string }[] = [
+  { key: 'proofread_turnaround_target_days', label: 'Proofreader turnaround',  unit: 'days' },
+  { key: 'web_revision_target_days',         label: 'Web revision',            unit: 'days' },
+  { key: 'ads_revision_target_days',         label: 'Ads revision',            unit: 'days' },
+  { key: 'en_completion_target_days',        label: 'EN completion',           unit: 'days' },
+  { key: 'es_de_translation_target_days',    label: 'ES+DE translation',       unit: 'days' },
+  { key: 'total_translation_target_days',    label: 'Total translation cycle', unit: 'days' },
+]
+
 const THRESHOLD_FIELDS: { key: keyof Settings; label: string; unit: string }[] = [
   { key: 'tool_approval_threshold',    label: 'Tool approval threshold',  unit: '$/mo' },
   { key: 'payment_approval_threshold', label: 'Payment method approval',  unit: '$'    },
@@ -174,6 +183,31 @@ export default function SettingsPage() {
               <p className="text-xs font-medium text-text-muted uppercase tracking-wider">Pipeline Targets</p>
             </div>
             {PIPELINE_FIELDS.map(f => (
+              <div key={f.key} className="px-5 py-3.5 flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm text-foreground">{f.label}</p>
+                  <p className="text-xs text-text-muted font-mono">{f.unit}</p>
+                </div>
+                {editing ? (
+                  <Input
+                    type="number"
+                    mono
+                    className="w-24 text-right"
+                    value={draft[f.key] as number ?? ''}
+                    onChange={e => setDraft(d => ({ ...d, [f.key]: Number(e.target.value) }))}
+                  />
+                ) : (
+                  <span className="text-sm font-mono font-medium text-foreground">
+                    {settings[f.key] as number}
+                  </span>
+                )}
+              </div>
+            ))}
+
+            <div className="px-5 py-2.5">
+              <p className="text-xs font-medium text-text-muted uppercase tracking-wider">Report Targets</p>
+            </div>
+            {REPORT_TARGET_FIELDS.map(f => (
               <div key={f.key} className="px-5 py-3.5 flex items-center justify-between gap-4">
                 <div>
                   <p className="text-sm text-foreground">{f.label}</p>

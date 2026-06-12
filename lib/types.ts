@@ -65,6 +65,12 @@ export interface Settings {
   total_target_days: number
   tool_approval_threshold: number
   payment_approval_threshold: number
+  proofread_turnaround_target_days: number
+  web_revision_target_days: number
+  ads_revision_target_days: number
+  en_completion_target_days: number
+  es_de_translation_target_days: number
+  total_translation_target_days: number
 }
 
 export interface KPI {
@@ -123,10 +129,96 @@ export interface ReportTargets {
   proof_target_days: number
   test_target_days:  number
   total_target_days: number
+  proofread_turnaround_target_days: number
+  web_revision_target_days: number
+  ads_revision_target_days: number
+  en_completion_target_days: number
+  es_de_translation_target_days: number
+  total_translation_target_days: number
 }
 
 export interface PlannerNote {
   id: string
   date: string
   notes: string
+}
+
+export interface BuildSummaryShort {
+  product_name: string
+  language: string | null
+}
+
+export interface WeekMetrics {
+  count: number
+  avgPhase1Days?: number | null
+  avgProofDays: number | null
+  avgTestDays?: number | null
+  avgToTestingDays?: number | null
+  avgProofreadTurnaround: number | null
+  avgWebRevisionDays: number | null
+  avgAdsRevisionDays: number | null
+  products: BuildSummaryShort[]
+}
+
+export interface WinningStats {
+  count: number
+  totalTested: number
+  pct: string
+}
+
+export interface InExpanding {
+  wave1Count: number
+  wave2plusCount: number
+  wave1Products: BuildSummaryShort[]
+  wave2plusProducts: BuildSummaryShort[]
+}
+
+export interface WeekData {
+  week: number
+  newBuilds: WeekMetrics
+  expandingProducts: WeekMetrics
+  inTesting: { count: number; products: BuildSummaryShort[] }
+  inExpanding: InExpanding
+  winning: WinningStats
+}
+
+export interface ProofQueue {
+  inProgress: number
+  done: number
+}
+
+export interface PaymentStatus {
+  paid: number
+  unpaid: number
+}
+
+export interface TranslationStat {
+  avgDays: number | null
+}
+
+export interface TranslationData {
+  en: TranslationStat
+  esDe: TranslationStat
+  total: TranslationStat
+}
+
+export interface WeeklyReport {
+  weeks: WeekData[]
+  proofQueue: ProofQueue
+  paymentStatus: PaymentStatus
+  translation: TranslationData
+  settings: ReportTargets | null
+}
+
+export interface MonthlyReport {
+  newBuilds: Omit<WeekMetrics, 'products'>
+  expandingProducts: Omit<WeekMetrics, 'products'>
+  inTesting: { count: number }
+  inExpanding: { wave1Count: number; wave2plusCount: number }
+  winning: WinningStats
+  proofQueue: ProofQueue
+  paymentStatus: PaymentStatus
+  translation: TranslationData
+  byWeek: WeekData[]
+  settings: ReportTargets | null
 }

@@ -3,83 +3,79 @@ import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import { useRealtimeRefresh } from '@/lib/use-realtime-refresh'
 import { currentMonth } from '@/lib/utils'
-import type { BuildSummary, CycleAvgs, CycleAvg, ReportTargets } from '@/lib/types'
+import type { MonthlyReport, WeekData, ReportTargets } from '@/lib/types'
 import { PageHeader } from '@/components/ui/page-header'
 import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
 import { Card, CardBody } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { ResponsiveTable, type ResponsiveColumn } from '@/components/ui/responsive-table'
-import { Modal } from '@/components/ui/modal'
-import { TrendingUp, FlaskConical, Trophy, Download, Target } from 'lucide-react'
-import {
-  type StoreCsvWinners,
-  loadAllStoresWinningTitles,
-  loadAllStoresCsvWinners,
-  isWinnerMatch,
-} from '@/lib/winning-products'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
-interface MonthlyReport {
-  totalCompleted: number
-  jewelryCompleted: number
-  funnelCompleted: number
-  byWeek: number[]
-  winners: number
-  killed: number
-  winRate: string
-  testWinRate: string
-  avgBuildDays: number | null
-  avgBuildDaysJewelry: number | null
-  avgBuildDaysFunnel: number | null
-  avgTotalDays: number | null
-  mistakesTotal: number
-  mistakesRepeating: number
-  mistakesByCategory: Record<string, number>
-  sopUpdated: number
-  expandingList: BuildSummary[]
-  testingList: BuildSummary[]
-  narrative: { narrative_text: string } | null
-  cycleAvgs: CycleAvgs
-  settings: ReportTargets | null
+// ─── helpers ────────────────────────────────────────────────────────────────
+
+function fmt(n: number | null | undefined, suffix = ''): string {
+  if (n === null || n === undefined) return '—'
+  return `${n}${suffix}`
 }
 
-interface MetricRow { label: string; value: string | number; description: string }
+function colorClass(val: number | null | undefined, target: number | null | undefined): string {
+  if (val === null || val === undefined || target === null || target === undefined) return 'text-text-muted'
+  return val <= target ? 'text-green-600' : 'text-red-500'
+}
 
-interface CsvProduct { title: string; unitsSold?: number; unitGrowthPct?: number }
+// ─── Summary card ────────────────────────────────────────────────────────────
 
-const PHASE_ROWS = [
-  { label: 'Building',  key: 'buildDays' as keyof CycleAvg, targetKey: 'build_target_days' as keyof ReportTargets },
-  { label: 'Proofread', key: 'proofDays' as keyof CycleAvg, targetKey: 'proof_target_days' as keyof ReportTargets },
-  { label: 'Testing',   key: 'testDays'  as keyof CycleAvg, targetKey: 'test_target_days'  as keyof ReportTargets },
-  { label: 'Total',     key: 'totalDays' as keyof CycleAvg, targetKey: 'total_target_days' as keyof ReportTargets },
-]
-
-function PhaseAvgTable({ label, data, targets }: { label: string; data: CycleAvg; targets: ReportTargets }) {
+function SummaryCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
     <Card>
       <CardBody>
-        <p className="text-xs font-semibold uppercase tracking-widest text-text-muted mb-3">{label}</p>
+        <p className="text-xs font-semibold uppercase tracking-widest text-text-muted mb-1">{label}</p>
+        <p className="text-2xl font-bold font-mono text-foreground leading-tight">{value}</p>
+        {sub && <p className="text-xs text-text-muted mt-1">{sub}</p>}
+      </CardBody>
+    </Card>
+  )
+}
+
+// ─── Metric avg table (New Products / Expanding Products) ────────────────────
+
+interface MetricAvgRow {
+  label: string
+  avg: number | null | undefined
+  targetKey: keyof ReportTargets | null
+}
+
+function MetricAvgTable({
+  heading,
+  rows,
+  targets,
+}: {
+  heading: string
+  rows: MetricAvgRow[]
+  targets: ReportTargets
+}) {
+  return (
+    <Card>
+      <CardBody>
+        <p className="text-xs font-semibold uppercase tracking-widest text-text-muted mb-3">{heading}</p>
         <table className="w-full">
           <thead>
             <tr>
-              <th className="text-left pb-2 text-xs text-text-muted font-medium">Phase</th>
+              <th className="text-left pb-2 text-xs text-text-muted font-medium">Metric</th>
               <th className="text-right pb-2 text-xs text-text-muted font-medium">Avg</th>
               <th className="text-right pb-2 text-xs text-text-muted font-medium">Target</th>
             </tr>
           </thead>
           <tbody>
-            {PHASE_ROWS.map(p => {
-              const val = data[p.key]
-              const target = targets[p.targetKey] as number
+            {rows.map(r => {
+              const target = r.targetKey ? (targets[r.targetKey] as number) : null
               return (
-                <tr key={p.label} className="border-t border-border-subtle">
-                  <td className="py-1.5 text-sm text-foreground">{p.label}</td>
-                  <td className={`py-1.5 text-right text-sm font-mono font-medium ${
-                    val === null ? 'text-text-muted' : val <= target ? 'text-green-600' : 'text-red-500'
-                  }`}>
-                    {val !== null ? `${val}d` : '—'}
+                <tr key={r.label} className="border-t border-border-subtle">
+                  <td className="py-1.5 text-sm text-foreground">{r.label}</td>
+                  <td className={`py-1.5 text-right text-sm font-mono font-medium ${colorClass(r.avg, target)}`}>
+                    {fmt(r.avg, 'd')}
                   </td>
-                  <td className="py-1.5 text-right text-sm font-mono text-text-muted">{target}d</td>
+                  <td className="py-1.5 text-right text-sm font-mono text-text-muted">
+                    {target !== null && target !== undefined ? `${target}d` : '—'}
+                  </td>
                 </tr>
               )
             })}
@@ -90,641 +86,243 @@ function PhaseAvgTable({ label, data, targets }: { label: string; data: CycleAvg
   )
 }
 
-function BuildRow({ b }: { b: BuildSummary }) {
+// ─── Proof queue section ──────────────────────────────────────────────────────
+
+function countOf(v: unknown): number {
+  if (Array.isArray(v)) return v.length
+  if (typeof v === 'number') return v
+  return 0
+}
+
+function ProofQueueSection({ report }: { report: MonthlyReport }) {
+  const q = report.proofQueue as unknown as Record<string, unknown>
   return (
-    <div className="flex items-center gap-2 py-1.5 border-b border-border-subtle last:border-0">
-      <span className="text-sm text-foreground font-medium flex-1 leading-snug">{b.product_name}</span>
-      <div className="flex items-center gap-1.5 shrink-0">
-        {b.language && <Badge variant="accent">{b.language}</Badge>}
-        <Badge variant={b.type === 'jewelry' ? 'default' : 'muted'}>{b.type === 'jewelry' ? 'Jewelry' : 'Funnel'}</Badge>
-        {b.week_number && <span className="text-xs text-text-muted font-mono">W{b.week_number}</span>}
+    <div className="mb-8">
+      <p className="text-xs font-semibold uppercase tracking-widest text-text-muted mb-3">Proofreading Queue</p>
+      <div className="grid grid-cols-2 gap-4">
+        <SummaryCard label="In Progress" value={countOf(q.inProgress)} />
+        <SummaryCard label="Done" value={countOf(q.done)} />
       </div>
     </div>
   )
 }
 
-function esc(s: string | null | undefined): string {
-  if (!s) return ''
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+// ─── Payment status section ───────────────────────────────────────────────────
+
+function PaymentStatusSection({ report }: { report: MonthlyReport }) {
+  const p = report.paymentStatus as unknown as Record<string, unknown>
+  return (
+    <div className="mb-8">
+      <p className="text-xs font-semibold uppercase tracking-widest text-text-muted mb-3">Payment Status</p>
+      <div className="grid grid-cols-2 gap-4">
+        <SummaryCard label="Paid" value={countOf(p.paid)} />
+        <SummaryCard label="Unpaid" value={countOf(p.unpaid)} />
+      </div>
+    </div>
+  )
 }
 
-function generateMonthlyHtml(
-  month: string,
-  report: MonthlyReport,
-  allStoreCsvWinners: StoreCsvWinners[],
-  testingWinners: BuildSummary[],
-): string {
-  const dateLabel = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
-  const monthLabel = (() => {
-    const [y, m] = month.split('-')
-    return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })
-  })()
+// ─── Translation times section ────────────────────────────────────────────────
 
-  const categoryBreakdown = Object.entries(report.mistakesByCategory)
-    .sort((a, b) => b[1] - a[1])
-    .map(([cat, count]) => `${cat} (${count})`)
-    .join(', ') || '—'
-
-  const METRICS: { label: string; value: string | number; description: string }[] = [
-    { label: 'Builds completed (went live)',        value: report.totalCompleted,       description: 'Total builds that reached a final decision — expanding or stopped.' },
-    { label: '  · Jewelry (Shopify)',               value: report.jewelryCompleted,     description: 'Jewelry builds on Shopify that completed this month.' },
-    { label: '  · Funnel (Funnelish)',              value: report.funnelCompleted,      description: 'Funnel builds on Funnelish that completed this month.' },
-    { label: 'By week — W1 / W2 / W3 / W4',        value: report.byWeek.join(' / '),   description: 'Distribution of completed builds across the four weeks of the month.' },
-    { label: 'Expanding (decided)',                 value: report.winners,              description: 'Products approved for scale-up after passing testing.' },
-    { label: 'Stopped',                             value: report.killed,               description: 'Products discontinued after testing did not meet targets.' },
-    { label: 'Win rate (all decided)',              value: report.winRate,              description: 'Expanding ÷ all decided builds. Includes products stopped without entering testing.' },
-    { label: 'Test → Winner (%)',                   value: report.testWinRate,          description: 'Of all products that entered the testing phase, the percentage that became expanding. This is the true quality signal.' },
-    { label: 'Build cycle avg (days)',              value: report.avgBuildDays ?? '—',          description: 'Average days from Phase 1 start to build complete (went live).' },
-    { label: '  · Avg build — PDP (days)',          value: report.avgBuildDaysJewelry ?? '—',   description: 'Avg build days for Shopify / jewelry (PDP) builds.' },
-    { label: '  · Avg build — Funnel (days)',       value: report.avgBuildDaysFunnel ?? '—',    description: 'Avg build days for funnel builds.' },
-    { label: 'Total pipeline avg (days)',           value: report.avgTotalDays ?? '—',          description: 'Average days from approval through testing to a final outcome decision.' },
-    { label: 'Issues logged',                       value: report.mistakesTotal,        description: 'Total mistakes or quality issues recorded in the Issue Log.' },
-    { label: '  · Repeating issues',               value: report.mistakesRepeating,    description: 'Issues that appeared in more than one build — signals a systematic gap.' },
-    { label: '  · By category',                    value: categoryBreakdown,           description: 'Issue breakdown by category, sorted by frequency.' },
-    { label: '  · SOPs updated',                   value: report.sopUpdated,           description: 'Issues where the SOP was updated to prevent recurrence.' },
+function TranslationSection({ report, targets }: { report: MonthlyReport; targets: ReportTargets }) {
+  const { en, esDe, total } = report.translation
+  const rows = [
+    { label: 'EN completion', avg: en.avgDays, targetKey: 'en_completion_target_days' as keyof ReportTargets },
+    { label: 'ES/DE delay after EN', avg: esDe.avgDays, targetKey: 'es_de_translation_target_days' as keyof ReportTargets },
+    { label: 'Total (EN start → ES/DE done)', avg: total.avgDays, targetKey: 'total_translation_target_days' as keyof ReportTargets },
   ]
-
-  const metricRows = METRICS.map(m => `
-    <tr>
-      <td class="td-label">
-        <div class="ml">${esc(m.label)}</div>
-        <div class="md">${esc(m.description)}</div>
-      </td>
-      <td class="td-val">${esc(String(m.value))}</td>
-    </tr>`).join('')
-
-  const buildRows = (list: BuildSummary[]) =>
-    list.map(b => `
-      <div class="product-item">
-        <span class="product-name">${esc(b.product_name)}</span>
-        <span class="badges">
-          ${b.language ? `<span class="badge badge-lang">${esc(b.language)}</span>` : ''}
-          <span class="badge ${b.type === 'jewelry' ? 'badge-jewelry' : 'badge-funnel'}">${b.type === 'jewelry' ? 'Jewelry' : 'Funnel'}</span>
-          ${b.week_number ? `<span class="badge badge-week">W${b.week_number}</span>` : ''}
-        </span>
-      </div>`).join('')
-
-  const hasCsv = allStoreCsvWinners.length > 0
-
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Monthly Performance Report — ${esc(monthLabel)}</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:#0f172a;background:#f1f5f9;line-height:1.5}
-.page{max-width:900px;margin:0 auto;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.06),0 16px 48px rgba(0,0,0,.08)}
-/* toolbar */
-.toolbar{display:flex;align-items:center;justify-content:space-between;padding:12px 40px;background:#f8fafc;border-bottom:1px solid #e2e8f0}
-.toolbar-brand{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#94a3b8}
-.toolbar-actions{display:flex;gap:8px}
-.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;border:none;font-family:inherit}
-.btn-primary{background:#6366f1;color:#fff}
-.btn-ghost{background:#fff;color:#475569;border:1px solid #e2e8f0}
-/* report header */
-.rh{padding:40px 48px 36px;border-bottom:1px solid #e2e8f0}
-.rh-top{display:flex;justify-content:space-between;align-items:flex-start}
-.rh-brand{font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:#94a3b8;margin-bottom:8px}
-.rh-title{font-size:30px;font-weight:700;letter-spacing:-.02em;color:#0f172a}
-.rh-period{font-size:14px;color:#64748b;margin-top:4px}
-.rh-right{text-align:right}
-.rh-date{font-size:11px;color:#94a3b8}
-.rh-note{font-size:10px;color:#cbd5e1;margin-top:3px}
-/* content */
-.content{padding:40px 48px}
-/* section */
-.section{margin-bottom:44px}
-.sec-label{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#94a3b8;margin-bottom:6px;padding-bottom:8px;border-bottom:1px solid #f1f5f9}
-.sec-count{font-weight:normal;color:#cbd5e1;letter-spacing:0}
-.sec-desc{font-size:12px;color:#94a3b8;margin-bottom:16px;line-height:1.5}
-/* KPI */
-.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
-.kpi{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:18px 20px}
-.kpi-lbl{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8;margin-bottom:6px}
-.kpi-val{font-size:26px;font-weight:700;color:#0f172a;font-variant-numeric:tabular-nums;line-height:1}
-.kpi-sub{font-size:11px;color:#94a3b8;margin-top:4px}
-.kpi-accent .kpi-val{color:#6366f1}
-/* metric table */
-table{width:100%;border-collapse:collapse;font-size:13px}
-thead{background:#f8fafc}
-th{text-align:left;padding:10px 14px;font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8;border-bottom:1px solid #e2e8f0}
-th:last-child{text-align:right}
-td{padding:10px 14px;color:#334155;border-bottom:1px solid #f8fafc}
-.td-label{width:70%}
-.td-val{text-align:right;font-weight:600;color:#0f172a;font-variant-numeric:tabular-nums;white-space:nowrap}
-.ml{font-size:13px;color:#334155}
-.md{font-size:11px;color:#94a3b8;margin-top:2px;line-height:1.4}
-tr:nth-child(even) td{background:#fafbfd}
-/* narrative */
-.nar-card{border:1px solid #e2e8f0;border-radius:10px;padding:20px 24px}
-.nar-text{font-size:13px;line-height:1.7;color:#475569;white-space:pre-wrap}
-.nar-empty{font-size:12px;color:#cbd5e1;font-style:italic}
-/* products */
-.product-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid #f8fafc}
-.product-item:last-child{border-bottom:none}
-.product-name{font-size:13px;font-weight:500;color:#0f172a;flex:1;line-height:1.4}
-.badges{display:flex;gap:4px;flex-wrap:wrap;flex-shrink:0}
-.badge{font-size:10px;font-weight:600;letter-spacing:.03em;padding:2px 8px;border-radius:999px;white-space:nowrap}
-.badge-lang{background:#ede9fe;color:#6d28d9}
-.badge-jewelry{background:#e0e7ff;color:#4338ca}
-.badge-funnel{background:#f0fdf4;color:#166534}
-.badge-week{background:#f8fafc;color:#94a3b8;border:1px solid #e2e8f0}
-.empty-note{font-size:12px;color:#cbd5e1;font-style:italic;padding:8px 0}
-/* CSV / winners grid */
-.csv-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.csv-card{border:1px solid #e2e8f0;border-radius:10px;padding:20px 24px}
-.csv-lbl{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8;margin-bottom:14px}
-.csv-item{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f8fafc;font-size:13px}
-.csv-item:last-child{border-bottom:none}
-.csv-name{font-weight:500;color:#0f172a;flex:1}
-.csv-stat{font-size:11px;color:#94a3b8;font-variant-numeric:tabular-nums;margin-left:8px;white-space:nowrap}
-/* footer */
-.rfoot{padding:20px 48px;border-top:1px solid #f1f5f9;background:#f8fafc;display:flex;justify-content:space-between;align-items:center}
-.rfoot-brand{font-size:11px;font-weight:600;color:#94a3b8;letter-spacing:.05em}
-.rfoot-note{font-size:10px;color:#cbd5e1}
-@media print{
-  body{background:#fff}
-  .page{box-shadow:none;max-width:100%}
-  .toolbar{display:none}
-  @page{margin:15mm 18mm;size:A4}
-}
-</style>
-</head>
-<body>
-<div class="page">
-
-  <div class="toolbar">
-    <span class="toolbar-brand">Myko Hub &middot; Monthly Report</span>
-    <div class="toolbar-actions">
-      <button class="btn btn-ghost" onclick="window.close()">Close</button>
-      <button class="btn btn-primary" onclick="window.print()">&#x1F5A8;&nbsp; Print / Save PDF</button>
-    </div>
-  </div>
-
-  <div class="rh">
-    <div class="rh-top">
-      <div>
-        <div class="rh-brand">Myko Hub &middot; Build &amp; Product Tracker</div>
-        <div class="rh-title">Monthly Performance Report</div>
-        <div class="rh-period">${esc(monthLabel)}</div>
-      </div>
-      <div class="rh-right">
-        <div class="rh-date">Generated ${esc(dateLabel)}</div>
-        <div class="rh-note">Auto-populated from Jewelry Tracker &amp; Issue Log</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="content">
-
-    <!-- KPI summary -->
-    <div class="section">
-      <div class="sec-label">Executive Summary</div>
-      <div class="sec-desc">Top-line numbers for the month. Use these in the opening paragraph of your report email to Abigél.</div>
-      <div class="kpi-grid">
-        <div class="kpi">
-          <div class="kpi-lbl">Builds Completed</div>
-          <div class="kpi-val">${report.totalCompleted}</div>
-          <div class="kpi-sub">${report.jewelryCompleted} jewelry · ${report.funnelCompleted} funnel</div>
-        </div>
-        <div class="kpi">
-          <div class="kpi-lbl">Expanding</div>
-          <div class="kpi-val">${report.winners}</div>
-          <div class="kpi-sub">approved for scale-up</div>
-        </div>
-        <div class="kpi">
-          <div class="kpi-lbl">Win Rate</div>
-          <div class="kpi-val">${esc(report.winRate)}</div>
-          <div class="kpi-sub">of all decided builds</div>
-        </div>
-        <div class="kpi kpi-accent">
-          <div class="kpi-lbl">Test → Winner</div>
-          <div class="kpi-val">${esc(report.testWinRate)}</div>
-          <div class="kpi-sub">quality signal</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Narrative -->
-    ${report.narrative?.narrative_text ? `
-    <div class="section">
-      <div class="sec-label">Monthly Narrative</div>
-      <div class="sec-desc">Written summary for Abigél — the qualitative context behind the numbers.</div>
-      <div class="nar-card">
-        <div class="nar-text">${esc(report.narrative.narrative_text)}</div>
-      </div>
-    </div>` : ''}
-
-    <!-- Metrics table -->
-    <div class="section">
-      <div class="sec-label">Full Metrics Breakdown</div>
-      <div class="sec-desc">
-        Complete data for the month. <em>Test → Winner (%)</em> is the strongest quality signal — it isolates products that actually entered testing and measures how many succeeded.
-        <em>Win rate</em> includes all decided builds and can be skewed by early stops before testing.
-      </div>
-      <table>
-        <thead><tr><th>Metric</th><th>Value</th></tr></thead>
-        <tbody>${metricRows}</tbody>
-      </table>
-    </div>
-
-    <!-- Expanding products -->
-    <div class="section">
-      <div class="sec-label">Expanding Products <span class="sec-count">(${report.expandingList.length})</span></div>
-      <div class="sec-desc">Products that passed testing and were approved for scale-up. These are the wins of the month — include this list in your report as-is.</div>
-      ${report.expandingList.length === 0
-        ? `<p class="empty-note">No products decided as expanding this month.</p>`
-        : `<div>${buildRows(report.expandingList)}</div>`}
-    </div>
-
-    <!-- Still testing -->
-    ${report.testingList.length > 0 ? `
-    <div class="section">
-      <div class="sec-label">Still in Testing <span class="sec-count">(${report.testingList.length})</span></div>
-      <div class="sec-desc">Products that entered testing but have not yet received a final decision. Follow up on these in the next cycle.</div>
-      <div>${buildRows(report.testingList)}</div>
-    </div>` : ''}
-
-    <!-- Testing × Winning Products cross-reference -->
-    ${testingWinners.length > 0 ? `
-    <div class="section">
-      <div class="sec-label">In Testing — Qualified &amp; Momentum Match <span class="sec-count">(${testingWinners.length})</span></div>
-      <div class="sec-desc">Products currently in testing whose names match products highlighted in the Winning Products tab. These are the highest-priority testing builds — they are already proven market sellers. Monitor closely and prioritize decision-making.</div>
-      <div>${buildRows(testingWinners)}</div>
-    </div>` : ''}
-
-    <!-- Phase cycle times -->
-    ${report.cycleAvgs && report.settings ? (() => {
-      const phases = [
-        { label: 'Building',  j: report.cycleAvgs.jewelry.buildDays, f: report.cycleAvgs.funnel.buildDays, t: report.settings!.build_target_days },
-        { label: 'Proofread', j: report.cycleAvgs.jewelry.proofDays, f: report.cycleAvgs.funnel.proofDays, t: report.settings!.proof_target_days },
-        { label: 'Testing',   j: report.cycleAvgs.jewelry.testDays,  f: report.cycleAvgs.funnel.testDays,  t: report.settings!.test_target_days },
-        { label: 'Total',     j: report.cycleAvgs.jewelry.totalDays, f: report.cycleAvgs.funnel.totalDays, t: report.settings!.total_target_days },
-      ]
-      const color = (v: number | null, t: number) =>
-        v === null ? '#94a3b8' : v <= t ? '#16a34a' : '#ef4444'
-      const fmt = (v: number | null) => v !== null ? `${v}d` : '—'
-      return `
-    <div class="section">
-      <div class="sec-label">Phase Cycle Times</div>
-      <div class="sec-desc">Average days per build phase, separated by Jewelry (PDP) and Funnel. Green = at or under target.</div>
-      <div class="csv-grid">
-        <div class="csv-card">
-          <div class="csv-lbl" style="margin-bottom:10px">Jewelry — PDP</div>
-          <table>
-            <thead><tr><th>Phase</th><th>Avg</th><th>Target</th></tr></thead>
-            <tbody>${phases.map(p => `<tr><td class="td-label"><div class="ml">${esc(p.label)}</div></td><td style="text-align:right;font-weight:600;color:${color(p.j, p.t)};font-variant-numeric:tabular-nums">${fmt(p.j)}</td><td style="text-align:right;color:#94a3b8;font-variant-numeric:tabular-nums">${p.t}d</td></tr>`).join('')}</tbody>
+  return (
+    <div className="mb-8">
+      <p className="text-xs font-semibold uppercase tracking-widest text-text-muted mb-3">Translation Times</p>
+      <Card>
+        <CardBody>
+          <table className="w-full">
+            <thead>
+              <tr>
+                <th className="text-left pb-2 text-xs text-text-muted font-medium">Metric</th>
+                <th className="text-right pb-2 text-xs text-text-muted font-medium">Avg</th>
+                <th className="text-right pb-2 text-xs text-text-muted font-medium">Target</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(r => {
+                const target = targets[r.targetKey] as number
+                return (
+                  <tr key={r.label} className="border-t border-border-subtle">
+                    <td className="py-1.5 text-sm text-foreground">{r.label}</td>
+                    <td className={`py-1.5 text-right text-sm font-mono font-medium ${colorClass(r.avg, target)}`}>
+                      {fmt(r.avg, 'd')}
+                    </td>
+                    <td className="py-1.5 text-right text-sm font-mono text-text-muted">{target}d</td>
+                  </tr>
+                )
+              })}
+            </tbody>
           </table>
-        </div>
-        <div class="csv-card">
-          <div class="csv-lbl" style="margin-bottom:10px">Funnel</div>
-          <table>
-            <thead><tr><th>Phase</th><th>Avg</th><th>Target</th></tr></thead>
-            <tbody>${phases.map(p => `<tr><td class="td-label"><div class="ml">${esc(p.label)}</div></td><td style="text-align:right;font-weight:600;color:${color(p.f, p.t)};font-variant-numeric:tabular-nums">${fmt(p.f)}</td><td style="text-align:right;color:#94a3b8;font-variant-numeric:tabular-nums">${p.t}d</td></tr>`).join('')}</tbody>
-          </table>
-        </div>
-      </div>
-    </div>`
-    })() : ''}
-
-    <!-- CSV winners -->
-    ${hasCsv ? `
-    <div class="section">
-      <div class="sec-label">Winning Products from Analysis</div>
-      <div class="sec-desc">Products shown in the Winning Products tab after applying the current filter thresholds. <em>Qualified Demand</em> = meets minimum sales volume and gross margin. <em>Momentum</em> = selling well and growing vs. the prior 7 days.</div>
-      ${allStoreCsvWinners.map(s => `
-        ${allStoreCsvWinners.length > 1 ? `<div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#475569;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #e2e8f0">${esc(s.storeName)}</div>` : ''}
-        <div class="csv-grid" style="margin-bottom:${allStoreCsvWinners.length > 1 ? '20' : '0'}px">
-          ${s.demand.length > 0 ? `
-          <div class="csv-card">
-            <div class="csv-lbl">Qualified Demand (${s.demand.length})</div>
-            ${s.demand.map(p => `
-              <div class="csv-item">
-                <span class="csv-name">${esc(p.title)}</span>
-                ${p.unitsSold != null ? `<span class="csv-stat">${p.unitsSold} sold/wk</span>` : ''}
-              </div>`).join('')}
-          </div>` : ''}
-          ${s.momentum.length > 0 ? `
-          <div class="csv-card">
-            <div class="csv-lbl">Momentum (${s.momentum.length})</div>
-            ${s.momentum.map(p => `
-              <div class="csv-item">
-                <span class="csv-name">${esc(p.title)}</span>
-                ${p.unitGrowthPct != null ? `<span class="csv-stat" style="color:#16a34a">+${p.unitGrowthPct}%</span>` : ''}
-              </div>`).join('')}
-          </div>` : ''}
-        </div>`).join('')}
-    </div>` : ''}
-
-  </div><!-- /content -->
-
-  <div class="rfoot">
-    <span class="rfoot-brand">MYKO HUB</span>
-    <span class="rfoot-note">Auto-generated &middot; ${esc(dateLabel)} &middot; Data from Build &amp; Product Tracker</span>
-  </div>
-
-</div>
-</body>
-</html>`
+        </CardBody>
+      </Card>
+    </div>
+  )
 }
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function MonthlyReportPage() {
   const [month, setMonth] = useState(currentMonth())
   const [report, setReport] = useState<MonthlyReport | null>(null)
-  const [editOpen, setEditOpen] = useState(false)
-  const [narrativeText, setNarrativeText] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [allStoreCsvWinners, setAllStoreCsvWinners] = useState<StoreCsvWinners[]>([])
-  const [winningTitles, setWinningTitles] = useState<Set<string>>(new Set())
 
   async function load() {
-    const data = await api.get<MonthlyReport>(`/api/reports/monthly?month=${month}`)
+    const data = await api.get<MonthlyReport>('/api/reports/monthly?month=' + month)
     setReport(data)
-    setNarrativeText(data.narrative?.narrative_text ?? '')
   }
 
-  useRealtimeRefresh(['builds', 'mistakes', 'report_narratives'], load)
+  useRealtimeRefresh(['builds', 'proof_products'], load)
   useEffect(() => { load() }, [month])
 
-  useEffect(() => {
-    setAllStoreCsvWinners(loadAllStoresCsvWinners())
-    setWinningTitles(loadAllStoresWinningTitles())
-  }, [])
+  const s = report?.settings ?? null
 
-  function openEdit() {
-    setNarrativeText(report?.narrative?.narrative_text ?? '')
-    setEditOpen(true)
-  }
-
-  async function saveNarrative() {
-    setSaving(true)
-    try {
-      await api.put('/api/reports/narrative', {
-        type: 'monthly',
-        week_number: null,
-        month_year: `${month}-01`,
-        narrative_text: narrativeText,
-      })
-      setEditOpen(false)
-      load()
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  function handleExport() {
-    if (!report) return
-    const html = generateMonthlyHtml(month, report, allStoreCsvWinners, testingWinners)
-    const win = window.open('', '_blank')
-    if (!win) return
-    win.document.write(html)
-    win.document.close()
-  }
-
-  const categoryBreakdown = report
-    ? Object.entries(report.mistakesByCategory)
-        .sort((a, b) => b[1] - a[1])
-        .map(([cat, count]) => `${cat} (${count})`)
-        .join(', ') || '—'
-    : '—'
-
-  const rows: MetricRow[] = report ? [
-    { label: 'Builds completed (went live)',      value: report.totalCompleted,      description: 'Total builds that reached a final decision.' },
-    { label: '  · Jewelry (Shopify)',             value: report.jewelryCompleted,    description: 'Jewelry builds on Shopify.' },
-    { label: '  · Funnel (Funnelish)',            value: report.funnelCompleted,     description: 'Funnel builds on Funnelish.' },
-    { label: 'By week — W1/W2/W3/W4',            value: report.byWeek.join(' / '), description: 'Completed builds per week.' },
-    { label: 'Expanding (decided)',               value: report.winners,             description: 'Products approved for scale-up.' },
-    { label: 'Stopped',                           value: report.killed,              description: 'Products discontinued after testing.' },
-    { label: 'Win rate (decided)',                value: report.winRate,             description: 'Expanding ÷ all decided builds.' },
-    { label: 'Test → Winner (%)',                 value: report.testWinRate,         description: 'Of builds that entered testing, % that became expanding.' },
-    { label: 'Build cycle avg (days)',              value: report.avgBuildDays ?? '—',        description: 'Avg days from Phase 1 start to live.' },
-    { label: '  · Avg build — PDP (days)',          value: report.avgBuildDaysJewelry ?? '—', description: 'Avg build days for Shopify / jewelry (PDP) builds.' },
-    { label: '  · Avg build — Funnel (days)',       value: report.avgBuildDaysFunnel ?? '—',  description: 'Avg build days for funnel builds.' },
-    { label: 'Total pipeline avg (days)',           value: report.avgTotalDays ?? '—',        description: 'Avg days from approval to decision.' },
-    { label: 'Issues logged',                     value: report.mistakesTotal,       description: 'Quality issues in Issue Log.' },
-    { label: '  · Repeating',                    value: report.mistakesRepeating,   description: 'Issues appearing in more than one build.' },
-    { label: '  · By category',                  value: categoryBreakdown,          description: 'Breakdown by category.' },
-    { label: '  · SOP updated',                  value: report.sopUpdated,          description: 'Issues with SOP updates.' },
-  ] : []
-
-  const columns: ResponsiveColumn<MetricRow>[] = [
-    { key: 'metric', header: 'Metric', render: r => <span className="text-foreground">{r.label}</span> },
-    { key: 'value',  header: 'Value',  align: 'right', mono: true, render: r => <span className="font-medium text-foreground">{r.value}</span> },
-  ]
-
-  const narrative = report?.narrative?.narrative_text ?? ''
-  const hasCsv = allStoreCsvWinners.length > 0
-  const testingWinners = report && winningTitles.size > 0
-    ? report.testingList.filter(b => isWinnerMatch(b.product_name, winningTitles))
-    : []
+  // Monthly summary totals (derived from byWeek or top-level fields)
+  const newProductsCount = report?.newBuilds?.count ?? 0
+  const expandingCount = report?.expandingProducts?.count ?? 0
+  const inTestingCount = report?.inTesting?.count ?? 0
+  const wave1Count = report?.inExpanding?.wave1Count ?? 0
+  const wave2plusCount = report?.inExpanding?.wave2plusCount ?? 0
+  const winningCount = report?.winning?.count ?? 0
+  const winningPct = report?.winning?.pct ?? '—'
 
   return (
     <div>
       <PageHeader
         title="Monthly Report"
-        description="End-of-month summary for Abigél. Metrics auto-populated from trackers."
+        description="Auto-populated monthly aggregates from the jewelry tracker."
         actions={
-          <div className="flex items-center gap-2">
-            <Input type="month" value={month} onChange={e => setMonth(e.target.value)} className="w-auto" mono />
-            <Button variant="secondary" size="sm" onClick={handleExport} disabled={!report}>
-              <Download className="h-3.5 w-3.5 mr-1.5" />
-              Export
-            </Button>
-          </div>
+          <Input
+            type="month"
+            value={month}
+            onChange={e => setMonth(e.target.value)}
+            className="w-auto"
+            mono
+          />
         }
       />
 
-      {/* Metrics + narrative */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {!report ? (
-          <p className="text-sm text-text-muted font-mono py-8">Loading…</p>
-        ) : (
-          <ResponsiveTable columns={columns} data={rows} rowKey={r => r.label} />
-        )}
+      {!report ? (
+        <p className="text-sm text-text-muted font-mono py-8">Loading…</p>
+      ) : (
+        <>
+          {/* §1 — Summary cards */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+            <SummaryCard label="New Products Built" value={newProductsCount} />
+            <SummaryCard label="Expanding Products" value={expandingCount} />
+            <SummaryCard label="In Testing" value={inTestingCount} />
+            <SummaryCard
+              label="In Expanding"
+              value={wave1Count + wave2plusCount}
+              sub={`W1: ${wave1Count} · W2+: ${wave2plusCount}`}
+            />
+            <SummaryCard
+              label="Winning"
+              value={winningCount}
+              sub={winningPct}
+            />
+          </div>
 
-        <Card>
-          <CardBody>
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-medium uppercase tracking-widest text-text-muted">Monthly narrative</p>
-              <Button variant="ghost" size="sm" onClick={openEdit}>
-                {narrative ? 'Edit' : 'Add'}
-              </Button>
+          {/* §2 — Per-week summary table */}
+          <div className="mb-8">
+            <p className="text-xs font-semibold uppercase tracking-widest text-text-muted mb-3">Per-Week Breakdown</p>
+            <Card>
+              <CardBody className="overflow-x-auto p-0">
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableHeader>Metric</TableHeader>
+                      {[1, 2, 3, 4].map(w => (
+                        <TableHeader key={w} className="text-center">W{w}</TableHeader>
+                      ))}
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {(
+                      [
+                        {
+                          label: 'New Built',
+                          get: (w: WeekData) => w.newBuilds.count,
+                        },
+                        {
+                          label: 'Expanding',
+                          get: (w: WeekData) => w.expandingProducts.count,
+                        },
+                        {
+                          label: 'In Testing',
+                          get: (w: WeekData) => w.inTesting.count,
+                        },
+                        {
+                          label: 'In Expanding',
+                          get: (w: WeekData) => w.inExpanding.wave1Count + w.inExpanding.wave2plusCount,
+                        },
+                        {
+                          label: 'Winners',
+                          get: (w: WeekData) => w.winning.count,
+                        },
+                      ] as { label: string; get: (w: WeekData) => number }[]
+                    ).map(row => (
+                      <TableRow key={row.label}>
+                        <TableCell className="text-foreground font-medium">{row.label}</TableCell>
+                        {report.byWeek.map(w => (
+                          <TableCell key={w.week} mono className="text-center text-foreground">
+                            {row.get(w)}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardBody>
+            </Card>
+          </div>
+
+          {/* §3 — Metric averages */}
+          {s && (
+            <div className="mb-8">
+              <p className="text-xs font-semibold uppercase tracking-widest text-text-muted mb-3">Metric Averages</p>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <MetricAvgTable
+                  heading="New Products"
+                  targets={s}
+                  rows={[
+                    { label: 'Phase 1 (Build)', avg: report.newBuilds.avgPhase1Days, targetKey: 'build_target_days' },
+                    { label: 'Proof', avg: report.newBuilds.avgProofDays, targetKey: 'proof_target_days' },
+                    { label: 'Testing', avg: report.newBuilds.avgTestDays, targetKey: 'test_target_days' },
+                    { label: 'To Testing', avg: report.newBuilds.avgToTestingDays, targetKey: null },
+                    { label: 'Proof Turnaround', avg: report.newBuilds.avgProofreadTurnaround, targetKey: 'proofread_turnaround_target_days' },
+                    { label: 'Web Revision', avg: report.newBuilds.avgWebRevisionDays, targetKey: 'web_revision_target_days' },
+                    { label: 'Ads Revision', avg: report.newBuilds.avgAdsRevisionDays, targetKey: 'ads_revision_target_days' },
+                  ]}
+                />
+                <MetricAvgTable
+                  heading="Expanding Products"
+                  targets={s}
+                  rows={[
+                    { label: 'Proof', avg: report.expandingProducts.avgProofDays, targetKey: 'proof_target_days' },
+                    { label: 'Proof Turnaround', avg: report.expandingProducts.avgProofreadTurnaround, targetKey: 'proofread_turnaround_target_days' },
+                    { label: 'Web Revision', avg: report.expandingProducts.avgWebRevisionDays, targetKey: 'web_revision_target_days' },
+                    { label: 'Ads Revision', avg: report.expandingProducts.avgAdsRevisionDays, targetKey: 'ads_revision_target_days' },
+                  ]}
+                />
+              </div>
             </div>
-            {narrative ? (
-              <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap">{narrative}</p>
-            ) : (
-              <p className="text-sm text-text-muted italic">No narrative yet.</p>
-            )}
-          </CardBody>
-        </Card>
-      </div>
+          )}
 
-      {/* Phase cycle times */}
-      {report?.cycleAvgs && report.settings && (
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <Target className="h-4 w-4 text-accent" />
-            <h2 className="text-sm font-semibold text-foreground uppercase tracking-widest">Phase Cycle Times</h2>
-            <span className="text-xs text-text-muted normal-case tracking-normal font-normal">avg days per phase vs target</span>
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <PhaseAvgTable label="Jewelry — PDP" data={report.cycleAvgs.jewelry} targets={report.settings} />
-            <PhaseAvgTable label="Funnel" data={report.cycleAvgs.funnel} targets={report.settings} />
-          </div>
-        </div>
+          {/* §6 — Proofreading Queue */}
+          <ProofQueueSection report={report} />
+
+          {/* §7 — Payment Status */}
+          <PaymentStatusSection report={report} />
+
+          {/* §8 — Translation Times */}
+          {s && <TranslationSection report={report} targets={s} />}
+        </>
       )}
-
-      {/* Expanding products */}
-      {report && (
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <TrendingUp className="h-4 w-4 text-accent" />
-            <h2 className="text-sm font-semibold text-foreground uppercase tracking-widest">
-              Expanding Products
-              {report.expandingList.length > 0 && (
-                <span className="ml-2 text-xs font-normal text-text-muted normal-case tracking-normal">({report.expandingList.length})</span>
-              )}
-            </h2>
-          </div>
-          <Card>
-            <CardBody>
-              {report.expandingList.length === 0 ? (
-                <p className="text-sm text-text-muted italic">No products decided as expanding this month.</p>
-              ) : (
-                <div>
-                  {report.expandingList.map((b, i) => <BuildRow key={i} b={b} />)}
-                </div>
-              )}
-            </CardBody>
-          </Card>
-        </div>
-      )}
-
-      {/* Products in testing */}
-      {report && report.testingList.length > 0 && (
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <FlaskConical className="h-4 w-4 text-yellow-500" />
-            <h2 className="text-sm font-semibold text-foreground uppercase tracking-widest">
-              Still in Testing
-              <span className="ml-2 text-xs font-normal text-text-muted normal-case tracking-normal">({report.testingList.length})</span>
-            </h2>
-          </div>
-          <Card>
-            <CardBody>
-              <div>
-                {report.testingList.map((b, i) => <BuildRow key={i} b={b} />)}
-              </div>
-            </CardBody>
-          </Card>
-        </div>
-      )}
-
-      {/* Testing × Winning Products cross-reference */}
-      {testingWinners.length > 0 && (
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <Target className="h-4 w-4 text-accent" />
-            <h2 className="text-sm font-semibold text-foreground uppercase tracking-widest">
-              In Testing — Qualified & Momentum Match
-              <span className="ml-2 text-xs font-normal text-text-muted normal-case tracking-normal">({testingWinners.length})</span>
-            </h2>
-          </div>
-          <Card>
-            <CardBody>
-              <p className="text-xs text-text-muted mb-3 leading-relaxed">
-                Products currently in testing whose names match products shown in the Winning Products tab. These are the highest-priority testing builds to watch.
-              </p>
-              <div>
-                {testingWinners.map((b, i) => <BuildRow key={i} b={b} />)}
-              </div>
-            </CardBody>
-          </Card>
-        </div>
-      )}
-
-      {/* CSV winners — all stores */}
-      {hasCsv && (
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <Trophy className="h-4 w-4 text-yellow-400" />
-            <h2 className="text-sm font-semibold text-foreground uppercase tracking-widest">Winning Products from Analysis</h2>
-            <span className="text-xs text-text-muted">(from Winning Products CSV upload)</span>
-          </div>
-          <div className="space-y-6">
-            {allStoreCsvWinners.map(s => (
-              <div key={s.storeName}>
-                {allStoreCsvWinners.length > 1 && (
-                  <p className="text-xs font-semibold text-text-secondary uppercase tracking-widest mb-3">{s.storeName}</p>
-                )}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {s.demand.length > 0 && (
-                    <Card>
-                      <CardBody>
-                        <p className="text-xs font-medium uppercase tracking-widest text-text-muted mb-3">Qualified Demand ({s.demand.length})</p>
-                        <div className="space-y-1.5">
-                          {s.demand.map((p, i) => (
-                            <div key={i} className="flex items-center justify-between py-1 border-b border-border-subtle last:border-0">
-                              <span className="text-sm text-foreground font-medium">{p.title}</span>
-                              {p.unitsSold != null && (
-                                <span className="text-xs text-text-muted font-mono shrink-0 ml-2">{p.unitsSold} sold/wk</span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </CardBody>
-                    </Card>
-                  )}
-                  {s.momentum.length > 0 && (
-                    <Card>
-                      <CardBody>
-                        <p className="text-xs font-medium uppercase tracking-widest text-text-muted mb-3">Momentum ({s.momentum.length})</p>
-                        <div className="space-y-1.5">
-                          {s.momentum.map((p, i) => (
-                            <div key={i} className="flex items-center justify-between py-1 border-b border-border-subtle last:border-0">
-                              <span className="text-sm text-foreground font-medium">{p.title}</span>
-                              {p.unitGrowthPct != null && (
-                                <span className="text-xs text-accent font-mono shrink-0 ml-2">+{p.unitGrowthPct}%</span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </CardBody>
-                    </Card>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <Modal
-        open={editOpen}
-        onClose={() => setEditOpen(false)}
-        title="Monthly narrative"
-        description="End-of-month summary for Abigél."
-        size="lg"
-        footer={
-          <>
-            <Button variant="ghost" size="sm" onClick={() => setEditOpen(false)} disabled={saving}>Cancel</Button>
-            <Button size="sm" onClick={saveNarrative} disabled={saving}>
-              {saving ? 'Saving…' : 'Save narrative'}
-            </Button>
-          </>
-        }
-      >
-        <textarea
-          rows={10}
-          value={narrativeText}
-          onChange={e => setNarrativeText(e.target.value)}
-          autoFocus
-          className="w-full rounded-md border border-border bg-surface-elevated px-3 py-2 text-sm text-foreground placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/40 resize-none"
-          placeholder="End-of-month summary for Abigél…"
-        />
-      </Modal>
     </div>
   )
 }
