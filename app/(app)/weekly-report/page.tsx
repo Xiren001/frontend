@@ -249,20 +249,15 @@ function WeekPanel({ week, targets }: { week: WeekData; targets: ReportTargets }
 // ─── §6 Proof Queue ───────────────────────────────────────────────────────────
 
 function ProofQueueCard({ report }: { report: WeeklyReport }) {
-  const { tracker, direct } = report.proofQueue
+  const { wave1, wave2plus, done } = report.proofQueue
   return (
     <Card>
       <CardBody>
         <p className="text-xs font-semibold uppercase tracking-widest text-text-muted mb-4">Proofreading Queue</p>
-        <p className="text-xs font-medium text-text-muted mb-2">From Jewelry Tracker</p>
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          <StatPill label="In Progress" value={tracker.inProgress} />
-          <StatPill label="Done" value={tracker.done} />
-        </div>
-        <p className="text-xs font-medium text-text-muted mb-2">Directly Added</p>
-        <div className="grid grid-cols-2 gap-3">
-          <StatPill label="In Progress" value={direct.inProgress} />
-          <StatPill label="Done" value={direct.done} />
+        <div className="grid grid-cols-3 gap-3">
+          <StatPill label="Wave 1" value={wave1} />
+          <StatPill label="Wave 2–7" value={wave2plus} />
+          <StatPill label="Done" value={done} />
         </div>
       </CardBody>
     </Card>

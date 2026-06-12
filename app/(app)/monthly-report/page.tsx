@@ -89,19 +89,14 @@ function MetricAvgTable({
 // ─── Proof queue section ──────────────────────────────────────────────────────
 
 function ProofQueueSection({ report }: { report: MonthlyReport }) {
-  const { tracker, direct } = report.proofQueue
+  const { wave1, wave2plus, done } = report.proofQueue
   return (
     <div className="mb-8">
       <p className="text-xs font-semibold uppercase tracking-widest text-text-muted mb-3">Proofreading Queue</p>
-      <p className="text-xs font-medium text-text-muted mb-2">From Jewelry Tracker</p>
-      <div className="grid grid-cols-2 gap-4 mb-4">
-        <SummaryCard label="In Progress" value={tracker.inProgress} />
-        <SummaryCard label="Done" value={tracker.done} />
-      </div>
-      <p className="text-xs font-medium text-text-muted mb-2">Directly Added</p>
-      <div className="grid grid-cols-2 gap-4">
-        <SummaryCard label="In Progress" value={direct.inProgress} />
-        <SummaryCard label="Done" value={direct.done} />
+      <div className="grid grid-cols-3 gap-4">
+        <SummaryCard label="Wave 1" value={wave1} />
+        <SummaryCard label="Wave 2–7" value={wave2plus} />
+        <SummaryCard label="Done" value={done} />
       </div>
     </div>
   )
