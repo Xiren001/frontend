@@ -234,6 +234,19 @@ function WinningCard({ week }: { week: WeekData }) {
   )
 }
 
+// ─── Stopped ─────────────────────────────────────────────────────────────────
+
+function StoppedCard({ week }: { week: WeekData }) {
+  return (
+    <Card className="h-full">
+      <CardBody>
+        <p className="text-xs font-semibold uppercase tracking-widest text-text-muted mb-3">Stopped</p>
+        <p className="text-4xl font-bold font-mono text-foreground">{week.stoppedCount}</p>
+      </CardBody>
+    </Card>
+  )
+}
+
 // ─── Week panel ───────────────────────────────────────────────────────────────
 
 function WeekPanel({ week, targets }: { week: WeekData; targets: ReportTargets }) {
@@ -244,11 +257,12 @@ function WeekPanel({ week, targets }: { week: WeekData; targets: ReportTargets }
         <NewBuildsCard week={week} targets={targets} />
         <ExpandingProductsCard week={week} targets={targets} />
       </div>
-      {/* §3 + §4 + §5 */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* §3 + §4 + §5 + stopped */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <InTestingCard week={week} />
         <InExpandingCard week={week} />
         <WinningCard week={week} />
+        <StoppedCard week={week} />
       </div>
       {/* §8 Translation */}
       <TranslationCard week={week} targets={targets} />

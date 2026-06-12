@@ -180,6 +180,7 @@ export interface WeekData {
   inTesting: { count: number; products: BuildSummaryShort[] }
   inExpanding: InExpanding
   winning: WinningStats
+  stoppedCount: number
   translation: TranslationData
 }
 
@@ -216,6 +217,7 @@ export interface MonthlyReport {
   inTesting: { count: number }
   inExpanding: { wave1Count: number; wave2plusCount: number }
   winning: WinningStats
+  stoppedCount: number
   paymentStatus: PaymentStatus
   translation: TranslationData
   byWeek: WeekData[]

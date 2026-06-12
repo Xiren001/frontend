@@ -275,6 +275,10 @@ export default function MonthlyReportPage() {
                           label: 'Winners',
                           get: (w: WeekData) => w.winning.count,
                         },
+                        {
+                          label: 'Stopped',
+                          get: (w: WeekData) => w.stoppedCount,
+                        },
                       ] as { label: string; get: (w: WeekData) => number }[]
                     ).map(row => (
                       <TableRow key={row.label}>
