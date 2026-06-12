@@ -3,11 +3,21 @@ import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import { useRealtimeRefresh } from '@/lib/use-realtime-refresh'
 import { currentMonth } from '@/lib/utils'
-import type { MonthlyReport, WeekData, ReportTargets } from '@/lib/types'
+import type { MonthlyReport, WeekData, ReportTargets, ProofQueue } from '@/lib/types'
 import { PageHeader } from '@/components/ui/page-header'
 import { Input } from '@/components/ui/input'
 import { Card, CardBody } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+
+const TRACKER_LANGS = new Set(['ES', 'DE'])
+
+function computeQueueStats(products: { language: string | null; done: boolean | null }[]): ProofQueue {
+  return {
+    wave1:    products.filter(p =>  TRACKER_LANGS.has((p.language || '').toUpperCase()) && !p.done).length,
+    wave2plus: products.filter(p => !TRACKER_LANGS.has((p.language || '').toUpperCase()) && !p.done).length,
+    done:     products.filter(p => !!p.done).length,
+  }
+}
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -88,15 +98,14 @@ function MetricAvgTable({
 
 // ─── Proof queue section ──────────────────────────────────────────────────────
 
-function ProofQueueSection({ report }: { report: MonthlyReport }) {
-  const { wave1, wave2plus, done } = report.proofQueue
+function ProofQueueSection({ queue }: { queue: ProofQueue | null }) {
   return (
     <div className="mb-8">
       <p className="text-xs font-semibold uppercase tracking-widest text-text-muted mb-3">Proofreading Queue</p>
       <div className="grid grid-cols-3 gap-4">
-        <SummaryCard label="Wave 1" value={wave1} />
-        <SummaryCard label="Wave 2–7" value={wave2plus} />
-        <SummaryCard label="Done" value={done} />
+        <SummaryCard label="Wave 1" value={queue?.wave1 ?? 0} />
+        <SummaryCard label="Wave 2–7" value={queue?.wave2plus ?? 0} />
+        <SummaryCard label="Done" value={queue?.done ?? 0} />
       </div>
     </div>
   )
@@ -164,14 +173,22 @@ function TranslationSection({ report, targets }: { report: MonthlyReport; target
 export default function MonthlyReportPage() {
   const [month, setMonth] = useState(currentMonth())
   const [report, setReport] = useState<MonthlyReport | null>(null)
+  const [queue, setQueue] = useState<ProofQueue | null>(null)
 
   async function load() {
     const data = await api.get<MonthlyReport>('/api/reports/monthly?month=' + month)
     setReport(data)
   }
 
+  async function loadQueue() {
+    const products = await api.get<{ language: string | null; done: boolean | null }[]>('/api/proof-corrections/products')
+    setQueue(computeQueueStats(products))
+  }
+
   useRealtimeRefresh(['builds', 'proof_products'], load)
-  useEffect(() => { load() }, [month])
+  useRealtimeRefresh('proof_products', loadQueue)
+  useEffect(() => { load() }, [month]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadQueue() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const s = report?.settings ?? null
 
@@ -308,7 +325,7 @@ export default function MonthlyReportPage() {
           )}
 
           {/* §6 — Proofreading Queue */}
-          <ProofQueueSection report={report} />
+          <ProofQueueSection queue={queue} />
 
           {/* §7 — Payment Status */}
           <PaymentStatusSection report={report} />

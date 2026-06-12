@@ -206,7 +206,6 @@ export interface TranslationData {
 
 export interface WeeklyReport {
   weeks: WeekData[]
-  proofQueue: ProofQueue
   paymentStatus: PaymentStatus
   settings: ReportTargets | null
 }
@@ -217,7 +216,6 @@ export interface MonthlyReport {
   inTesting: { count: number }
   inExpanding: { wave1Count: number; wave2plusCount: number }
   winning: WinningStats
-  proofQueue: ProofQueue
   paymentStatus: PaymentStatus
   translation: TranslationData
   byWeek: WeekData[]

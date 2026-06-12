@@ -3,7 +3,17 @@ import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import { useRealtimeRefresh } from '@/lib/use-realtime-refresh'
 import { currentMonth, cn } from '@/lib/utils'
-import type { WeeklyReport, WeekData, ReportTargets } from '@/lib/types'
+import type { WeeklyReport, WeekData, ReportTargets, ProofQueue } from '@/lib/types'
+
+const TRACKER_LANGS = new Set(['ES', 'DE'])
+
+function computeQueueStats(products: { language: string | null; done: boolean | null }[]): ProofQueue {
+  return {
+    wave1:    products.filter(p =>  TRACKER_LANGS.has((p.language || '').toUpperCase()) && !p.done).length,
+    wave2plus: products.filter(p => !TRACKER_LANGS.has((p.language || '').toUpperCase()) && !p.done).length,
+    done:     products.filter(p => !!p.done).length,
+  }
+}
 import { PageHeader } from '@/components/ui/page-header'
 import { Input } from '@/components/ui/input'
 import { Card, CardBody } from '@/components/ui/card'
@@ -248,16 +258,15 @@ function WeekPanel({ week, targets }: { week: WeekData; targets: ReportTargets }
 
 // ─── §6 Proof Queue ───────────────────────────────────────────────────────────
 
-function ProofQueueCard({ report }: { report: WeeklyReport }) {
-  const { wave1, wave2plus, done } = report.proofQueue
+function ProofQueueCard({ queue }: { queue: ProofQueue | null }) {
   return (
     <Card>
       <CardBody>
         <p className="text-xs font-semibold uppercase tracking-widest text-text-muted mb-4">Proofreading Queue</p>
         <div className="grid grid-cols-3 gap-3">
-          <StatPill label="Wave 1" value={wave1} />
-          <StatPill label="Wave 2–7" value={wave2plus} />
-          <StatPill label="Done" value={done} />
+          <StatPill label="Wave 1" value={queue?.wave1 ?? 0} />
+          <StatPill label="Wave 2–7" value={queue?.wave2plus ?? 0} />
+          <StatPill label="Done" value={queue?.done ?? 0} />
         </div>
       </CardBody>
     </Card>
@@ -304,6 +313,7 @@ function TranslationCard({ week, targets }: { week: WeekData; targets: ReportTar
 export default function WeeklyReportPage() {
   const [month, setMonth] = useState(currentMonth())
   const [report, setReport] = useState<WeeklyReport | null>(null)
+  const [queue, setQueue] = useState<ProofQueue | null>(null)
   const [activeWeek, setActiveWeek] = useState(1)
 
   async function load() {
@@ -311,8 +321,15 @@ export default function WeeklyReportPage() {
     setReport(data)
   }
 
+  async function loadQueue() {
+    const products = await api.get<{ language: string | null; done: boolean | null }[]>('/api/proof-corrections/products')
+    setQueue(computeQueueStats(products))
+  }
+
   useRealtimeRefresh(['builds', 'proof_products'], load)
+  useRealtimeRefresh('proof_products', loadQueue)
   useEffect(() => { load() }, [month]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadQueue() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const s = report?.settings ?? null
   const weeks = report?.weeks ?? []
@@ -366,7 +383,7 @@ export default function WeeklyReportPage() {
 
           {/* Global sections §6–§7 */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <ProofQueueCard report={report} />
+            <ProofQueueCard queue={queue} />
             <PaymentStatusCard report={report} />
           </div>
         </>
