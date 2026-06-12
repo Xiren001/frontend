@@ -285,7 +285,7 @@ export default function MonthlyReportPage() {
                     { label: 'Phase 1 (Build)', avg: report.newBuilds.avgPhase1Days, targetKey: 'build_target_days' },
                     { label: 'Proof', avg: report.newBuilds.avgProofDays, targetKey: 'proof_target_days' },
                     { label: 'Testing', avg: report.newBuilds.avgTestDays, targetKey: 'test_target_days' },
-                    { label: 'To Testing', avg: report.newBuilds.avgToTestingDays, targetKey: null },
+                    { label: 'Total', avg: report.newBuilds.avgTotalDays, targetKey: 'total_target_days' },
                     { label: 'Proof Turnaround', avg: report.newBuilds.avgProofreadTurnaround, targetKey: 'proofread_turnaround_target_days' },
                     { label: 'Web Revision', avg: report.newBuilds.avgWebRevisionDays, targetKey: 'web_revision_target_days' },
                     { label: 'Ads Revision', avg: report.newBuilds.avgAdsRevisionDays, targetKey: 'ads_revision_target_days' },

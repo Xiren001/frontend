@@ -106,7 +106,7 @@ function NewBuildsCard({ week, targets }: { week: WeekData; targets: ReportTarge
     { label: 'Phase 1', avg: nb.avgPhase1Days, targetKey: 'build_target_days' },
     { label: 'Proof', avg: nb.avgProofDays, targetKey: 'proof_target_days' },
     { label: 'Testing', avg: nb.avgTestDays, targetKey: 'test_target_days' },
-    { label: 'To Testing', avg: nb.avgToTestingDays, targetKey: 'total_target_days' },
+    { label: 'Total', avg: nb.avgTotalDays, targetKey: 'total_target_days' },
   ]
   const detailRows: MetricRow[] = [
     { label: 'Proofreader Turnaround', avg: nb.avgProofreadTurnaround, targetKey: 'proofread_turnaround_target_days' },

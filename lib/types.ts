@@ -153,7 +153,7 @@ export interface WeekMetrics {
   avgPhase1Days?: number | null
   avgProofDays: number | null
   avgTestDays?: number | null
-  avgToTestingDays?: number | null
+  avgTotalDays?: number | null
   avgProofreadTurnaround: number | null
   avgWebRevisionDays: number | null
   avgAdsRevisionDays: number | null
