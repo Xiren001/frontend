@@ -28,7 +28,16 @@ interface ProofQueueItem {
   proof_days: number | null
   outcome: string | null
   done: boolean
+  created_at: string | null
   source: 'build' | 'proof_product'
+}
+
+function derivedWeek(item: ProofQueueItem): number | null {
+  if (item.week_number != null) return item.week_number
+  const dateStr = item.created_at ?? item.into_proofread
+  if (!dateStr) return null
+  const day = new Date(dateStr).getDate()
+  return Math.min(4, Math.ceil(day / 7))
 }
 
 type ViewMode = 'active' | 'done'
@@ -117,11 +126,11 @@ export default function ProofreadQueuePage() {
 
   // ── Filters ────────────────────────────────────────────────────────────
   const directItems = baseItems.filter(b => b.source === 'proof_product')
-  const directWeekNums = Array.from(new Set(directItems.map(b => b.week_number).filter((n): n is number => n != null))).sort((a, b) => a - b)
+  const directWeekNums = Array.from(new Set(directItems.map(b => derivedWeek(b)).filter((n): n is number => n != null))).sort((a, b) => a - b)
 
   const weekFiltered: ProofQueueItem[] =
     weekTab === 'all'        ? baseItems :
-    weekTab === 'direct'     ? (directWeek === 'all' ? directItems : directItems.filter(b => b.week_number === directWeek)) :
+    weekTab === 'direct'     ? (directWeek === 'all' ? directItems : directItems.filter(b => derivedWeek(b) === directWeek)) :
     weekTab === 'duplicates' ? (viewMode === 'active' ? duplicateItems : baseItems) :
     baseItems.filter(b => b.week_number === (weekTab as number))
 
