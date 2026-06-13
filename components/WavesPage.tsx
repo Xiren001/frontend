@@ -201,6 +201,7 @@ export function WavesPage() {
   const [waves, setWaves] = useState<MondayWave[]>([])
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
+  const [syncError, setSyncError] = useState<string | null>(null)
   const [lastSynced, setLastSynced] = useState<Date | null>(null)
   const [activeWave, setActiveWave] = useState<string | null>(null)
   const activeWaveRef = useRef<string | null>(null)
@@ -213,21 +214,23 @@ export function WavesPage() {
         activeWaveRef.current = data[0].id
         setActiveWave(data[0].id)
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load waves:', err)
     } finally {
       setLoading(false)
     }
   }, [])
 
-  const syncFromMonday = useCallback(async () => {
+  const syncFromMonday = useCallback(async (boardId?: string) => {
+    if (!boardId) return
     setSyncing(true)
+    setSyncError(null)
     try {
-      await api.post('/api/monday/import', {})
+      await api.post(`/api/monday/sync/${boardId}`, {})
       await load()
       setLastSynced(new Date())
-    } catch (err) {
-      console.error('Sync failed:', err)
+    } catch (err: any) {
+      setSyncError(err.message ?? 'Sync failed')
     } finally {
       setSyncing(false)
     }
@@ -236,13 +239,17 @@ export function WavesPage() {
   // Initial load
   useEffect(() => { load() }, [load])
 
-  // Auto-sync every 5 minutes
+  // Auto-sync active wave every 5 minutes
+  const currentBoardRef = useRef<string | null>(null)
   useEffect(() => {
-    const timer = setInterval(syncFromMonday, SYNC_INTERVAL_MS)
+    const timer = setInterval(() => {
+      if (currentBoardRef.current) syncFromMonday(currentBoardRef.current)
+    }, SYNC_INTERVAL_MS)
     return () => clearInterval(timer)
   }, [syncFromMonday])
 
   const current = waves.find(w => w.id === activeWave)
+  currentBoardRef.current = current?.board_id ?? null
 
   if (loading) {
     return (
@@ -294,9 +301,14 @@ export function WavesPage() {
               Synced {lastSynced.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
           )}
+          {syncError && (
+            <span className="text-xs text-red-500 hidden sm:block max-w-48 truncate" title={syncError}>
+              {syncError}
+            </span>
+          )}
           <button
-            onClick={syncFromMonday}
-            disabled={syncing}
+            onClick={() => syncFromMonday(current?.board_id ?? undefined)}
+            disabled={syncing || !current?.board_id}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-accent text-white hover:bg-accent/90 disabled:opacity-50 transition-colors"
           >
             <RefreshCw size={12} className={syncing ? 'animate-spin' : ''} />
