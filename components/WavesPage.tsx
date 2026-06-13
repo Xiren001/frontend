@@ -1,6 +1,7 @@
 'use client'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { api } from '@/lib/api'
+import { createClient } from '@/lib/supabase'
 import type { MondayWave, MondayItem, MondaySubitem } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { ChevronDown, ChevronRight, ExternalLink } from 'lucide-react'
@@ -194,52 +195,37 @@ function WaveContent({ wave }: { wave: MondayWave }) {
 
 // ── Main page ───────────────────────────────────────────────────────────────
 
-const SYNC_INTERVAL_MS = 5 * 60 * 1000 // auto-sync every 5 minutes
-
 export function WavesPage() {
   const [waves, setWaves] = useState<MondayWave[]>([])
   const [loading, setLoading] = useState(true)
   const [activeWave, setActiveWave] = useState<string | null>(null)
-  const activeWaveRef = useRef<string | null>(null)
-  const currentBoardRef = useRef<string | null>(null)
 
   const load = useCallback(async () => {
     try {
       const data = await api.get<MondayWave[]>('/api/monday/waves')
       setWaves(data)
-      if (!activeWaveRef.current && data.length) {
-        activeWaveRef.current = data[0].id
-        setActiveWave(data[0].id)
-      }
-    } catch (err: any) {
+      if (!activeWave && data.length) setActiveWave(data[0].id)
+    } catch (err) {
       console.error('Failed to load waves:', err)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [activeWave])
 
-  const syncCurrent = useCallback(async () => {
-    const boardId = currentBoardRef.current
-    if (!boardId) return
-    try {
-      await api.post(`/api/monday/sync/${boardId}`, {})
-      await load()
-    } catch (err) {
-      console.error('Auto-sync failed:', err)
-    }
+  useEffect(() => { load() }, [])
+
+  // Realtime: re-fetch on any monday_items or monday_subitems change
+  useEffect(() => {
+    const supabase = createClient()
+    const channel = supabase
+      .channel('monday-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'monday_items' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'monday_subitems' }, load)
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
   }, [load])
 
-  // Initial load
-  useEffect(() => { load() }, [load])
-
-  // Auto-sync active wave every 5 minutes
-  useEffect(() => {
-    const timer = setInterval(syncCurrent, SYNC_INTERVAL_MS)
-    return () => clearInterval(timer)
-  }, [syncCurrent])
-
   const current = waves.find(w => w.id === activeWave)
-  currentBoardRef.current = current?.board_id ?? null
 
 
   if (loading) {
