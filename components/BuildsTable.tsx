@@ -2,7 +2,6 @@
 import { useState, useEffect, useRef, CSSProperties } from 'react'
 import { api } from '@/lib/api'
 import { BuildFormModal } from './BuildFormModal'
-import { BuildNoteModal } from './BuildNoteModal'
 import { cn, formatDate } from '@/lib/utils'
 import type { Build, BuildOutcome, BuildType, Settings } from '@/lib/types'
 import Link from 'next/link'
@@ -144,7 +143,6 @@ interface CardProps {
   isProofreader: boolean
   advancing: string | null
   phaseSequence: (keyof Build)[]
-  onOpenNotes: (b: Build) => void
   onOpenEdit: (b: Build) => void
   onDelete: (id: string) => void
   onPhaseSet: (id: string, field: keyof Build) => void
@@ -152,7 +150,7 @@ interface CardProps {
   batchName?: string
 }
 
-function BuildCard({ b, isAdmin, isProofreader, advancing, phaseSequence, onOpenNotes, onOpenEdit, onDelete, onPhaseSet, onOutcomeChange, batchName }: CardProps) {
+function BuildCard({ b, isAdmin, isProofreader, advancing, phaseSequence, onOpenEdit, onDelete, onPhaseSet, onOutcomeChange, batchName }: CardProps) {
   const nextKey = getNextPhaseKey(b, phaseSequence)
   const nextInfo = nextKey ? PHASE_KEY_INFO[String(nextKey)] : null
 
@@ -166,8 +164,7 @@ function BuildCard({ b, isAdmin, isProofreader, advancing, phaseSequence, onOpen
 
   return (
     <div
-      className="bg-surface-elevated border border-border-subtle rounded-xl p-4 cursor-pointer hover:bg-surface-hover transition-colors active:scale-[0.995]"
-      onClick={() => onOpenNotes(b)}
+      className="bg-surface-elevated border border-border-subtle rounded-xl p-4"
     >
       {/* ── Name + admin actions ── */}
       <div className="flex items-start justify-between gap-2 mb-3">
@@ -362,7 +359,6 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchM
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create')
   const [editBuild, setEditBuild] = useState<Build | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
-  const [notesBuild, setNotesBuild] = useState<Build | null>(null)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [advancing, setAdvancing] = useState<string | null>(null)
@@ -884,7 +880,6 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchM
               isProofreader={isProofreader}
               advancing={advancing}
               phaseSequence={phaseSequence}
-              onOpenNotes={setNotesBuild}
               onOpenEdit={openEdit}
               onDelete={setDeleteId}
               onPhaseSet={handlePhaseSet}
@@ -958,8 +953,7 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchM
                   {filteredBuilds.map(b => (
                     <TableRow
                       key={b.id}
-                      className={cn('cursor-pointer', selectedIds.has(b.id) && 'bg-accent-muted/30')}
-                      onClick={() => setNotesBuild(b)}
+                      className={cn(selectedIds.has(b.id) && 'bg-accent-muted/30')}
                     >
                       {isAdmin && (
                         <TableCell className="pr-0 w-8" onClick={e => e.stopPropagation()}>
@@ -1179,13 +1173,6 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchM
         </>
 
       {/* ── Modals ── */}
-      <BuildNoteModal
-        build={notesBuild}
-        onClose={() => setNotesBuild(null)}
-        onSaved={onRefresh}
-        isAdmin={isAdmin}
-      />
-
       <BuildFormModal
         open={formOpen}
         onClose={() => setFormOpen(false)}
