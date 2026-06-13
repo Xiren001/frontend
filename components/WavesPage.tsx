@@ -1,10 +1,9 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { api } from '@/lib/api'
-import { createClient } from '@/lib/supabase'
 import type { MondayWave, MondayItem, MondaySubitem } from '@/lib/types'
 import { cn } from '@/lib/utils'
-import { ChevronDown, ChevronRight, ExternalLink, RefreshCw } from 'lucide-react'
+import { ChevronDown, ChevronRight, ExternalLink } from 'lucide-react'
 
 // ── Status badge ────────────────────────────────────────────────────────────
 
@@ -200,11 +199,9 @@ const SYNC_INTERVAL_MS = 5 * 60 * 1000 // auto-sync every 5 minutes
 export function WavesPage() {
   const [waves, setWaves] = useState<MondayWave[]>([])
   const [loading, setLoading] = useState(true)
-  const [syncing, setSyncing] = useState(false)
-  const [syncError, setSyncError] = useState<string | null>(null)
-  const [lastSynced, setLastSynced] = useState<Date | null>(null)
   const [activeWave, setActiveWave] = useState<string | null>(null)
   const activeWaveRef = useRef<string | null>(null)
+  const currentBoardRef = useRef<string | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -221,18 +218,14 @@ export function WavesPage() {
     }
   }, [])
 
-  const syncFromMonday = useCallback(async (boardId?: string) => {
+  const syncCurrent = useCallback(async () => {
+    const boardId = currentBoardRef.current
     if (!boardId) return
-    setSyncing(true)
-    setSyncError(null)
     try {
       await api.post(`/api/monday/sync/${boardId}`, {})
       await load()
-      setLastSynced(new Date())
-    } catch (err: any) {
-      setSyncError(err.message ?? 'Sync failed')
-    } finally {
-      setSyncing(false)
+    } catch (err) {
+      console.error('Auto-sync failed:', err)
     }
   }, [load])
 
@@ -240,16 +233,14 @@ export function WavesPage() {
   useEffect(() => { load() }, [load])
 
   // Auto-sync active wave every 5 minutes
-  const currentBoardRef = useRef<string | null>(null)
   useEffect(() => {
-    const timer = setInterval(() => {
-      if (currentBoardRef.current) syncFromMonday(currentBoardRef.current)
-    }, SYNC_INTERVAL_MS)
+    const timer = setInterval(syncCurrent, SYNC_INTERVAL_MS)
     return () => clearInterval(timer)
-  }, [syncFromMonday])
+  }, [syncCurrent])
 
   const current = waves.find(w => w.id === activeWave)
   currentBoardRef.current = current?.board_id ?? null
+
 
   if (loading) {
     return (
@@ -270,15 +261,15 @@ export function WavesPage() {
 
   return (
     <div className="flex flex-col gap-0 h-full">
-      {/* Wave tabs + sync button */}
-      <div className="border-b border-border-subtle bg-surface-elevated px-4 flex items-center justify-between gap-4">
-        <div className="flex gap-0 overflow-x-auto min-w-0">
+      {/* Wave tabs */}
+      <div className="border-b border-border-subtle bg-surface-elevated px-4 overflow-x-auto">
+        <div className="flex gap-0 min-w-max">
           {waves.map(w => (
             <button
               key={w.id}
               onClick={() => setActiveWave(w.id)}
               className={cn(
-                'px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex-shrink-0',
+                'px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap',
                 activeWave === w.id
                   ? 'border-accent text-accent'
                   : 'border-transparent text-text-muted hover:text-foreground hover:border-border-subtle'
@@ -293,27 +284,6 @@ export function WavesPage() {
               </span>
             </button>
           ))}
-        </div>
-
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {lastSynced && (
-            <span className="text-xs text-text-muted hidden sm:block">
-              Synced {lastSynced.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </span>
-          )}
-          {syncError && (
-            <span className="text-xs text-red-500 hidden sm:block max-w-48 truncate" title={syncError}>
-              {syncError}
-            </span>
-          )}
-          <button
-            onClick={() => syncFromMonday(current?.board_id ?? undefined)}
-            disabled={syncing || !current?.board_id}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-accent text-white hover:bg-accent/90 disabled:opacity-50 transition-colors"
-          >
-            <RefreshCw size={12} className={syncing ? 'animate-spin' : ''} />
-            {syncing ? 'Syncing…' : 'Sync'}
-          </button>
         </div>
       </div>
 
