@@ -23,6 +23,7 @@ import {
   X,
   ClipboardList,
   Wallet,
+  Waves,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase'
@@ -31,6 +32,7 @@ import { useState, useEffect } from 'react'
 
 const NAV = [
   { href: '/dashboard',       label: 'Dashboard',        icon: LayoutDashboard },
+  { href: '/waves',           label: 'Waves',             icon: Waves },
   { href: '/jewelry-tracker', label: 'Jewelry Tracker',  icon: Gem },
   { href: '/funnel-tracker',  label: 'Funnel Tracker',   icon: Filter },
   { href: '/proofread-queue', label: 'Proofread Queue',  icon: ListChecks },
@@ -75,8 +77,11 @@ export function NavSidebar() {
 
   const visibleNav = NAV.filter(item => {
     if (role === 'admin') return true
-    if (role === 'proofreader' || role === 'ads') {
+    if (role === 'proofreader') {
       return item.href === '/proofread-queue' || item.href === '/copy-review'
+    }
+    if (role === 'ads') {
+      return item.href === '/waves' || item.href === '/proofread-queue' || item.href === '/copy-review'
     }
     if (role === 'management') {
       const blocked = ['/settings', '/team-tasks', '/monthly-planner', '/winning-products', '/product-ranking']

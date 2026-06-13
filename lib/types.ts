@@ -56,6 +56,54 @@ export interface QAItem {
   notes: string | null
 }
 
+export interface MondaySubitem {
+  id: string
+  item_id: string
+  monday_subitem_id: string | null
+  name: string
+  ad_status: string | null
+  website_status: string | null
+  concluded: boolean
+  listed_for_proofread: boolean
+  product_name: string | null
+  shopify_pdp_link: string | null
+  page_link: string | null
+  drive_link: string | null
+  meta: boolean
+  tiktok: boolean
+  youtube: boolean
+  pinterest: boolean
+  google_shopping: boolean
+  google_search: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface MondayItem {
+  id: string
+  wave_id: string
+  monday_item_id: string | null
+  name: string
+  group_name: string | null
+  creatives_status: string | null
+  landing_page_status: string | null
+  drive_link: string | null
+  found_by: string | null
+  monday_subitems: MondaySubitem[]
+  created_at: string
+  updated_at: string
+}
+
+export interface MondayWave {
+  id: string
+  wave_number: number
+  board_id: string | null
+  name: string
+  description: string | null
+  monday_items: MondayItem[]
+  created_at: string
+}
+
 export interface Settings {
   id: number
   build_target_days: number
