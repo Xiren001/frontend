@@ -202,7 +202,7 @@ export function WavesPage() {
 
   const load = useCallback(async () => {
     try {
-      const data = await api.get<MondayWave[]>('/monday/waves')
+      const data = await api.get<MondayWave[]>('/api/monday/waves')
       setWaves(data)
       if (!activeWave && data.length) setActiveWave(data[0].id)
     } catch (err) {
