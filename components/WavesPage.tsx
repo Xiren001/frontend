@@ -2,7 +2,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { api } from '@/lib/api'
 import { createClient } from '@/lib/supabase'
-import { useRole } from '@/lib/role-context'
 import type { MondayWave, MondayItem, MondaySubitem } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { ChevronDown, ChevronRight, ExternalLink } from 'lucide-react'
@@ -200,9 +199,6 @@ export function WavesPage() {
   const [waves, setWaves] = useState<MondayWave[]>([])
   const [loading, setLoading] = useState(true)
   const [activeWave, setActiveWave] = useState<string | null>(null)
-  const [syncing, setSyncing] = useState(false)
-  const { role } = useRole()
-
   const load = useCallback(async () => {
     try {
       const data = await api.get<MondayWave[]>('/api/monday/waves')
@@ -228,19 +224,6 @@ export function WavesPage() {
     return () => { supabase.removeChannel(channel) }
   }, [load])
 
-  async function syncCurrentWave() {
-    if (!current?.board_id) return
-    setSyncing(true)
-    try {
-      await api.post(`/api/monday/sync/${current.board_id}`, {})
-      await load()
-    } catch (err: any) {
-      alert('Sync failed: ' + err.message)
-    } finally {
-      setSyncing(false)
-    }
-  }
-
   const current = waves.find(w => w.id === activeWave)
 
 
@@ -265,7 +248,6 @@ export function WavesPage() {
     <div className="flex flex-col gap-0 h-full">
       {/* Wave tabs */}
       <div className="border-b border-border-subtle bg-surface-elevated px-4 overflow-x-auto">
-        <div className="flex items-center justify-between gap-4">
         <div className="flex gap-0 min-w-max">
           {waves.map(w => (
             <button
@@ -287,16 +269,6 @@ export function WavesPage() {
               </span>
             </button>
           ))}
-        </div>
-        {role === 'admin' && current?.board_id && (
-          <button
-            onClick={syncCurrentWave}
-            disabled={syncing}
-            className="shrink-0 text-xs text-text-muted hover:text-foreground border border-border-subtle rounded px-2 py-1 disabled:opacity-50"
-          >
-            {syncing ? 'Syncing…' : 'Sync wave'}
-          </button>
-        )}
         </div>
       </div>
 
