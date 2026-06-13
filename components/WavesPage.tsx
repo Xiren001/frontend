@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { api } from '@/lib/api'
 import { createClient } from '@/lib/supabase'
+import { useRole } from '@/lib/role-context'
 import type { MondayWave, MondayItem, MondaySubitem } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { ChevronDown, ChevronRight, ExternalLink } from 'lucide-react'
@@ -199,6 +200,8 @@ export function WavesPage() {
   const [waves, setWaves] = useState<MondayWave[]>([])
   const [loading, setLoading] = useState(true)
   const [activeWave, setActiveWave] = useState<string | null>(null)
+  const [registering, setRegistering] = useState(false)
+  const { role } = useRole()
 
   const load = useCallback(async () => {
     try {
@@ -225,6 +228,18 @@ export function WavesPage() {
     return () => { supabase.removeChannel(channel) }
   }, [load])
 
+  async function registerGroupHooks() {
+    setRegistering(true)
+    try {
+      const result = await api.post<{ ok: boolean; results: Record<string, unknown> }>('/api/monday/register-group-hooks', {})
+      alert(JSON.stringify(result.results, null, 2))
+    } catch (err: any) {
+      alert('Error: ' + err.message)
+    } finally {
+      setRegistering(false)
+    }
+  }
+
   const current = waves.find(w => w.id === activeWave)
 
 
@@ -249,6 +264,7 @@ export function WavesPage() {
     <div className="flex flex-col gap-0 h-full">
       {/* Wave tabs */}
       <div className="border-b border-border-subtle bg-surface-elevated px-4 overflow-x-auto">
+        <div className="flex items-center justify-between gap-4">
         <div className="flex gap-0 min-w-max">
           {waves.map(w => (
             <button
@@ -270,6 +286,16 @@ export function WavesPage() {
               </span>
             </button>
           ))}
+        </div>
+        {role === 'admin' && (
+          <button
+            onClick={registerGroupHooks}
+            disabled={registering}
+            className="shrink-0 text-xs text-text-muted hover:text-foreground border border-border-subtle rounded px-2 py-1 disabled:opacity-50"
+          >
+            {registering ? 'Registering…' : 'Register group webhooks'}
+          </button>
+        )}
         </div>
       </div>
 
