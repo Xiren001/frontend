@@ -200,7 +200,7 @@ export function WavesPage() {
   const [waves, setWaves] = useState<MondayWave[]>([])
   const [loading, setLoading] = useState(true)
   const [activeWave, setActiveWave] = useState<string | null>(null)
-  const [registering, setRegistering] = useState(false)
+  const [registering, setRegistering] = useState<string | null>(null)
   const { role } = useRole()
   const load = useCallback(async () => {
     try {
@@ -227,15 +227,15 @@ export function WavesPage() {
     return () => { supabase.removeChannel(channel) }
   }, [load])
 
-  async function registerGroupMoveHooks() {
-    setRegistering(true)
+  async function registerHooks(endpoint: string, label: string) {
+    setRegistering(label)
     try {
-      const result = await api.post<{ ok: boolean; results: Record<string, unknown> }>('/api/monday/register-group-move-hooks', {})
+      const result = await api.post<{ ok: boolean; results: Record<string, unknown> }>(`/api/monday/${endpoint}`, {})
       alert(JSON.stringify(result.results, null, 2))
     } catch (err: any) {
       alert('Error: ' + err.message)
     } finally {
-      setRegistering(false)
+      setRegistering(null)
     }
   }
 
@@ -286,13 +286,22 @@ export function WavesPage() {
           ))}
         </div>
         {role === 'admin' && (
-          <button
-            onClick={registerGroupMoveHooks}
-            disabled={registering}
-            className="shrink-0 text-xs text-text-muted hover:text-foreground border border-border-subtle rounded px-2 py-1 disabled:opacity-50"
-          >
-            {registering ? 'Registering…' : 'Register group webhooks'}
-          </button>
+          <div className="flex gap-2 shrink-0">
+            <button
+              onClick={() => registerHooks('register-group-move-hooks', 'group')}
+              disabled={!!registering}
+              className="text-xs text-text-muted hover:text-foreground border border-border-subtle rounded px-2 py-1 disabled:opacity-50"
+            >
+              {registering === 'group' ? 'Registering…' : 'Register group webhooks'}
+            </button>
+            <button
+              onClick={() => registerHooks('register-item-move-hooks', 'item')}
+              disabled={!!registering}
+              className="text-xs text-text-muted hover:text-foreground border border-border-subtle rounded px-2 py-1 disabled:opacity-50"
+            >
+              {registering === 'item' ? 'Registering…' : 'Register item move webhooks'}
+            </button>
+          </div>
         )}
       </div>
 
