@@ -109,7 +109,7 @@ export function NavSidebar() {
           <div className="flex h-6 w-6 items-center justify-center rounded-md bg-accent text-white">
             <Terminal className="h-3.5 w-3.5" />
           </div>
-          <span className="text-sm font-semibold text-foreground">Myko Ops</span>
+          <span className="text-sm font-semibold text-foreground">ECOM Faszik</span>
         </div>
       </div>
 
@@ -149,7 +149,7 @@ export function NavSidebar() {
               <Terminal className="h-4 w-4" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-foreground leading-none">Myko Ops</p>
+              <p className="text-sm font-semibold text-foreground leading-none">ECOM Faszik</p>
               <p className="text-xs text-text-muted mt-0.5">Hub</p>
             </div>
           </div>

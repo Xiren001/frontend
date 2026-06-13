@@ -35,7 +35,7 @@ export default function LoginPage() {
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent text-white shadow-sm mb-4">
             <Terminal className="h-5 w-5" />
           </div>
-          <h1 className="text-xl font-semibold text-foreground">Myko Ops Hub</h1>
+          <h1 className="text-xl font-semibold text-foreground">ECOM Faszik Hub</h1>
           <p className="text-sm text-text-muted mt-1">Sign in to your operations dashboard</p>
         </div>
 
