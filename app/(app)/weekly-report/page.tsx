@@ -19,7 +19,6 @@ import { Input } from '@/components/ui/input'
 import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import * as XLSX from 'xlsx'
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -324,241 +323,466 @@ function TranslationCard({ week, targets }: { week: WeekData; targets: ReportTar
   )
 }
 
-// ─── Excel Export ─────────────────────────────────────────────────────────────
+// ─── HTML Export ──────────────────────────────────────────────────────────────
 
-function fmtExport(val: number | null | undefined, target: number | null | undefined): string {
-  if (val === null || val === undefined) return '—'
-  const d = `${val}d`
-  if (target === null || target === undefined) return d
-  return val <= target ? `${d} ✓` : `${d} ✗`
+function formatMonthLabel(ym: string): string {
+  const [y, m] = ym.split('-').map(Number)
+  return new Date(y, m - 1, 1).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })
 }
 
-function buildSummarySheet(report: WeeklyReport, queue: ProofQueue | null, month: string): unknown[][] {
-  const t = report.settings
-  const ws = [1, 2, 3, 4].map(n => report.weeks.find(w => w.week === n) ?? null)
+function htmlVal(val: number | null | undefined, tgt: number | null | undefined): string {
+  if (val == null) return '<span class="muted">—</span>'
+  if (tgt == null) return `<span class="mono">${val}d</span>`
+  const cls = val <= tgt ? 'green' : 'red'
+  return `<span class="mono ${cls}">${val}d</span>`
+}
 
-  function row(
-    metric: string,
-    valFn: (w: WeekData | null) => string | number,
-    target = '—',
-    note = '',
-  ): unknown[] {
-    return [metric, valFn(ws[0]), valFn(ws[1]), valFn(ws[2]), valFn(ws[3]), target, note]
-  }
+function htmlStatus(val: number | null | undefined, tgt: number | null | undefined): string {
+  if (val == null || tgt == null) return '<span class="muted">—</span>'
+  return val <= tgt
+    ? '<span class="green status-pill">On target</span>'
+    : '<span class="red status-pill">Over target</span>'
+}
 
-  const v = (fn: (w: WeekData) => number | null | undefined, tgt: number | null | undefined) =>
-    (w: WeekData | null) => w ? fmtExport(fn(w), tgt) : '—'
+function htmlProducts(products: { product_name: string; language: string | null }[]): string {
+  if (products.length === 0) return '<p class="empty">No products this week.</p>'
+  return `<ul class="product-list">${products.map(p =>
+    `<li><span class="product-name">${p.product_name}</span>${p.language ? ` <span class="lang-badge">${p.language}</span>` : ''}</li>`
+  ).join('')}</ul>`
+}
 
-  return [
-    [`WEEKLY REPORT — ${month.toUpperCase()}`, '', '', '', '', '', ''],
-    ['', '', '', '', '', '', ''],
-    ['METRIC', 'WEEK 1', 'WEEK 2', 'WEEK 3', 'WEEK 4', 'TARGET', 'NOTES'],
-    ['', '', '', '', '', '', ''],
+function htmlMetricRow(
+  label: string,
+  val: number | null | undefined,
+  tgt: number | null | undefined,
+  desc: string,
+  sub = false,
+): string {
+  return `<tr${sub ? ' class="sub"' : ''}>
+    <td class="metric-label">${label}</td>
+    <td>${htmlVal(val, tgt)}</td>
+    <td class="mono muted">${tgt != null ? `${tgt}d` : '—'}</td>
+    <td>${htmlStatus(val, tgt)}</td>
+    <td class="desc">${desc}</td>
+  </tr>`
+}
 
-    ['── NEW PRODUCTS BUILT ──', '', '', '', '', '', ''],
-    row('Count', w => w?.newBuilds.count ?? '—'),
-    row('Phase 1 Avg', v(w => w.newBuilds.avgPhase1Days, t?.build_target_days), t ? `${t.build_target_days}d` : '—', 'Phase 1 start → phase 1 end'),
-    row('Proof Avg', v(w => w.newBuilds.avgProofDays, t?.proof_target_days), t ? `${t.proof_target_days}d` : '—', 'Days spent in proofreading'),
-    row('Testing Avg', v(w => w.newBuilds.avgTestDays, t?.test_target_days), t ? `${t.test_target_days}d` : '—', 'Days in testing before outcome'),
-    row('Total Avg', v(w => w.newBuilds.avgTotalDays, t?.total_target_days), t ? `${t.total_target_days}d` : '—', 'Phase 1 start → outcome decision'),
-    ['  Breakdown', '', '', '', '', '', ''],
-    row('  Proofreader Turnaround', v(w => w.newBuilds.avgProofreadTurnaround, t?.proofread_turnaround_target_days), t ? `${t.proofread_turnaround_target_days}d` : '—', 'Submit to proofreader → returned'),
-    row('  Web Revision', v(w => w.newBuilds.avgWebRevisionDays, t?.web_revision_target_days), t ? `${t.web_revision_target_days}d` : '—', 'Days for web revisions post-proof'),
-    row('  Ads Revision', v(w => w.newBuilds.avgAdsRevisionDays, t?.ads_revision_target_days), t ? `${t.ads_revision_target_days}d` : '—', 'Days for ads revisions post-proof'),
-    ['', '', '', '', '', '', ''],
+function htmlWeekSection(wd: WeekData, t: ReportTargets | null): string {
+  const nb = wd.newBuilds
+  const ep = wd.expandingProducts
+  const it = wd.inTesting
+  const ie = wd.inExpanding
+  const win = wd.winning
+  const pctNum = parseFloat(win.pct)
+  const winCls = isNaN(pctNum) ? 'muted' : pctNum >= 50 ? 'green' : 'red'
 
-    ['── EXPANDING PRODUCTS ──', '', '', '', '', '', ''],
-    row('Count', w => w?.expandingProducts.count ?? '—'),
-    row('Proof Avg', v(w => w.expandingProducts.avgProofDays, t?.proof_target_days), t ? `${t.proof_target_days}d` : '—', 'Days in proofreading'),
-    ['  Breakdown', '', '', '', '', '', ''],
-    row('  Proofreader Turnaround', v(w => w.expandingProducts.avgProofreadTurnaround, t?.proofread_turnaround_target_days), t ? `${t.proofread_turnaround_target_days}d` : '—'),
-    row('  Web Revision', v(w => w.expandingProducts.avgWebRevisionDays, t?.web_revision_target_days), t ? `${t.web_revision_target_days}d` : '—'),
-    row('  Ads Revision', v(w => w.expandingProducts.avgAdsRevisionDays, t?.ads_revision_target_days), t ? `${t.ads_revision_target_days}d` : '—'),
-    ['', '', '', '', '', '', ''],
-
-    ['── STATUS COUNTS ──', '', '', '', '', '', ''],
-    row('In Testing', w => w?.inTesting.count ?? '—', '', 'Products in testing at end of week'),
-    row('In Expanding — Wave 1', w => w?.inExpanding.wave1Count ?? '—', '', 'Wave 1 products in expanding phase'),
-    row('In Expanding — Wave 2+', w => w?.inExpanding.wave2plusCount ?? '—', '', 'Wave 2 and beyond in expanding'),
-    row('Winning', w => w ? `${w.winning.count} / ${w.winning.totalTested}` : '—', '', 'Won / total tested'),
-    row('Win Rate', w => w?.winning.pct ?? '—', '≥ 50%', '% of tested products that won'),
-    row('Stopped', w => w?.stoppedCount ?? '—', '', 'Products stopped this week'),
-    ['', '', '', '', '', '', ''],
-
-    ['── TRANSLATION TIMES ──', '', '', '', '', '', ''],
-    row('EN Completion', v(w => w.translation.en.avgDays, t?.en_completion_target_days), t ? `${t.en_completion_target_days}d` : '—', 'Days for English content completion'),
-    row('ES + DE Translation', v(w => w.translation.esDe.avgDays, t?.es_de_translation_target_days), t ? `${t.es_de_translation_target_days}d` : '—', 'Days for Spanish + German translation'),
-    row('Total Translation', v(w => w.translation.total.avgDays, t?.total_translation_target_days), t ? `${t.total_translation_target_days}d` : '—', 'Full translation pipeline duration'),
-    ['', '', '', '', '', '', ''],
-
-    ['── PROOFREADING QUEUE (Current) ──', '', '', '', '', '', ''],
-    ['Wave 1 Pending', queue?.wave1 ?? 0, '', '', '', '', 'ES / DE products awaiting proofread'],
-    ['Wave 2+ Pending', queue?.wave2plus ?? 0, '', '', '', '', 'Other languages awaiting proofread'],
-    ['Done', queue?.done ?? 0, '', '', '', '', 'Products with proofreading complete'],
-    ['', '', '', '', '', '', ''],
-
-    ['── PAYMENT STATUS (Month Total) ──', '', '', '', '', '', ''],
-    ['Paid', report.paymentStatus.paid, '', '', '', '', 'Products with payment processed'],
-    ['Unpaid', report.paymentStatus.unpaid, '', '', '', '', 'Products awaiting payment'],
-    ['', '', '', '', '', '', ''],
-    ['✓ = at or below target   ✗ = exceeds target   — = no data', '', '', '', '', '', ''],
+  const expandingProducts = [
+    ...ie.wave1Products.map(p => ({ ...p, wave: 'W1' })),
+    ...ie.wave2plusProducts.map(p => ({ ...p, wave: 'W2+' })),
   ]
+
+  return `
+  <section class="week-section">
+    <div class="week-title">Week ${wd.week}</div>
+
+    <h3>New Products Built <span class="count-badge">${nb.count}</span></h3>
+    <table>
+      <thead><tr><th>Metric</th><th>Avg</th><th>Target</th><th>Status</th><th>What it measures</th></tr></thead>
+      <tbody>
+        ${htmlMetricRow('Phase 1', nb.avgPhase1Days, t?.build_target_days, 'Days from phase 1 start to end of building')}
+        ${htmlMetricRow('Proof', nb.avgProofDays, t?.proof_target_days, 'Days the product spent in proofreading')}
+        ${htmlMetricRow('Testing', nb.avgTestDays, t?.test_target_days, 'Days in testing before an outcome was decided')}
+        ${htmlMetricRow('Total', nb.avgTotalDays, t?.total_target_days, 'Phase 1 start to final outcome decision')}
+        ${htmlMetricRow('Proofreader Turnaround', nb.avgProofreadTurnaround, t?.proofread_turnaround_target_days, 'From submitting to proofreader to receiving it back', true)}
+        ${htmlMetricRow('Web Revision', nb.avgWebRevisionDays, t?.web_revision_target_days, 'Days for website / web content revisions', true)}
+        ${htmlMetricRow('Ads Revision', nb.avgAdsRevisionDays, t?.ads_revision_target_days, 'Days for ads revisions after proofread', true)}
+      </tbody>
+    </table>
+    ${nb.products.length > 0 ? `<p class="list-label">Products built this week</p>${htmlProducts(nb.products)}` : ''}
+
+    <h3>Expanding Products <span class="count-badge">${ep.count}</span></h3>
+    <table>
+      <thead><tr><th>Metric</th><th>Avg</th><th>Target</th><th>Status</th><th>What it measures</th></tr></thead>
+      <tbody>
+        ${htmlMetricRow('Proof', ep.avgProofDays, t?.proof_target_days, 'Days in proofreading for expanding products')}
+        ${htmlMetricRow('Proofreader Turnaround', ep.avgProofreadTurnaround, t?.proofread_turnaround_target_days, 'From submit to received back', true)}
+        ${htmlMetricRow('Web Revision', ep.avgWebRevisionDays, t?.web_revision_target_days, 'Days for web revisions', true)}
+        ${htmlMetricRow('Ads Revision', ep.avgAdsRevisionDays, t?.ads_revision_target_days, 'Days for ads revisions', true)}
+      </tbody>
+    </table>
+    ${ep.products.length > 0 ? `<p class="list-label">Products expanding this week</p>${htmlProducts(ep.products)}` : ''}
+
+    <h3>Status</h3>
+    <div class="stat-grid">
+      <div class="stat-card"><div class="stat-val">${it.count}</div><div class="stat-lbl">In Testing</div></div>
+      <div class="stat-card"><div class="stat-val">${ie.wave1Count}</div><div class="stat-lbl">Expanding W1</div></div>
+      <div class="stat-card"><div class="stat-val">${ie.wave2plusCount}</div><div class="stat-lbl">Expanding W2+</div></div>
+      <div class="stat-card"><div class="stat-val ${winCls}">${win.pct}</div><div class="stat-lbl">Win Rate</div></div>
+      <div class="stat-card"><div class="stat-val">${win.count} <span class="stat-of">/ ${win.totalTested}</span></div><div class="stat-lbl">Won / Tested</div></div>
+      <div class="stat-card"><div class="stat-val">${wd.stoppedCount}</div><div class="stat-lbl">Stopped</div></div>
+    </div>
+
+    ${it.products.length > 0 ? `<p class="list-label">Products in testing</p>${htmlProducts(it.products)}` : ''}
+    ${expandingProducts.length > 0 ? `<p class="list-label">Products in expanding</p><ul class="product-list">${expandingProducts.map(p =>
+      `<li><span class="product-name">${p.product_name}</span>${p.language ? ` <span class="lang-badge">${p.language}</span>` : ''} <span class="wave-badge">${p.wave}</span></li>`
+    ).join('')}</ul>` : ''}
+
+    <h3>Translation Times</h3>
+    <table>
+      <thead><tr><th>Metric</th><th>Avg</th><th>Target</th><th>Status</th><th>What it measures</th></tr></thead>
+      <tbody>
+        ${htmlMetricRow('EN Completion', wd.translation.en.avgDays, t?.en_completion_target_days, 'Days for English content to be fully complete')}
+        ${htmlMetricRow('ES + DE Translation', wd.translation.esDe.avgDays, t?.es_de_translation_target_days, 'Days for Spanish + German translation')}
+        ${htmlMetricRow('Total Translation', wd.translation.total.avgDays, t?.total_translation_target_days, 'Full translation pipeline from start to finish')}
+      </tbody>
+    </table>
+  </section>`
 }
 
-function buildWeekSheet(weekData: WeekData | null, targets: ReportTargets | null, weekNum: number): unknown[][] {
-  if (!weekData) return [[`WEEK ${weekNum}`, 'No data for this week.', '', '', '']]
-
-  const t = targets
-  const data: unknown[][] = []
-
-  function mRow(label: string, val: number | null | undefined, tgt: number | null | undefined, desc: string): unknown[] {
-    const status = val != null && tgt != null ? (val <= tgt ? '✓ On target' : '✗ Over target') : '—'
-    return [label, val != null ? `${val}d` : '—', tgt != null ? `${tgt}d` : '—', status, desc]
-  }
-
-  data.push([`WEEK ${weekNum} — DETAIL REPORT`, '', '', '', ''])
-  data.push(['', '', '', '', ''])
-
-  data.push([`NEW PRODUCTS BUILT: ${weekData.newBuilds.count}`, '', '', '', ''])
-  data.push(['METRIC', 'AVG', 'TARGET', 'STATUS', 'DESCRIPTION'])
-  data.push(mRow('Phase 1', weekData.newBuilds.avgPhase1Days, t?.build_target_days, 'Days from phase 1 start to end of building'))
-  data.push(mRow('Proof', weekData.newBuilds.avgProofDays, t?.proof_target_days, 'Days the product spent in proofreading'))
-  data.push(mRow('Testing', weekData.newBuilds.avgTestDays, t?.test_target_days, 'Days in testing before an outcome was decided'))
-  data.push(mRow('Total', weekData.newBuilds.avgTotalDays, t?.total_target_days, 'Phase 1 start to final outcome decision'))
-  data.push(['Detailed Breakdown', '', '', '', ''])
-  data.push(mRow('Proofreader Turnaround', weekData.newBuilds.avgProofreadTurnaround, t?.proofread_turnaround_target_days, 'Time from submitting to proofreader to receiving it back'))
-  data.push(mRow('Web Revision', weekData.newBuilds.avgWebRevisionDays, t?.web_revision_target_days, 'Days for website / web content revisions'))
-  data.push(mRow('Ads Revision', weekData.newBuilds.avgAdsRevisionDays, t?.ads_revision_target_days, 'Days for ads revisions after proofread'))
-  if (weekData.newBuilds.products.length > 0) {
-    data.push(['', '', '', '', ''])
-    data.push(['Products Built This Week:', '', '', '', ''])
-    data.push(['#', 'Product Name', 'Language', '', ''])
-    weekData.newBuilds.products.forEach((p, i) => data.push([i + 1, p.product_name, p.language ?? 'EN', '', '']))
-  }
-  data.push(['', '', '', '', ''])
-
-  data.push([`EXPANDING PRODUCTS: ${weekData.expandingProducts.count}`, '', '', '', ''])
-  data.push(['METRIC', 'AVG', 'TARGET', 'STATUS', 'DESCRIPTION'])
-  data.push(mRow('Proof', weekData.expandingProducts.avgProofDays, t?.proof_target_days, 'Days in proofreading for expanding products'))
-  data.push(['Detailed Breakdown', '', '', '', ''])
-  data.push(mRow('Proofreader Turnaround', weekData.expandingProducts.avgProofreadTurnaround, t?.proofread_turnaround_target_days, 'Time from submit to proofreader to received back'))
-  data.push(mRow('Web Revision', weekData.expandingProducts.avgWebRevisionDays, t?.web_revision_target_days, 'Days for web revisions'))
-  data.push(mRow('Ads Revision', weekData.expandingProducts.avgAdsRevisionDays, t?.ads_revision_target_days, 'Days for ads revisions'))
-  if (weekData.expandingProducts.products.length > 0) {
-    data.push(['', '', '', '', ''])
-    data.push(['Products Expanding This Week:', '', '', '', ''])
-    data.push(['#', 'Product Name', 'Language', '', ''])
-    weekData.expandingProducts.products.forEach((p, i) => data.push([i + 1, p.product_name, p.language ?? 'EN', '', '']))
-  }
-  data.push(['', '', '', '', ''])
-
-  data.push(['STATUS COUNTS', '', '', '', ''])
-  data.push(['Category', 'Count', '', 'Notes', ''])
-  data.push(['In Testing', weekData.inTesting.count, '', 'Products currently in testing at end of week', ''])
-  data.push(['In Expanding — Wave 1', weekData.inExpanding.wave1Count, '', 'Wave 1 products in expanding phase', ''])
-  data.push(['In Expanding — Wave 2+', weekData.inExpanding.wave2plusCount, '', 'Wave 2 and beyond in expanding', ''])
-  data.push(['Winning', `${weekData.winning.count} / ${weekData.winning.totalTested}`, '', `${weekData.winning.pct} win rate`, ''])
-  data.push(['Stopped', weekData.stoppedCount, '', 'Products whose testing was stopped', ''])
-  if (weekData.inTesting.products.length > 0) {
-    data.push(['', '', '', '', ''])
-    data.push(['Products in Testing:', '', '', '', ''])
-    data.push(['#', 'Product Name', 'Language', '', ''])
-    weekData.inTesting.products.forEach((p, i) => data.push([i + 1, p.product_name, p.language ?? 'EN', '', '']))
-  }
-  if (weekData.inExpanding.wave1Products.length > 0 || weekData.inExpanding.wave2plusProducts.length > 0) {
-    data.push(['', '', '', '', ''])
-    data.push(['Products in Expanding:', '', '', '', ''])
-    data.push(['#', 'Product Name', 'Language', 'Wave', ''])
-    weekData.inExpanding.wave1Products.forEach((p, i) =>
-      data.push([i + 1, p.product_name, p.language ?? 'EN', 'Wave 1', '']))
-    weekData.inExpanding.wave2plusProducts.forEach((p, i) =>
-      data.push([weekData.inExpanding.wave1Products.length + i + 1, p.product_name, p.language ?? 'EN', 'Wave 2+', '']))
-  }
-  data.push(['', '', '', '', ''])
-
-  data.push(['TRANSLATION TIMES', '', '', '', ''])
-  data.push(['METRIC', 'AVG', 'TARGET', 'STATUS', 'DESCRIPTION'])
-  data.push(mRow('EN Completion', weekData.translation.en.avgDays, t?.en_completion_target_days, 'Days for English content to be fully complete'))
-  data.push(mRow('ES + DE Translation', weekData.translation.esDe.avgDays, t?.es_de_translation_target_days, 'Days for Spanish + German translation'))
-  data.push(mRow('Total Translation', weekData.translation.total.avgDays, t?.total_translation_target_days, 'Full translation pipeline from start to finish'))
-
-  return data
+function htmlSummaryMetricRow(
+  label: string,
+  weeks: (WeekData | null)[],
+  fn: (w: WeekData) => number | null | undefined,
+  tgt: number | null | undefined,
+  sub = false,
+): string {
+  const cells = weeks.map(w => `<td>${htmlVal(w ? fn(w) : undefined, tgt)}</td>`).join('')
+  return `<tr${sub ? ' class="sub"' : ''}>
+    <td class="metric-label">${label}</td>${cells}
+    <td class="mono muted">${tgt != null ? `${tgt}d` : '—'}</td>
+  </tr>`
 }
 
-function buildGuideSheet(targets: ReportTargets | null): unknown[][] {
-  const t = targets
+function htmlSummaryCountRow(
+  label: string,
+  weeks: (WeekData | null)[],
+  fn: (w: WeekData) => string | number,
+): string {
+  const cells = weeks.map(w => `<td class="mono">${w ? fn(w) : '—'}</td>`).join('')
+  return `<tr><td class="metric-label">${label}</td>${cells}<td class="muted">—</td></tr>`
+}
+
+function generateHtml(report: WeeklyReport, queue: ProofQueue | null, month: string): string {
+  const t = report.settings
+  const weeks = [1, 2, 3, 4].map(n => report.weeks.find(w => w.week === n) ?? null)
+  const weekHeaders = ['Week 1', 'Week 2', 'Week 3', 'Week 4'].map(w => `<th>${w}</th>`).join('')
+
+  const css = `
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      font-size: 13.5px; line-height: 1.6; color: #111827;
+      background: #f3f4f6;
+    }
+    .page {
+      max-width: 980px; margin: 0 auto; background: #fff;
+      padding: 52px 60px; min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    .report-header {
+      display: flex; align-items: flex-end; justify-content: space-between;
+      padding-bottom: 18px; border-bottom: 3px solid #111827; margin-bottom: 6px;
+    }
+    .report-title { font-size: 30px; font-weight: 800; letter-spacing: -0.02em; }
+    .report-month { font-size: 30px; font-weight: 300; color: #6b7280; margin-left: 10px; }
+    .report-meta { font-size: 11.5px; color: #9ca3af; text-align: right; line-height: 1.5; }
+
+    /* ── Section headings ── */
+    h2 {
+      font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.12em; color: #9ca3af;
+      margin: 40px 0 14px; padding-bottom: 7px; border-bottom: 1px solid #e5e7eb;
+    }
+    h3 {
+      font-size: 14px; font-weight: 600; color: #111827;
+      margin: 26px 0 10px; display: flex; align-items: center; gap: 8px;
+    }
+
+    /* ── Tables ── */
+    table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 10px; }
+    th {
+      text-align: left; padding: 7px 11px;
+      font-size: 10.5px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.06em; color: #9ca3af;
+      background: #f9fafb; border-bottom: 1px solid #e5e7eb;
+    }
+    td { padding: 7px 11px; border-bottom: 1px solid #f3f4f6; vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    tr.sub td.metric-label { padding-left: 24px; color: #6b7280; font-size: 12.5px; }
+    .metric-label { color: #374151; }
+    .desc { color: #9ca3af; font-size: 12px; }
+    .mono { font-family: ui-monospace, 'SF Mono', 'Cascadia Code', monospace; }
+    .muted { color: #9ca3af; }
+
+    /* ── Summary table section rows ── */
+    tr.section-row td {
+      font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.08em; color: #374151;
+      background: #f3f4f6; padding: 9px 11px 6px;
+      border-top: 2px solid #e5e7eb;
+    }
+
+    /* ── Colors ── */
+    .green { color: #16a34a; }
+    .red   { color: #dc2626; }
+
+    /* ── Status pill ── */
+    .status-pill {
+      font-size: 11px; font-weight: 600;
+      padding: 1px 8px; border-radius: 999px; display: inline-block;
+    }
+    .green.status-pill { background: #f0fdf4; }
+    .red.status-pill   { background: #fef2f2; }
+
+    /* ── Count badge ── */
+    .count-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      background: #1d4ed8; color: #fff;
+      font-size: 11px; font-weight: 700; font-family: ui-monospace, monospace;
+      padding: 1px 9px; border-radius: 999px;
+    }
+
+    /* ── Stat grid ── */
+    .stat-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 10px; margin: 12px 0 16px;
+    }
+    .stat-card {
+      border: 1px solid #e5e7eb; border-radius: 10px;
+      padding: 16px 12px; text-align: center;
+    }
+    .stat-val {
+      font-size: 30px; font-weight: 700;
+      font-family: ui-monospace, monospace;
+      line-height: 1.1; margin-bottom: 5px;
+    }
+    .stat-of { font-size: 14px; font-weight: 400; color: #9ca3af; }
+    .stat-lbl { font-size: 10.5px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+
+    /* ── Product list ── */
+    .list-label {
+      font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.07em; color: #9ca3af; margin: 14px 0 8px;
+    }
+    .product-list { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+    .product-list li {
+      display: flex; align-items: center; gap: 5px; font-size: 12.5px;
+      background: #f9fafb; border: 1px solid #e5e7eb;
+      border-radius: 6px; padding: 3px 10px;
+    }
+    .product-name { color: #111827; }
+    .lang-badge {
+      font-size: 10px; font-weight: 700; color: #1d4ed8;
+      background: #eff6ff; padding: 1px 5px; border-radius: 4px;
+      font-family: ui-monospace, monospace;
+    }
+    .wave-badge {
+      font-size: 10px; font-weight: 600; color: #7c3aed;
+      background: #f5f3ff; padding: 1px 5px; border-radius: 4px;
+      font-family: ui-monospace, monospace;
+    }
+    .empty { color: #9ca3af; font-style: italic; font-size: 12px; margin-bottom: 12px; }
+
+    /* ── Global grid (queue + payment) ── */
+    .global-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+
+    /* ── Week section separator ── */
+    .week-section { margin-top: 48px; }
+    .week-title {
+      font-size: 20px; font-weight: 800; letter-spacing: -0.01em;
+      padding: 10px 0 10px; border-bottom: 3px solid #1d4ed8;
+      color: #1d4ed8; margin-bottom: 4px;
+    }
+
+    /* ── Metric Guide ── */
+    .guide-group { margin-bottom: 4px; }
+    .guide-section-label {
+      font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.1em; color: #374151;
+      background: #f3f4f6; padding: 8px 14px; margin: 16px 0 0;
+      border-left: 3px solid #1d4ed8;
+    }
+    .guide-row {
+      display: grid; grid-template-columns: 210px 1fr; gap: 20px;
+      padding: 10px 14px; border-bottom: 1px solid #f3f4f6;
+    }
+    .guide-metric { font-weight: 600; font-size: 13px; color: #111827; }
+    .guide-desc { font-size: 13px; color: #374151; margin-bottom: 3px; }
+    .guide-note { font-size: 12px; color: #6b7280; }
+
+    /* ── Legend ── */
+    .legend {
+      display: flex; gap: 16px; font-size: 11.5px;
+      margin-top: 6px; color: #6b7280;
+    }
+    .legend-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
+
+    /* ── Footer ── */
+    footer {
+      margin-top: 60px; padding-top: 16px; border-top: 1px solid #e5e7eb;
+      font-size: 11.5px; color: #9ca3af; text-align: center;
+    }
+
+    /* ── Print ── */
+    @media print {
+      body { background: #fff; }
+      .page { padding: 24px 32px; }
+      .week-section { break-before: page; }
+      .stat-grid { break-inside: avoid; }
+      tr { break-inside: avoid; }
+    }
+  `
+
   const tgt = (key: keyof ReportTargets) => t ? `${t[key]}d` : 'see settings'
 
-  return [
-    ['METRIC GUIDE — Weekly Report', '', ''],
-    ['This sheet explains every metric shown in the Summary and Week detail sheets.', '', ''],
-    ['', '', ''],
-    ['METRIC', 'WHAT IT MEASURES', 'TARGET & HOW TO INTERPRET'],
-    ['', '', ''],
-    ['── NEW PRODUCTS BUILT ──', '', ''],
-    ['Count', 'Number of new products that completed the full build pipeline this week.', 'Higher = more output. Compare week-over-week for velocity trends.'],
-    ['Phase 1 Avg', 'Average days from phase 1 start to phase 1 completion (the building phase).', `Target: ${tgt('build_target_days')}. Lower is better. Measures build speed.`],
-    ['Proof Avg', 'Average days a product spent in the proofreading phase (submission to end).', `Target: ${tgt('proof_target_days')}. Lower is better. Includes turnaround + revision time.`],
-    ['Testing Avg', 'Average days from a product entering testing to its outcome being decided.', `Target: ${tgt('test_target_days')}. Lower is better. Reflects testing cycle speed.`],
-    ['Total Avg', 'Average total days from phase 1 start to final outcome decision (end-to-end).', `Target: ${tgt('total_target_days')}. Lower is better. The key overall efficiency metric.`],
-    ['Proofreader Turnaround', 'Average days from submitting a product to the proofreader to receiving it back.', `Target: ${tgt('proofread_turnaround_target_days')}. Lower is better. Measures proofreader responsiveness.`],
-    ['Web Revision', 'Average days for website / web content revisions after proofreading.', `Target: ${tgt('web_revision_target_days')}. Lower is better. Measures web team revision speed.`],
-    ['Ads Revision', 'Average days for ads revisions after the proofreading phase.', `Target: ${tgt('ads_revision_target_days')}. Lower is better. Measures ads team revision speed.`],
-    ['', '', ''],
-    ['── EXPANDING PRODUCTS ──', '', ''],
-    ['Count', 'Number of products that went through the expanding phase this week.', 'Higher = more products moving into the expansion pipeline.'],
-    ['Proof Avg', 'Average days expanding products spent in proofreading.', `Target: ${tgt('proof_target_days')}. Same target as new builds.`],
-    ['Proofreader Turnaround', 'Same metric as above but scoped to expanding products specifically.', `Target: ${tgt('proofread_turnaround_target_days')}.`],
-    ['Web Revision', 'Days for website revisions on expanding products.', `Target: ${tgt('web_revision_target_days')}.`],
-    ['Ads Revision', 'Days for ads revisions on expanding products.', `Target: ${tgt('ads_revision_target_days')}.`],
-    ['', '', ''],
-    ['── STATUS COUNTS ──', '', ''],
-    ['In Testing', 'Number of products currently in the testing phase at the end of the week.', 'Snapshot of testing pipeline depth. No single target — context-dependent.'],
-    ['In Expanding — Wave 1', 'Products currently in expanding, classified as Wave 1 (ES / DE language products).', 'Wave 1 = Spanish and German language products.'],
-    ['In Expanding — Wave 2+', 'Products currently in expanding beyond Wave 1 (all other languages).', 'Wave 2+ = all non-ES/DE language products.'],
-    ['Winning', 'Products that completed testing with a positive (winning) outcome.', 'Expressed as count won / total tested. More winners is better.'],
-    ['Win Rate', 'Percentage of tested products that resulted in a win.', 'Target: ≥ 50%. Low win rate may indicate poor product selection or test quality.'],
-    ['Stopped', 'Products whose testing was stopped (did not achieve a winning outcome).', 'Stopping quickly is healthy — it frees up testing budget for better products.'],
-    ['', '', ''],
-    ['── TRANSLATION TIMES ──', '', ''],
-    ['EN Completion', 'Average days for English content to be fully completed.', `Target: ${tgt('en_completion_target_days')}. Lower is better.`],
-    ['ES + DE Translation', 'Average days for Spanish and German translation after English is done.', `Target: ${tgt('es_de_translation_target_days')}. Lower is better.`],
-    ['Total Translation', 'Average days for the full translation pipeline from start to all languages done.', `Target: ${tgt('total_translation_target_days')}. Lower is better. Key localization efficiency metric.`],
-    ['', '', ''],
-    ['── PROOFREADING QUEUE ──', '', ''],
-    ['Wave 1 Pending', 'ES / DE products currently waiting to be proofread.', 'Lower is better. A high number means the proofreader is the bottleneck.'],
-    ['Wave 2+ Pending', 'Non-ES/DE products currently waiting to be proofread.', 'Lower is better.'],
-    ['Done', 'Products that have completed proofreading (snapshot for current month).', 'Tracks proofreading throughput for the month.'],
-    ['', '', ''],
-    ['── PAYMENT STATUS ──', '', ''],
-    ['Paid', 'Total products in this month with payment already processed.', 'Should grow through the month as products are completed and invoiced.'],
-    ['Unpaid', 'Total products in this month still awaiting payment.', 'Should approach 0 as the month closes.'],
-  ]
+  const guideHtml = `
+    <div class="guide-section-label">New Products Built</div>
+    <div class="guide-row"><div><div class="guide-metric">Count</div></div><div><div class="guide-desc">Number of new products that completed the full build pipeline this week.</div><div class="guide-note">Higher = more output. Compare week-over-week for velocity trends.</div></div></div>
+    <div class="guide-row"><div><div class="guide-metric">Phase 1 Avg</div></div><div><div class="guide-desc">Average days from phase 1 start to phase 1 completion (the building phase).</div><div class="guide-note">Target: ${tgt('build_target_days')}. Lower is better. Measures how fast products are built.</div></div></div>
+    <div class="guide-row"><div><div class="guide-metric">Proof Avg</div></div><div><div class="guide-desc">Average days a product spent in the proofreading phase (submission to end).</div><div class="guide-note">Target: ${tgt('proof_target_days')}. Lower is better. Includes turnaround + revision time.</div></div></div>
+    <div class="guide-row"><div><div class="guide-metric">Testing Avg</div></div><div><div class="guide-desc">Average days from a product entering testing to its outcome being decided.</div><div class="guide-note">Target: ${tgt('test_target_days')}. Lower is better. Reflects testing cycle speed.</div></div></div>
+    <div class="guide-row"><div><div class="guide-metric">Total Avg</div></div><div><div class="guide-desc">Average total days from phase 1 start to final outcome decision (end-to-end).</div><div class="guide-note">Target: ${tgt('total_target_days')}. The key overall efficiency metric.</div></div></div>
+    <div class="guide-row"><div><div class="guide-metric">Proofreader Turnaround</div></div><div><div class="guide-desc">Average days from submitting a product to the proofreader to receiving it back.</div><div class="guide-note">Target: ${tgt('proofread_turnaround_target_days')}. Measures proofreader responsiveness.</div></div></div>
+    <div class="guide-row"><div><div class="guide-metric">Web Revision</div></div><div><div class="guide-desc">Average days for website / web content revisions after proofreading.</div><div class="guide-note">Target: ${tgt('web_revision_target_days')}. Measures web team revision speed.</div></div></div>
+    <div class="guide-row"><div><div class="guide-metric">Ads Revision</div></div><div><div class="guide-desc">Average days for ads revisions after the proofreading phase.</div><div class="guide-note">Target: ${tgt('ads_revision_target_days')}. Measures ads team revision speed.</div></div></div>
+
+    <div class="guide-section-label">Expanding Products</div>
+    <div class="guide-row"><div><div class="guide-metric">Count</div></div><div><div class="guide-desc">Number of products that went through the expanding phase this week.</div><div class="guide-note">Higher = more products moving into the expansion pipeline.</div></div></div>
+    <div class="guide-row"><div><div class="guide-metric">Proof Avg</div></div><div><div class="guide-desc">Average days expanding products spent in proofreading.</div><div class="guide-note">Target: ${tgt('proof_target_days')}. Same target as new builds.</div></div></div>
+    <div class="guide-row"><div><div class="guide-metric">Proofreader / Web / Ads</div></div><div><div class="guide-desc">Same breakdown metrics as new builds, scoped to expanding products.</div><div class="guide-note">Targets are identical — see New Products Built above.</div></div></div>
+
+    <div class="guide-section-label">Status Counts</div>
+    <div class="guide-row"><div><div class="guide-metric">In Testing</div></div><div><div class="guide-desc">Number of products currently in the testing phase at the end of the week.</div><div class="guide-note">Snapshot of testing pipeline depth. No direct target — context-dependent.</div></div></div>
+    <div class="guide-row"><div><div class="guide-metric">In Expanding — Wave 1</div></div><div><div class="guide-desc">Products currently in expanding classified as Wave 1 (ES / DE languages).</div><div class="guide-note">Wave 1 = Spanish and German language products.</div></div></div>
+    <div class="guide-row"><div><div class="guide-metric">In Expanding — Wave 2+</div></div><div><div class="guide-desc">Products currently in expanding beyond Wave 1 (all other languages).</div><div class="guide-note">Wave 2+ = all non-ES/DE language products.</div></div></div>
+    <div class="guide-row"><div><div class="guide-metric">Winning</div></div><div><div class="guide-desc">Products that completed testing with a positive (winning) outcome, shown as count / total tested.</div><div class="guide-note">More winners is better. Win rate target: ≥ 50%.</div></div></div>
+    <div class="guide-row"><div><div class="guide-metric">Stopped</div></div><div><div class="guide-desc">Products whose testing was stopped (did not achieve a winning outcome).</div><div class="guide-note">Stopping quickly is healthy — it frees up testing budget for better products.</div></div></div>
+
+    <div class="guide-section-label">Translation Times</div>
+    <div class="guide-row"><div><div class="guide-metric">EN Completion</div></div><div><div class="guide-desc">Average days for English content to be fully completed.</div><div class="guide-note">Target: ${tgt('en_completion_target_days')}. Lower is better.</div></div></div>
+    <div class="guide-row"><div><div class="guide-metric">ES + DE Translation</div></div><div><div class="guide-desc">Average days for Spanish and German translation after English is done.</div><div class="guide-note">Target: ${tgt('es_de_translation_target_days')}. Lower is better.</div></div></div>
+    <div class="guide-row"><div><div class="guide-metric">Total Translation</div></div><div><div class="guide-desc">Average days for the full translation pipeline from start to all languages done.</div><div class="guide-note">Target: ${tgt('total_translation_target_days')}. Key localization efficiency metric.</div></div></div>
+
+    <div class="guide-section-label">Proofreading Queue</div>
+    <div class="guide-row"><div><div class="guide-metric">Wave 1 Pending</div></div><div><div class="guide-desc">ES / DE products currently waiting to be proofread.</div><div class="guide-note">Lower is better. A high number means the proofreader is the bottleneck.</div></div></div>
+    <div class="guide-row"><div><div class="guide-metric">Wave 2+ Pending</div></div><div><div class="guide-desc">Non-ES/DE products currently waiting to be proofread.</div><div class="guide-note">Lower is better.</div></div></div>
+    <div class="guide-row"><div><div class="guide-metric">Done</div></div><div><div class="guide-desc">Products that have completed proofreading (snapshot for current month).</div><div class="guide-note">Tracks proofreading throughput for the month.</div></div></div>
+
+    <div class="guide-section-label">Payment Status</div>
+    <div class="guide-row"><div><div class="guide-metric">Paid</div></div><div><div class="guide-desc">Total products in this month with payment already processed.</div><div class="guide-note">Should grow through the month as products are completed and invoiced.</div></div></div>
+    <div class="guide-row"><div><div class="guide-metric">Unpaid</div></div><div><div class="guide-desc">Total products in this month still awaiting payment.</div><div class="guide-note">Should approach 0 as the month closes.</div></div></div>
+  `
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Weekly Report — ${formatMonthLabel(month)}</title>
+  <style>${css}</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="report-header">
+    <div>
+      <span class="report-title">Weekly Report</span>
+      <span class="report-month">${formatMonthLabel(month)}</span>
+    </div>
+    <div class="report-meta">
+      Generated ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}<br>
+      <span class="legend">
+        <span><span class="legend-dot" style="background:#16a34a"></span>At or below target</span>
+        <span><span class="legend-dot" style="background:#dc2626"></span>Exceeds target</span>
+      </span>
+    </div>
+  </header>
+
+  <!-- ── All-Week Summary ── -->
+  <h2>All-Week Summary</h2>
+  <table>
+    <thead>
+      <tr><th>Metric</th>${weekHeaders}<th>Target</th></tr>
+    </thead>
+    <tbody>
+      <tr class="section-row"><td colspan="6">New Products Built</td></tr>
+      ${htmlSummaryCountRow('Count', weeks, w => w.newBuilds.count)}
+      ${htmlSummaryMetricRow('Phase 1 Avg', weeks, w => w.newBuilds.avgPhase1Days, t?.build_target_days)}
+      ${htmlSummaryMetricRow('Proof Avg', weeks, w => w.newBuilds.avgProofDays, t?.proof_target_days)}
+      ${htmlSummaryMetricRow('Testing Avg', weeks, w => w.newBuilds.avgTestDays, t?.test_target_days)}
+      ${htmlSummaryMetricRow('Total Avg', weeks, w => w.newBuilds.avgTotalDays, t?.total_target_days)}
+      ${htmlSummaryMetricRow('Proofreader Turnaround', weeks, w => w.newBuilds.avgProofreadTurnaround, t?.proofread_turnaround_target_days, true)}
+      ${htmlSummaryMetricRow('Web Revision', weeks, w => w.newBuilds.avgWebRevisionDays, t?.web_revision_target_days, true)}
+      ${htmlSummaryMetricRow('Ads Revision', weeks, w => w.newBuilds.avgAdsRevisionDays, t?.ads_revision_target_days, true)}
+
+      <tr class="section-row"><td colspan="6">Expanding Products</td></tr>
+      ${htmlSummaryCountRow('Count', weeks, w => w.expandingProducts.count)}
+      ${htmlSummaryMetricRow('Proof Avg', weeks, w => w.expandingProducts.avgProofDays, t?.proof_target_days)}
+      ${htmlSummaryMetricRow('Proofreader Turnaround', weeks, w => w.expandingProducts.avgProofreadTurnaround, t?.proofread_turnaround_target_days, true)}
+      ${htmlSummaryMetricRow('Web Revision', weeks, w => w.expandingProducts.avgWebRevisionDays, t?.web_revision_target_days, true)}
+      ${htmlSummaryMetricRow('Ads Revision', weeks, w => w.expandingProducts.avgAdsRevisionDays, t?.ads_revision_target_days, true)}
+
+      <tr class="section-row"><td colspan="6">Status Counts</td></tr>
+      ${htmlSummaryCountRow('In Testing', weeks, w => w.inTesting.count)}
+      ${htmlSummaryCountRow('In Expanding — Wave 1', weeks, w => w.inExpanding.wave1Count)}
+      ${htmlSummaryCountRow('In Expanding — Wave 2+', weeks, w => w.inExpanding.wave2plusCount)}
+      ${htmlSummaryCountRow('Winning', weeks, w => `${w.winning.count} / ${w.winning.totalTested}`)}
+      ${htmlSummaryCountRow('Win Rate', weeks, w => w.winning.pct)}
+      ${htmlSummaryCountRow('Stopped', weeks, w => w.stoppedCount)}
+
+      <tr class="section-row"><td colspan="6">Translation Times</td></tr>
+      ${htmlSummaryMetricRow('EN Completion', weeks, w => w.translation.en.avgDays, t?.en_completion_target_days)}
+      ${htmlSummaryMetricRow('ES + DE Translation', weeks, w => w.translation.esDe.avgDays, t?.es_de_translation_target_days)}
+      ${htmlSummaryMetricRow('Total Translation', weeks, w => w.translation.total.avgDays, t?.total_translation_target_days)}
+    </tbody>
+  </table>
+
+  <!-- ── Queue & Payment ── -->
+  <h2>Proofreading Queue &amp; Payment Status</h2>
+  <div class="global-grid">
+    <div>
+      <h3>Proofreading Queue</h3>
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-val">${queue?.wave1 ?? 0}</div><div class="stat-lbl">Wave 1 Pending</div></div>
+        <div class="stat-card"><div class="stat-val">${queue?.wave2plus ?? 0}</div><div class="stat-lbl">Wave 2+ Pending</div></div>
+        <div class="stat-card"><div class="stat-val">${queue?.done ?? 0}</div><div class="stat-lbl">Done</div></div>
+      </div>
+      <p style="font-size:12px;color:#9ca3af">Wave 1 = ES / DE products. Wave 2+ = all other languages.</p>
+    </div>
+    <div>
+      <h3>Payment Status</h3>
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-val green">${report.paymentStatus.paid}</div><div class="stat-lbl">Paid</div></div>
+        <div class="stat-card"><div class="stat-val">${report.paymentStatus.unpaid}</div><div class="stat-lbl">Unpaid</div></div>
+      </div>
+      <p style="font-size:12px;color:#9ca3af">Month-to-date totals across all products.</p>
+    </div>
+  </div>
+
+  <!-- ── Per-Week Detail ── -->
+  <h2>Week-by-Week Detail</h2>
+  ${weeks.filter((w): w is WeekData => w !== null).map(w => htmlWeekSection(w, t)).join('\n')}
+
+  <!-- ── Metric Guide ── -->
+  <section style="margin-top:56px">
+    <h2>Metric Guide</h2>
+    <p style="font-size:13px;color:#6b7280;margin-bottom:4px">Plain-language explanation of every metric in this report, including targets and how to interpret them.</p>
+    ${guideHtml}
+  </section>
+
+  <footer>Weekly Report &middot; ${formatMonthLabel(month)} &middot; Myko Hub &middot; Print this page to save as PDF</footer>
+
+</div>
+</body>
+</html>`
 }
 
 function handleExport(report: WeeklyReport, queue: ProofQueue | null, month: string): void {
-  const wb = XLSX.utils.book_new()
-
-  const summaryWs = XLSX.utils.aoa_to_sheet(buildSummarySheet(report, queue, month))
-  summaryWs['!cols'] = [
-    { wch: 30 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 44 },
-  ]
-  XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary')
-
-  for (let w = 1; w <= 4; w++) {
-    const weekData = report.weeks.find(wd => wd.week === w) ?? null
-    const weekWs = XLSX.utils.aoa_to_sheet(buildWeekSheet(weekData, report.settings, w))
-    weekWs['!cols'] = [
-      { wch: 28 }, { wch: 10 }, { wch: 10 }, { wch: 18 }, { wch: 52 },
-    ]
-    XLSX.utils.book_append_sheet(wb, weekWs, `Week ${w}`)
-  }
-
-  const guideWs = XLSX.utils.aoa_to_sheet(buildGuideSheet(report.settings))
-  guideWs['!cols'] = [{ wch: 28 }, { wch: 64 }, { wch: 60 }]
-  XLSX.utils.book_append_sheet(wb, guideWs, 'Metric Guide')
-
-  XLSX.writeFile(wb, `weekly-report-${month}.xlsx`)
+  const html = generateHtml(report, queue, month)
+  const blob = new Blob([html], { type: 'text/html' })
+  const url = URL.createObjectURL(blob)
+  window.open(url, '_blank')
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -600,7 +824,7 @@ export default function WeeklyReportPage() {
               disabled={!report}
               onClick={() => { if (report) handleExport(report, queue, month) }}
             >
-              Export .xlsx
+              Export
             </Button>
             <Input
               type="month"
