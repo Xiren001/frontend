@@ -200,7 +200,7 @@ export function WavesPage() {
   const [waves, setWaves] = useState<MondayWave[]>([])
   const [loading, setLoading] = useState(true)
   const [activeWave, setActiveWave] = useState<string | null>(null)
-  const [registering, setRegistering] = useState(false)
+  const [syncing, setSyncing] = useState(false)
   const { role } = useRole()
 
   const load = useCallback(async () => {
@@ -228,15 +228,16 @@ export function WavesPage() {
     return () => { supabase.removeChannel(channel) }
   }, [load])
 
-  async function registerGroupHooks() {
-    setRegistering(true)
+  async function syncCurrentWave() {
+    if (!current?.board_id) return
+    setSyncing(true)
     try {
-      const result = await api.post<{ ok: boolean; results: Record<string, unknown> }>('/api/monday/register-group-hooks', {})
-      alert(JSON.stringify(result.results, null, 2))
+      await api.post(`/api/monday/sync/${current.board_id}`, {})
+      await load()
     } catch (err: any) {
-      alert('Error: ' + err.message)
+      alert('Sync failed: ' + err.message)
     } finally {
-      setRegistering(false)
+      setSyncing(false)
     }
   }
 
@@ -287,13 +288,13 @@ export function WavesPage() {
             </button>
           ))}
         </div>
-        {role === 'admin' && (
+        {role === 'admin' && current?.board_id && (
           <button
-            onClick={registerGroupHooks}
-            disabled={registering}
+            onClick={syncCurrentWave}
+            disabled={syncing}
             className="shrink-0 text-xs text-text-muted hover:text-foreground border border-border-subtle rounded px-2 py-1 disabled:opacity-50"
           >
-            {registering ? 'Registering…' : 'Register group webhooks'}
+            {syncing ? 'Syncing…' : 'Sync wave'}
           </button>
         )}
         </div>
