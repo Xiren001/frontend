@@ -1,10 +1,10 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { api } from '@/lib/api'
 import { createClient } from '@/lib/supabase'
 import type { MondayWave, MondayItem, MondaySubitem } from '@/lib/types'
 import { cn } from '@/lib/utils'
-import { ChevronDown, ChevronRight, ExternalLink } from 'lucide-react'
+import { ChevronDown, ChevronRight, ExternalLink, RefreshCw } from 'lucide-react'
 
 // ── Status badge ────────────────────────────────────────────────────────────
 
@@ -195,35 +195,52 @@ function WaveContent({ wave }: { wave: MondayWave }) {
 
 // ── Main page ───────────────────────────────────────────────────────────────
 
+const SYNC_INTERVAL_MS = 5 * 60 * 1000 // auto-sync every 5 minutes
+
 export function WavesPage() {
   const [waves, setWaves] = useState<MondayWave[]>([])
   const [loading, setLoading] = useState(true)
+  const [syncing, setSyncing] = useState(false)
+  const [lastSynced, setLastSynced] = useState<Date | null>(null)
   const [activeWave, setActiveWave] = useState<string | null>(null)
+  const activeWaveRef = useRef<string | null>(null)
 
   const load = useCallback(async () => {
     try {
       const data = await api.get<MondayWave[]>('/api/monday/waves')
       setWaves(data)
-      if (!activeWave && data.length) setActiveWave(data[0].id)
+      if (!activeWaveRef.current && data.length) {
+        activeWaveRef.current = data[0].id
+        setActiveWave(data[0].id)
+      }
     } catch (err) {
       console.error('Failed to load waves:', err)
     } finally {
       setLoading(false)
     }
-  }, [activeWave])
+  }, [])
 
-  useEffect(() => { load() }, [])
-
-  // Realtime: re-fetch on any monday_items or monday_subitems change
-  useEffect(() => {
-    const supabase = createClient()
-    const channel = supabase
-      .channel('monday-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'monday_items' }, load)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'monday_subitems' }, load)
-      .subscribe()
-    return () => { supabase.removeChannel(channel) }
+  const syncFromMonday = useCallback(async () => {
+    setSyncing(true)
+    try {
+      await api.post('/api/monday/import', {})
+      await load()
+      setLastSynced(new Date())
+    } catch (err) {
+      console.error('Sync failed:', err)
+    } finally {
+      setSyncing(false)
+    }
   }, [load])
+
+  // Initial load
+  useEffect(() => { load() }, [load])
+
+  // Auto-sync every 5 minutes
+  useEffect(() => {
+    const timer = setInterval(syncFromMonday, SYNC_INTERVAL_MS)
+    return () => clearInterval(timer)
+  }, [syncFromMonday])
 
   const current = waves.find(w => w.id === activeWave)
 
@@ -246,15 +263,15 @@ export function WavesPage() {
 
   return (
     <div className="flex flex-col gap-0 h-full">
-      {/* Wave tabs */}
-      <div className="border-b border-border-subtle bg-surface-elevated px-4 overflow-x-auto">
-        <div className="flex gap-0 min-w-max">
+      {/* Wave tabs + sync button */}
+      <div className="border-b border-border-subtle bg-surface-elevated px-4 flex items-center justify-between gap-4">
+        <div className="flex gap-0 overflow-x-auto min-w-0">
           {waves.map(w => (
             <button
               key={w.id}
               onClick={() => setActiveWave(w.id)}
               className={cn(
-                'px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap',
+                'px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex-shrink-0',
                 activeWave === w.id
                   ? 'border-accent text-accent'
                   : 'border-transparent text-text-muted hover:text-foreground hover:border-border-subtle'
@@ -269,6 +286,22 @@ export function WavesPage() {
               </span>
             </button>
           ))}
+        </div>
+
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {lastSynced && (
+            <span className="text-xs text-text-muted hidden sm:block">
+              Synced {lastSynced.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          )}
+          <button
+            onClick={syncFromMonday}
+            disabled={syncing}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-accent text-white hover:bg-accent/90 disabled:opacity-50 transition-colors"
+          >
+            <RefreshCw size={12} className={syncing ? 'animate-spin' : ''} />
+            {syncing ? 'Syncing…' : 'Sync'}
+          </button>
         </div>
       </div>
 
