@@ -87,7 +87,6 @@ function SubitemRow({ sub }: { sub: MondaySubitem }) {
   return (
     <TableRow className="bg-surface-page/60 hover:bg-surface-hover/40">
       <TableCell className="pl-10 text-text-muted italic text-xs">{sub.name}</TableCell>
-      <TableCell className="text-xs text-text-secondary">{sub.product_name || '—'}</TableCell>
       <TableCell><StatusBadge label={sub.ad_status} /></TableCell>
       <TableCell><StatusBadge label={sub.website_status} /></TableCell>
       <TableCell>
@@ -98,16 +97,16 @@ function SubitemRow({ sub }: { sub: MondaySubitem }) {
       <TableCell><PlatformFlags sub={sub} /></TableCell>
       <TableCell>
         <div className="flex gap-2">
-          {sub.shopify_pdp_link && (
-            <a href={sub.shopify_pdp_link} target="_blank" rel="noopener noreferrer"
-               className="text-xs text-accent hover:underline flex items-center gap-0.5">
-              Shopify <ExternalLink size={10} />
-            </a>
-          )}
           {sub.page_link && (
             <a href={sub.page_link} target="_blank" rel="noopener noreferrer"
                className="text-xs text-accent hover:underline flex items-center gap-0.5">
               Page <ExternalLink size={10} />
+            </a>
+          )}
+          {sub.shopify_pdp_link && (
+            <a href={sub.shopify_pdp_link} target="_blank" rel="noopener noreferrer"
+               className="text-xs text-accent hover:underline flex items-center gap-0.5">
+              Shopify <ExternalLink size={10} />
             </a>
           )}
         </div>
@@ -141,7 +140,6 @@ function ItemRow({ item }: { item: MondayItem }) {
             <span className="font-medium text-foreground">{item.name}</span>
           </div>
         </TableCell>
-        <TableCell className="text-text-muted text-xs">—</TableCell>
         <TableCell><StatusBadge label={item.creatives_status} /></TableCell>
         <TableCell><StatusBadge label={item.landing_page_status} /></TableCell>
         <TableCell className="text-text-muted text-xs">{item.found_by || '—'}</TableCell>
@@ -332,7 +330,6 @@ function WaveContent({ wave }: { wave: MondayWave }) {
         <TableHead>
           <tr>
             <SortableHeader label="Product"      sortKey="name"                active={sortKey === 'name'}                dir={sortDir} onSort={toggleSort} className="w-56" />
-            <TableHeader>Product Name</TableHeader>
             <SortableHeader label="Creatives"    sortKey="creatives_status"    active={sortKey === 'creatives_status'}    dir={sortDir} onSort={toggleSort} />
             <SortableHeader label="Landing Page" sortKey="landing_page_status" active={sortKey === 'landing_page_status'} dir={sortDir} onSort={toggleSort} />
             <SortableHeader label="Found by"     sortKey="found_by"            active={sortKey === 'found_by'}            dir={sortDir} onSort={toggleSort} />
@@ -343,7 +340,7 @@ function WaveContent({ wave }: { wave: MondayWave }) {
         <TableBody>
           {items.length === 0 ? (
             <tr>
-              <td colSpan={7} className="px-4 py-12 text-center text-sm text-text-muted">
+              <td colSpan={6} className="px-4 py-12 text-center text-sm text-text-muted">
                 No results match your filters.
               </td>
             </tr>
