@@ -103,6 +103,15 @@ function SubitemRow({ sub }: { sub: MondaySubitem }) {
   return (
     <TableRow className="bg-surface-page/60 hover:bg-surface-hover/40">
       <TableCell className="pl-10 text-text-muted italic text-xs">{sub.name}</TableCell>
+      <TableCell className="text-xs text-text-secondary">{sub.product_name || '—'}</TableCell>
+      <TableCell>
+        {sub.shopify_pdp_link
+          ? <a href={sub.shopify_pdp_link} target="_blank" rel="noopener noreferrer"
+               className="text-xs text-accent hover:underline flex items-center gap-0.5 whitespace-nowrap">
+              View <ExternalLink size={10} />
+            </a>
+          : <span className="text-xs text-text-muted">—</span>}
+      </TableCell>
       <TableCell><StatusBadge label={sub.ad_status} /></TableCell>
       <TableCell><StatusBadge label={sub.website_status} /></TableCell>
       <TableCell>
@@ -152,6 +161,8 @@ function ItemRow({ item }: { item: MondayItem }) {
             <span className="font-medium text-foreground">{item.name}</span>
           </div>
         </TableCell>
+        <TableCell className="text-text-muted text-xs">—</TableCell>
+        <TableCell className="text-text-muted text-xs">—</TableCell>
         <TableCell><StatusBadge label={item.creatives_status} /></TableCell>
         <TableCell><StatusBadge label={item.landing_page_status} /></TableCell>
         <TableCell className="text-text-muted text-xs">{item.found_by || '—'}</TableCell>
@@ -505,6 +516,8 @@ export function WavesPage() {
             <TableHead>
               <TableRow>
                 <SortableHeader label="Product"      sortKey="name"                active={sortKey === 'name'}                dir={sortDir} onSort={toggleSort} className="w-56" />
+                <TableHeader>Product Name</TableHeader>
+                <TableHeader>Shopify PDP</TableHeader>
                 <SortableHeader label="Creatives"    sortKey="creatives_status"    active={sortKey === 'creatives_status'}    dir={sortDir} onSort={toggleSort} />
                 <SortableHeader label="Landing Page" sortKey="landing_page_status" active={sortKey === 'landing_page_status'} dir={sortDir} onSort={toggleSort} />
                 <SortableHeader label="Found by"     sortKey="found_by"            active={sortKey === 'found_by'}            dir={sortDir} onSort={toggleSort} />
@@ -515,7 +528,7 @@ export function WavesPage() {
             <TableBody>
               {items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-text-muted py-12">
+                  <TableCell colSpan={8} className="text-center text-text-muted py-12">
                     {hasFilters ? 'No results match your filters.' : 'No items in this wave yet.'}
                   </TableCell>
                 </TableRow>
