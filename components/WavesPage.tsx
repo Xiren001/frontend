@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef, type CSSProperties } from 'react'
 import { api } from '@/lib/api'
 import { createClient } from '@/lib/supabase'
 import type { MondayWave, MondayItem, MondaySubitem } from '@/lib/types'
@@ -97,6 +97,41 @@ function SortableHeader({ label, sortKey, active, dir, onSort, className }: {
   )
 }
 
+// ── Marquee name ─────────────────────────────────────────────────────────────
+
+function MarqueeName({ name, className = '' }: { name: string; className?: string }) {
+  const cRef = useRef<HTMLDivElement>(null)
+  const tRef = useRef<HTMLSpanElement>(null)
+  const [overflow, setOverflow] = useState(0)
+  const [active, setActive] = useState(false)
+
+  useEffect(() => {
+    if (!cRef.current || !tRef.current) return
+    setOverflow(Math.max(0, tRef.current.scrollWidth - cRef.current.offsetWidth))
+  }, [name])
+
+  return (
+    <div
+      ref={cRef}
+      className={`overflow-hidden ${className}`}
+      onMouseEnter={() => setActive(true)}
+      onMouseLeave={() => setActive(false)}
+    >
+      <span
+        ref={tRef}
+        className="block whitespace-nowrap"
+        style={
+          active && overflow > 0
+            ? ({ animation: 'marquee-bounce 3s ease-in-out infinite', '--marquee-offset': `-${overflow}px` } as CSSProperties)
+            : {}
+        }
+      >
+        {name}
+      </span>
+    </div>
+  )
+}
+
 // ── Subitem row ──────────────────────────────────────────────────────────────
 
 function SubitemRow({ sub, visible }: { sub: MondaySubitem; visible: boolean }) {
@@ -105,7 +140,10 @@ function SubitemRow({ sub, visible }: { sub: MondaySubitem; visible: boolean }) 
     visible ? 'max-h-16 opacity-100 py-2' : 'max-h-0 opacity-0 py-0',
   )
   return (
-    <TableRow className={cn('bg-surface/40 hover:bg-surface-hover/30 border-l-0', !visible && 'border-transparent')}>
+    <TableRow
+      className={cn('bg-surface/40 hover:bg-surface-hover/30 border-l-0')}
+      style={!visible ? { borderBottomWidth: 0 } : undefined}
+    >
       <TableCell className="p-0">
         <div className={inner}>
           <div className="flex items-center gap-2 pl-8">
@@ -115,7 +153,11 @@ function SubitemRow({ sub, visible }: { sub: MondaySubitem; visible: boolean }) 
         </div>
       </TableCell>
       <TableCell className="p-0 text-xs text-text-secondary">
-        <div className={inner}>{sub.product_name || '—'}</div>
+        <div className={inner}>
+          {sub.product_name
+            ? <MarqueeName name={sub.product_name} className="max-w-[160px] text-xs text-text-secondary" />
+            : null}
+        </div>
       </TableCell>
       <TableCell className="p-0">
         <div className={inner}>
