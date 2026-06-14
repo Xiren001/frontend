@@ -101,10 +101,15 @@ function SortableHeader({ label, sortKey, active, dir, onSort, className }: {
 
 function SubitemRow({ sub }: { sub: MondaySubitem }) {
   return (
-    <TableRow className="bg-surface-page/60 hover:bg-surface-hover/40">
-      <TableCell className="pl-10 text-text-muted italic text-xs">{sub.name}</TableCell>
-      <TableCell className="text-xs text-text-secondary">{sub.product_name || '—'}</TableCell>
-      <TableCell>
+    <TableRow className="bg-surface/40 hover:bg-surface-hover/30 border-l-0">
+      <TableCell className="py-2">
+        <div className="flex items-center gap-2 pl-8">
+          <span className="w-px h-4 bg-border-subtle shrink-0" />
+          <span className="text-xs text-text-muted">{sub.name}</span>
+        </div>
+      </TableCell>
+      <TableCell className="text-xs text-text-secondary py-2">{sub.product_name || '—'}</TableCell>
+      <TableCell className="py-2">
         {sub.shopify_pdp_link
           ? <a href={sub.shopify_pdp_link} target="_blank" rel="noopener noreferrer"
                className="text-xs text-accent hover:underline flex items-center gap-0.5 whitespace-nowrap">
@@ -112,29 +117,21 @@ function SubitemRow({ sub }: { sub: MondaySubitem }) {
             </a>
           : <span className="text-xs text-text-muted">—</span>}
       </TableCell>
-      <TableCell><StatusBadge label={sub.ad_status} /></TableCell>
-      <TableCell><StatusBadge label={sub.website_status} /></TableCell>
-      <TableCell>
+      <TableCell className="py-2"><StatusBadge label={sub.ad_status} /></TableCell>
+      <TableCell className="py-2"><StatusBadge label={sub.website_status} /></TableCell>
+      <TableCell className="py-2">
         {sub.concluded
           ? <span className="text-xs text-emerald-600 font-medium">Done</span>
           : <span className="text-xs text-text-muted">—</span>}
       </TableCell>
-      <TableCell><PlatformFlags sub={sub} /></TableCell>
-      <TableCell>
-        <div className="flex gap-2">
-          {sub.page_link && (
-            <a href={sub.page_link} target="_blank" rel="noopener noreferrer"
-               className="text-xs text-accent hover:underline flex items-center gap-0.5">
-              Page <ExternalLink size={10} />
-            </a>
-          )}
-          {sub.shopify_pdp_link && (
-            <a href={sub.shopify_pdp_link} target="_blank" rel="noopener noreferrer"
-               className="text-xs text-accent hover:underline flex items-center gap-0.5">
-              Shopify <ExternalLink size={10} />
-            </a>
-          )}
-        </div>
+      <TableCell className="py-2"><PlatformFlags sub={sub} /></TableCell>
+      <TableCell className="py-2">
+        {sub.page_link && (
+          <a href={sub.page_link} target="_blank" rel="noopener noreferrer"
+             className="text-xs text-accent hover:underline flex items-center gap-0.5">
+            Page <ExternalLink size={10} />
+          </a>
+        )}
       </TableCell>
     </TableRow>
   )
@@ -158,7 +155,7 @@ function ItemRow({ item }: { item: MondayItem }) {
             <span className="text-text-muted flex-shrink-0 w-3.5">
               {hasSubs && (open ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
             </span>
-            <span className="font-medium text-foreground">{item.name}</span>
+            <span className="text-sm font-medium text-accent">{item.name}</span>
           </div>
         </TableCell>
         <TableCell className="text-text-muted text-xs">—</TableCell>
