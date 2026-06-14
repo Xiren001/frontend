@@ -154,9 +154,7 @@ function SubitemRow({ sub, visible }: { sub: MondaySubitem; visible: boolean }) 
       </TableCell>
       <TableCell className="p-0 text-xs text-text-secondary">
         <div className={inner}>
-          {sub.product_name
-            ? <MarqueeName name={sub.product_name} className="max-w-[160px] text-xs text-text-secondary" />
-            : null}
+          {sub.product_name ?? null}
         </div>
       </TableCell>
       <TableCell className="p-0">
