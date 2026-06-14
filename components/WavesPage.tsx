@@ -269,10 +269,10 @@ function WaveContent({ wave }: { wave: MondayWave }) {
   }
 
   return (
-    <div className="flex flex-col gap-3 p-5 h-full overflow-auto">
+    <div className="flex flex-col h-full overflow-auto">
 
       {/* ── Toolbar ── */}
-      <div className="flex items-center gap-2 flex-wrap shrink-0">
+      <div className="flex items-center gap-2 flex-wrap shrink-0 px-4 py-2.5 border-b border-border-subtle bg-surface-elevated/50">
         {/* Search */}
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" size={13} />
@@ -323,7 +323,7 @@ function WaveContent({ wave }: { wave: MondayWave }) {
 
       {/* ── Group tabs ── */}
       {groups.length > 1 && (
-        <div className="flex items-center gap-1.5 shrink-0 overflow-x-auto">
+        <div className="flex items-center gap-1.5 shrink-0 overflow-x-auto px-4 py-2 border-b border-border-subtle">
           {groups.map(group => {
             const cnt = wave.monday_items.filter(i => (i.group_name ?? 'General') === group).length
             return (
@@ -351,7 +351,7 @@ function WaveContent({ wave }: { wave: MondayWave }) {
       )}
 
       {/* ── Table ── */}
-      <Table>
+      <Table containerClassName="rounded-none border-x-0 border-b-0 shadow-none">
         <TableHead>
           <tr>
             <SortableHeader label="Product"      sortKey="name"               active={sortKey === 'name'}               dir={sortDir} onSort={toggleSort} className="w-64" />
