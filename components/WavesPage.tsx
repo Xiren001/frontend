@@ -163,6 +163,11 @@ function ItemRow({ item }: { item: MondayItem }) {
 
 function WaveContent({ wave }: { wave: MondayWave }) {
   const groups = Array.from(new Set(wave.monday_items.map(i => i.group_name ?? 'General')))
+  const [activeGroup, setActiveGroup] = useState(groups[0] ?? '')
+
+  // Reset active group when wave changes
+  const currentGroup = groups.includes(activeGroup) ? activeGroup : (groups[0] ?? '')
+  const items = wave.monday_items.filter(i => (i.group_name ?? 'General') === currentGroup)
 
   if (!wave.monday_items.length) {
     return (
@@ -173,37 +178,52 @@ function WaveContent({ wave }: { wave: MondayWave }) {
   }
 
   return (
-    <Table containerClassName="rounded-none border-0 shadow-none">
-      <TableHead>
-        <tr>
-          <TableHeader className="w-64">Product</TableHeader>
-          <TableHeader>Creatives</TableHeader>
-          <TableHeader>Landing Page</TableHeader>
-          <TableHeader>Found by</TableHeader>
-          <TableHeader>Variants</TableHeader>
-          <TableHeader>Links</TableHeader>
-        </tr>
-      </TableHead>
-      <TableBody>
-        {groups.map(group => {
-          const items = wave.monday_items.filter(i => (i.group_name ?? 'General') === group)
-          return (
-            <>
-              {groups.length > 1 && (
-                <tr key={`g-${group}`}>
-                  <td colSpan={6} className="px-4 pt-5 pb-1.5">
-                    <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">
-                      {group}
-                    </span>
-                  </td>
-                </tr>
+    <div className="flex flex-col h-full">
+      {/* Group tabs */}
+      {groups.length > 1 && (
+        <div className="flex items-center gap-1 px-4 pt-3 pb-0 border-b border-border-subtle bg-surface-elevated shrink-0 overflow-x-auto">
+          {groups.map(group => (
+            <button
+              key={group}
+              onClick={() => setActiveGroup(group)}
+              className={cn(
+                'px-3 py-2 text-xs font-medium rounded-t whitespace-nowrap transition-colors border-b-2 -mb-px',
+                currentGroup === group
+                  ? 'text-accent border-accent bg-accent-muted/40'
+                  : 'text-text-muted border-transparent hover:text-foreground hover:bg-surface-hover',
               )}
-              {items.map(item => <ItemRow key={item.id} item={item} />)}
-            </>
-          )
-        })}
-      </TableBody>
-    </Table>
+            >
+              {group}
+              <span className={cn(
+                'ml-1.5 text-[10px] rounded-full px-1.5 py-0.5',
+                currentGroup === group ? 'bg-accent/15 text-accent' : 'bg-surface-page text-text-muted',
+              )}>
+                {wave.monday_items.filter(i => (i.group_name ?? 'General') === group).length}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Table for active group */}
+      <div className="flex-1 overflow-auto">
+        <Table containerClassName="rounded-none border-0 shadow-none">
+          <TableHead>
+            <tr>
+              <TableHeader className="w-64">Product</TableHeader>
+              <TableHeader>Creatives</TableHeader>
+              <TableHeader>Landing Page</TableHeader>
+              <TableHeader>Found by</TableHeader>
+              <TableHeader>Variants</TableHeader>
+              <TableHeader>Links</TableHeader>
+            </tr>
+          </TableHead>
+          <TableBody>
+            {items.map(item => <ItemRow key={item.id} item={item} />)}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
   )
 }
 
