@@ -207,11 +207,11 @@ function ItemRow({ item }: { item: MondayItem }) {
         style={{ cursor: hasSubs ? 'pointer' : 'default' }}
       >
         <TableCell>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <span className="text-text-muted flex-shrink-0 w-3.5">
               {hasSubs && (open ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
             </span>
-            <span className="text-sm font-medium text-accent">{item.name}</span>
+            <MarqueeName name={item.name} className="min-w-0 max-w-[200px] text-sm font-medium text-accent" />
           </div>
         </TableCell>
         <TableCell className="text-text-muted text-xs">—</TableCell>
