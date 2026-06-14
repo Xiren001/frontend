@@ -99,41 +99,57 @@ function SortableHeader({ label, sortKey, active, dir, onSort, className }: {
 
 // ── Subitem row ──────────────────────────────────────────────────────────────
 
-function SubitemRow({ sub }: { sub: MondaySubitem }) {
+function SubitemRow({ sub, visible }: { sub: MondaySubitem; visible: boolean }) {
+  const inner = cn(
+    'overflow-hidden transition-[max-height,opacity,padding] duration-200 ease-in-out px-4',
+    visible ? 'max-h-16 opacity-100 py-2' : 'max-h-0 opacity-0 py-0',
+  )
   return (
-    <TableRow className="bg-surface/40 hover:bg-surface-hover/30 border-l-0">
-      <TableCell className="py-2">
-        <div className="flex items-center gap-2 pl-8">
-          <span className="w-px h-4 bg-border-subtle shrink-0" />
-          <span className="text-xs text-text-muted">{sub.name}</span>
+    <tr className={cn('bg-surface/40', visible && 'hover:bg-surface-hover/30')}>
+      <td className="p-0 border-0">
+        <div className={inner}>
+          <div className="flex items-center gap-2 pl-4">
+            <span className="w-px h-4 bg-border-subtle shrink-0" />
+            <span className="text-xs text-text-muted">{sub.name}</span>
+          </div>
         </div>
-      </TableCell>
-      <TableCell className="text-xs text-text-secondary py-2">{sub.product_name || '—'}</TableCell>
-      <TableCell className="py-2">
-        {sub.shopify_pdp_link
-          ? <a href={sub.shopify_pdp_link} target="_blank" rel="noopener noreferrer"
-               className="text-xs text-accent hover:underline flex items-center gap-0.5 whitespace-nowrap">
-              View <ExternalLink size={10} />
-            </a>
-          : <span className="text-xs text-text-muted">—</span>}
-      </TableCell>
-      <TableCell className="py-2"><StatusBadge label={sub.ad_status} /></TableCell>
-      <TableCell className="py-2"><StatusBadge label={sub.website_status} /></TableCell>
-      <TableCell className="py-2">
-        {sub.concluded
-          ? <span className="text-xs text-emerald-600 font-medium">Done</span>
-          : <span className="text-xs text-text-muted">—</span>}
-      </TableCell>
-      <TableCell className="py-2"><PlatformFlags sub={sub} /></TableCell>
-      <TableCell className="py-2">
-        {sub.page_link && (
-          <a href={sub.page_link} target="_blank" rel="noopener noreferrer"
-             className="text-xs text-accent hover:underline flex items-center gap-0.5">
-            Page <ExternalLink size={10} />
-          </a>
-        )}
-      </TableCell>
-    </TableRow>
+      </td>
+      <td className="p-0 border-0">
+        <div className={inner}>
+          <span className="text-xs text-text-secondary">{sub.product_name || '—'}</span>
+        </div>
+      </td>
+      <td className="p-0 border-0">
+        <div className={inner}>
+          {sub.shopify_pdp_link
+            ? <a href={sub.shopify_pdp_link} target="_blank" rel="noopener noreferrer"
+                 className="text-xs text-accent hover:underline flex items-center gap-0.5 whitespace-nowrap">
+                View <ExternalLink size={10} />
+              </a>
+            : <span className="text-xs text-text-muted">—</span>}
+        </div>
+      </td>
+      <td className="p-0 border-0"><div className={inner}><StatusBadge label={sub.ad_status} /></div></td>
+      <td className="p-0 border-0"><div className={inner}><StatusBadge label={sub.website_status} /></div></td>
+      <td className="p-0 border-0">
+        <div className={inner}>
+          {sub.concluded
+            ? <span className="text-xs text-emerald-600 font-medium">Done</span>
+            : <span className="text-xs text-text-muted">—</span>}
+        </div>
+      </td>
+      <td className="p-0 border-0"><div className={inner}><PlatformFlags sub={sub} /></div></td>
+      <td className="p-0 border-0">
+        <div className={inner}>
+          {sub.page_link
+            ? <a href={sub.page_link} target="_blank" rel="noopener noreferrer"
+                 className="text-xs text-accent hover:underline flex items-center gap-0.5">
+                Page <ExternalLink size={10} />
+              </a>
+            : null}
+        </div>
+      </td>
+    </tr>
   )
 }
 
@@ -155,7 +171,7 @@ function ItemRow({ item }: { item: MondayItem }) {
             <span className="text-text-muted flex-shrink-0 w-3.5">
               {hasSubs && (open ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
             </span>
-            <span className="text-sm font-medium text-accent">{item.name}</span>
+            <span className="text-xs font-medium text-accent">{item.name}</span>
           </div>
         </TableCell>
         <TableCell className="text-text-muted text-xs">—</TableCell>
@@ -178,7 +194,7 @@ function ItemRow({ item }: { item: MondayItem }) {
           )}
         </TableCell>
       </TableRow>
-      {open && item.monday_subitems.map(sub => <SubitemRow key={sub.id} sub={sub} />)}
+      {hasSubs && item.monday_subitems.map(sub => <SubitemRow key={sub.id} sub={sub} visible={open} />)}
     </>
   )
 }
