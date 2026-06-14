@@ -134,7 +134,7 @@ function MarqueeName({ name, className = '' }: { name: string; className?: strin
 
 // ── Subitem row ──────────────────────────────────────────────────────────────
 
-function SubitemRow({ sub, visible }: { sub: MondaySubitem; visible: boolean }) {
+function SubitemRow({ sub, visible, knownNames }: { sub: MondaySubitem; visible: boolean; knownNames: Set<string> }) {
   const inner = cn(
     'overflow-hidden transition-[max-height,opacity,padding] duration-200 ease-in-out px-4',
     visible ? 'max-h-16 opacity-100 py-2' : 'max-h-0 opacity-0 py-0',
@@ -158,7 +158,15 @@ function SubitemRow({ sub, visible }: { sub: MondaySubitem; visible: boolean }) 
       </TableCell>
       <TableCell className="p-0 text-xs text-text-secondary">
         <div className={innerWrap}>
-          {sub.product_name ?? null}
+          {sub.product_name != null && (
+            <div className="flex items-start gap-1.5">
+              <span className={cn(
+                'mt-[3px] shrink-0 w-2 h-2 rounded-full',
+                knownNames.has(sub.product_name.toLowerCase()) ? 'bg-emerald-500' : 'bg-gray-300',
+              )} />
+              {sub.product_name}
+            </div>
+          )}
         </div>
       </TableCell>
       <TableCell className="p-0">
@@ -197,7 +205,7 @@ function SubitemRow({ sub, visible }: { sub: MondaySubitem; visible: boolean }) 
 
 // ── Item row ─────────────────────────────────────────────────────────────────
 
-function ItemRow({ item }: { item: MondayItem }) {
+function ItemRow({ item, knownNames }: { item: MondayItem; knownNames: Set<string> }) {
   const [open, setOpen] = useState(false)
   const hasSubs = item.monday_subitems.length > 0
 
@@ -236,7 +244,7 @@ function ItemRow({ item }: { item: MondayItem }) {
           )}
         </TableCell>
       </TableRow>
-      {hasSubs && item.monday_subitems.map(sub => <SubitemRow key={sub.id} sub={sub} visible={open} />)}
+      {hasSubs && item.monday_subitems.map(sub => <SubitemRow key={sub.id} sub={sub} visible={open} knownNames={knownNames} />)}
     </>
   )
 }
@@ -310,6 +318,7 @@ export function WavesPage() {
   const [sortKey, setSortKey]       = useState<SortKey | null>(null)
   const [sortDir, setSortDir]       = useState<SortDir>('asc')
   const [syncing, setSyncing]       = useState(false)
+  const [knownNames, setKnownNames] = useState<Set<string>>(new Set())
 
   const load = useCallback(async () => {
     try {
@@ -337,6 +346,19 @@ export function WavesPage() {
       .subscribe()
     return () => { supabase.removeChannel(ch) }
   }, [load])
+
+  // Fetch known product names from tracker + proofreading for cross-reference dots
+  useEffect(() => {
+    Promise.all([
+      api.get<{ product_name: string }[]>('/api/builds'),
+      api.get<{ product_name: string }[]>('/api/proof-corrections'),
+    ]).then(([builds, proofs]) => {
+      const names = new Set<string>()
+      for (const b of builds)  if (b.product_name) names.add(b.product_name.toLowerCase())
+      for (const p of proofs)  if (p.product_name) names.add(p.product_name.toLowerCase())
+      setKnownNames(names)
+    }).catch(() => {/* non-critical, dots stay grey */})
+  }, [])
 
   // Reset group/filters when wave changes
   useEffect(() => {
@@ -588,7 +610,7 @@ export function WavesPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                items.map(item => <ItemRow key={item.id} item={item} />)
+                items.map(item => <ItemRow key={item.id} item={item} knownNames={knownNames} />)
               )}
             </TableBody>
           </Table>
