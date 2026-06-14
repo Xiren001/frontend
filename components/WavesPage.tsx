@@ -139,6 +139,10 @@ function SubitemRow({ sub, visible }: { sub: MondaySubitem; visible: boolean }) 
     'overflow-hidden transition-[max-height,opacity,padding] duration-200 ease-in-out px-4',
     visible ? 'max-h-16 opacity-100 py-2' : 'max-h-0 opacity-0 py-0',
   )
+  const innerWrap = cn(
+    'transition-[max-height,opacity,padding] duration-200 ease-in-out px-4',
+    visible ? 'max-h-40 opacity-100 py-2' : 'max-h-0 opacity-0 py-0',
+  )
   return (
     <TableRow
       className={cn('bg-surface/40 hover:bg-surface-hover/30 border-l-0')}
@@ -153,7 +157,7 @@ function SubitemRow({ sub, visible }: { sub: MondaySubitem; visible: boolean }) 
         </div>
       </TableCell>
       <TableCell className="p-0 text-xs text-text-secondary">
-        <div className={inner}>
+        <div className={innerWrap}>
           {sub.product_name ?? null}
         </div>
       </TableCell>
