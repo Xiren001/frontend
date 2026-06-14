@@ -150,7 +150,13 @@ function SubitemRow({ sub, visible, knownNames }: { sub: MondaySubitem; visible:
     >
       <TableCell className="p-0">
         <div className={inner}>
-          <div className="flex items-center gap-2 pl-8">
+          <div className="flex items-center gap-2 pl-4">
+            {sub.product_name != null && (
+              <span className={cn(
+                'shrink-0 w-2 h-2 rounded-full',
+                knownNames.has(sub.product_name.toLowerCase()) ? 'bg-emerald-500' : 'bg-gray-300',
+              )} />
+            )}
             <span className="w-px h-4 bg-border-subtle shrink-0" />
             <span className="text-xs text-text-muted">{sub.name}</span>
           </div>
@@ -158,15 +164,7 @@ function SubitemRow({ sub, visible, knownNames }: { sub: MondaySubitem; visible:
       </TableCell>
       <TableCell className="p-0 text-xs text-text-secondary">
         <div className={innerWrap}>
-          {sub.product_name != null && (
-            <div className="flex items-start gap-1.5">
-              <span className={cn(
-                'mt-[3px] shrink-0 w-2 h-2 rounded-full',
-                knownNames.has(sub.product_name.toLowerCase()) ? 'bg-emerald-500' : 'bg-gray-300',
-              )} />
-              {sub.product_name}
-            </div>
-          )}
+          {sub.product_name ?? null}
         </div>
       </TableCell>
       <TableCell className="p-0">
