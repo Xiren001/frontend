@@ -36,13 +36,11 @@ const PHASE_COLS: {
   { label: 'Phase 1',  startKey: 'phase1_start',   endKey: 'phase1_end',      endBtnLabel: 'End Build', prereq: null,           variant: 'default' },
   { label: 'Proofread',startKey: 'into_proofread',  endKey: 'proof_end',       endBtnLabel: 'End Proof', prereq: 'phase1_end',   variant: 'warn',   showFrom: 'md' },
   { label: 'Testing',  startKey: 'into_testing',    endKey: 'outcome_decided', endBtnLabel: 'Decided',   prereq: 'proof_end',    variant: 'default', showFrom: 'md' },
-  { label: 'Decided',  startKey: 'outcome_decided', endKey: null,              endBtnLabel: null,         prereq: 'into_testing', variant: 'accent', showFrom: 'md' },
 ]
 
 const FUNNEL_PHASE_COLS: typeof PHASE_COLS = [
   { label: 'Phase 1',  startKey: 'phase1_start',   endKey: 'phase1_end',      endBtnLabel: 'End Build', prereq: null,           variant: 'default' },
   { label: 'Testing',  startKey: 'into_testing',    endKey: 'outcome_decided', endBtnLabel: 'Decided',   prereq: 'phase1_end',   variant: 'default', showFrom: 'md' },
-  { label: 'Decided',  startKey: 'outcome_decided', endKey: null,              endBtnLabel: null,         prereq: 'into_testing', variant: 'accent', showFrom: 'md' },
 ]
 
 const PHASE_KEY_INFO: Record<string, { label: string; variant: 'default' | 'warn' | 'accent' }> = {
@@ -907,7 +905,6 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchM
                       </TableHeader>
                     )}
                     <TableHeader>Product</TableHeader>
-                    <TableHeader className={`${showClass('md')} whitespace-nowrap`}>Approved</TableHeader>
                     <TableHeader className={`${showClass('md')} whitespace-nowrap`}>
                       <div className="relative inline-flex items-center gap-1 group/proof">
                         Proof
@@ -980,13 +977,13 @@ export function BuildsTable({ builds, type, month, onRefresh, isAdmin, canBatchM
                           ) : (
                             <MarqueeName name={b.product_name} className="max-w-[180px]" />
                           )}
+                          {b.approved_date && (
+                            <span className="text-[11px] font-mono text-text-muted">{formatDate(b.approved_date)}</span>
+                          )}
                           {b.language && (
                             <span className="text-[11px] font-mono text-text-muted">{b.language}</span>
                           )}
                         </div>
-                      </TableCell>
-                      <TableCell mono className={`${showClass('md')} whitespace-nowrap`}>
-                        {formatDate(b.approved_date)}
                       </TableCell>
 
                       <TableCell className={`${showClass('md')} text-center`}>
