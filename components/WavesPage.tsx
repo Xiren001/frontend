@@ -351,7 +351,8 @@ function WaveContent({ wave }: { wave: MondayWave }) {
       )}
 
       {/* ── Table ── */}
-      <Table containerClassName="rounded-none border-x-0 border-b-0 shadow-none">
+      <div className="px-4 py-3">
+      <Table>
         <TableHead>
           <tr>
             <SortableHeader label="Product"      sortKey="name"               active={sortKey === 'name'}               dir={sortDir} onSort={toggleSort} className="w-64" />
@@ -374,6 +375,7 @@ function WaveContent({ wave }: { wave: MondayWave }) {
           )}
         </TableBody>
       </Table>
+      </div>
     </div>
   )
 }
