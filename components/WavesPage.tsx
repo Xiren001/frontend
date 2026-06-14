@@ -347,15 +347,23 @@ export function WavesPage() {
 
   // Fetch known product names from tracker + proofreading for cross-reference dots
   useEffect(() => {
-    Promise.all([
+    Promise.allSettled([
       api.get<{ product_name: string }[]>('/api/builds'),
-      api.get<{ product_name: string }[]>('/api/proof-corrections'),
-    ]).then(([builds, proofs]) => {
+      api.get<{ product_name: string }[]>('/api/proof-corrections/products'),
+    ]).then(([buildsResult, proofsResult]) => {
       const names = new Set<string>()
-      for (const b of builds)  if (b.product_name) names.add(b.product_name.toLowerCase())
-      for (const p of proofs)  if (p.product_name) names.add(p.product_name.toLowerCase())
+      if (buildsResult.status === 'fulfilled') {
+        for (const b of buildsResult.value) if (b.product_name) names.add(b.product_name.toLowerCase())
+      } else {
+        console.error('[cross-ref] builds fetch failed:', buildsResult.reason)
+      }
+      if (proofsResult.status === 'fulfilled') {
+        for (const p of proofsResult.value) if (p.product_name) names.add(p.product_name.toLowerCase())
+      } else {
+        console.error('[cross-ref] proof-corrections/products fetch failed:', proofsResult.reason)
+      }
       setKnownNames(names)
-    }).catch(() => {/* non-critical, dots stay grey */})
+    })
   }, [])
 
   // Reset group/filters when wave changes
