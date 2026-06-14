@@ -6,23 +6,18 @@ import type { MondayWave, MondayItem, MondaySubitem } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import {
   ChevronDown, ChevronRight, ChevronUp, ExternalLink,
-  RefreshCw, Search, X, SlidersHorizontal,
+  RefreshCw, Search, X,
 } from 'lucide-react'
 import { Table, TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/components/ui/table'
 import { PageHeader } from '@/components/ui/page-header'
+import { Tabs } from '@/components/ui/tabs'
 
 // ── Wave color palette ───────────────────────────────────────────────────────
 
-const WAVE_DOT: Record<number, string> = {
+const WAVE_COLOR: Record<number, string> = {
   1: 'bg-violet-500', 2: 'bg-blue-500',   3: 'bg-emerald-500',
   4: 'bg-amber-500',  5: 'bg-orange-500', 6: 'bg-fuchsia-500',
   7: 'bg-teal-500',   0: 'bg-gray-400',
-}
-
-const WAVE_RING: Record<number, string> = {
-  1: 'ring-violet-400/30', 2: 'ring-blue-400/30',   3: 'ring-emerald-400/30',
-  4: 'ring-amber-400/30',  5: 'ring-orange-400/30', 6: 'ring-fuchsia-400/30',
-  7: 'ring-teal-400/30',   0: 'ring-gray-400/20',
 }
 
 // ── Status badge ─────────────────────────────────────────────────────────────
@@ -59,12 +54,12 @@ function StatusBadge({ label }: { label: string | null }) {
 // ── Platform flags ───────────────────────────────────────────────────────────
 
 const PLATFORMS: Array<{ key: keyof MondaySubitem; label: string }> = [
-  { key: 'meta',            label: 'Meta' },
+  { key: 'meta',            label: 'Meta'   },
   { key: 'tiktok',         label: 'TikTok' },
-  { key: 'youtube',        label: 'YT' },
-  { key: 'pinterest',      label: 'Pin' },
-  { key: 'google_shopping', label: 'GS' },
-  { key: 'google_search',  label: 'G🔍' },
+  { key: 'youtube',        label: 'YT'     },
+  { key: 'pinterest',      label: 'Pin'    },
+  { key: 'google_shopping', label: 'GS'    },
+  { key: 'google_search',  label: 'G🔍'   },
 ]
 
 function PlatformFlags({ sub }: { sub: MondaySubitem }) {
@@ -78,6 +73,27 @@ function PlatformFlags({ sub }: { sub: MondaySubitem }) {
         </span>
       ))}
     </div>
+  )
+}
+
+// ── Sortable header ───────────────────────────────────────────────────────────
+
+type SortKey = 'name' | 'creatives_status' | 'landing_page_status' | 'found_by'
+type SortDir = 'asc' | 'desc'
+
+function SortableHeader({ label, sortKey, active, dir, onSort, className }: {
+  label: string; sortKey: SortKey; active: boolean; dir: SortDir
+  onSort: (k: SortKey) => void; className?: string
+}) {
+  return (
+    <TableHeader className={cn('cursor-pointer select-none group whitespace-nowrap', className)} onClick={() => onSort(sortKey)}>
+      <div className="flex items-center gap-1">
+        {label}
+        <span className={cn('transition-opacity text-text-muted', active ? 'opacity-100' : 'opacity-0 group-hover:opacity-40')}>
+          {active && dir === 'desc' ? <ChevronDown size={11} /> : <ChevronUp size={11} />}
+        </span>
+      </div>
+    </TableHeader>
   )
 }
 
@@ -115,7 +131,7 @@ function SubitemRow({ sub }: { sub: MondaySubitem }) {
   )
 }
 
-// ── Item row (expandable) ────────────────────────────────────────────────────
+// ── Item row ─────────────────────────────────────────────────────────────────
 
 function ItemRow({ item }: { item: MondayItem }) {
   const [open, setOpen] = useState(false)
@@ -130,13 +146,9 @@ function ItemRow({ item }: { item: MondayItem }) {
       >
         <TableCell>
           <div className="flex items-center gap-2">
-            {hasSubs ? (
-              <span className="text-text-muted flex-shrink-0">
-                {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-              </span>
-            ) : (
-              <span className="w-3.5 flex-shrink-0" />
-            )}
+            <span className="text-text-muted flex-shrink-0 w-3.5">
+              {hasSubs && (open ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
+            </span>
             <span className="font-medium text-foreground">{item.name}</span>
           </div>
         </TableCell>
@@ -158,235 +170,80 @@ function ItemRow({ item }: { item: MondayItem }) {
           )}
         </TableCell>
       </TableRow>
-
-      {open && item.monday_subitems.map(sub => (
-        <SubitemRow key={sub.id} sub={sub} />
-      ))}
+      {open && item.monday_subitems.map(sub => <SubitemRow key={sub.id} sub={sub} />)}
     </>
   )
 }
 
-// ── Sortable column header ────────────────────────────────────────────────────
+// ── Mobile item card ──────────────────────────────────────────────────────────
 
-type SortKey = 'name' | 'creatives_status' | 'landing_page_status' | 'found_by'
-type SortDir = 'asc' | 'desc'
-
-function SortableHeader({ label, sortKey, active, dir, onSort, className }: {
-  label: string; sortKey: SortKey; active: boolean; dir: SortDir
-  onSort: (k: SortKey) => void; className?: string
-}) {
-  return (
-    <TableHeader className={cn('cursor-pointer select-none group', className)} onClick={() => onSort(sortKey)}>
-      <div className="flex items-center gap-1">
-        {label}
-        <span className={cn('transition-opacity text-text-muted', active ? 'opacity-100' : 'opacity-0 group-hover:opacity-40')}>
-          {active && dir === 'desc' ? <ChevronDown size={11} /> : <ChevronUp size={11} />}
-        </span>
-      </div>
-    </TableHeader>
-  )
-}
-
-// ── Filter select ─────────────────────────────────────────────────────────────
-
-function FilterSelect({ value, onChange, placeholder, options }: {
-  value: string; onChange: (v: string) => void; placeholder: string; options: string[]
-}) {
-  if (!options.length) return null
-  return (
-    <select
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      className={cn(
-        'text-xs px-2.5 py-1.5 rounded-lg border bg-surface-elevated focus:outline-none focus:ring-2 focus:ring-accent/30 cursor-pointer transition-colors',
-        value ? 'border-accent text-accent font-medium' : 'border-border-subtle text-text-secondary hover:border-border',
-      )}
-    >
-      <option value="">{placeholder}</option>
-      {options.map(s => <option key={s} value={s}>{s}</option>)}
-    </select>
-  )
-}
-
-// ── Wave content ─────────────────────────────────────────────────────────────
-
-function WaveContent({ wave }: { wave: MondayWave }) {
-  const groups = Array.from(new Set(wave.monday_items.map(i => i.group_name ?? 'General')))
-  const [activeGroup, setActiveGroup] = useState(groups[0] ?? '')
-  const [search, setSearch]           = useState('')
-  const [filterCreatives, setFilterCreatives] = useState('')
-  const [filterLanding, setFilterLanding]     = useState('')
-  const [sortKey, setSortKey] = useState<SortKey | null>(null)
-  const [sortDir, setSortDir] = useState<SortDir>('asc')
-
-  const currentGroup = groups.includes(activeGroup) ? activeGroup : (groups[0] ?? '')
-
-  const creativesOptions = Array.from(new Set(
-    wave.monday_items.map(i => i.creatives_status).filter((s): s is string => Boolean(s))
-  )).sort()
-  const landingOptions = Array.from(new Set(
-    wave.monday_items.map(i => i.landing_page_status).filter((s): s is string => Boolean(s))
-  )).sort()
-
-  function toggleSort(key: SortKey) {
-    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
-    else { setSortKey(key); setSortDir('asc') }
-  }
-
-  let items = wave.monday_items.filter(i => (i.group_name ?? 'General') === currentGroup)
-  if (search.trim()) {
-    const q = search.toLowerCase()
-    items = items.filter(i => i.name.toLowerCase().includes(q))
-  }
-  if (filterCreatives) items = items.filter(i => i.creatives_status === filterCreatives)
-  if (filterLanding)   items = items.filter(i => i.landing_page_status === filterLanding)
-  if (sortKey) {
-    items = [...items].sort((a, b) => {
-      const av = (a[sortKey] ?? '').toLowerCase()
-      const bv = (b[sortKey] ?? '').toLowerCase()
-      return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av)
-    })
-  }
-
-  const hasFilters = search || filterCreatives || filterLanding
-  const groupItemCount = wave.monday_items.filter(i => (i.group_name ?? 'General') === currentGroup).length
-
-  if (!wave.monday_items.length) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 gap-2 text-text-muted">
-        <SlidersHorizontal size={20} className="opacity-30" />
-        <span className="text-sm">No items in this wave yet.</span>
-      </div>
-    )
-  }
+function ItemCard({ item }: { item: MondayItem }) {
+  const [open, setOpen] = useState(false)
+  const hasSubs = item.monday_subitems.length > 0
 
   return (
-    <div>
-      {/* Toolbar */}
-      <div className="flex items-center gap-2 flex-wrap px-4 py-2.5 border-b border-border-subtle">
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" size={13} />
-          <input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search products…"
-            className="pl-8 pr-7 py-1.5 text-xs rounded-lg border border-border-subtle bg-surface text-foreground placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent/30 w-48 sm:w-52"
-          />
-          {search && (
-            <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-foreground">
-              <X size={11} />
-            </button>
-          )}
-        </div>
-
-        <FilterSelect value={filterCreatives} onChange={setFilterCreatives} placeholder="All Creatives"    options={creativesOptions} />
-        <FilterSelect value={filterLanding}   onChange={setFilterLanding}   placeholder="All Landing Pages" options={landingOptions} />
-
-        {hasFilters && (
+    <div className="bg-surface-elevated border border-border-subtle rounded-xl p-4">
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <p className="text-sm font-medium text-foreground leading-snug">{item.name}</p>
+        {hasSubs && (
           <button
-            onClick={() => { setSearch(''); setFilterCreatives(''); setFilterLanding('') }}
-            className="flex items-center gap-1 text-xs text-text-muted hover:text-foreground px-2 py-1.5 rounded-lg hover:bg-surface-hover transition-colors"
+            onClick={() => setOpen(o => !o)}
+            className="shrink-0 text-text-muted hover:text-foreground p-1 rounded"
           >
-            <X size={11} /> Clear
+            {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           </button>
         )}
-
-        <div className="flex-1" />
-        <span className="text-xs text-text-muted tabular-nums shrink-0">{items.length} of {groupItemCount}</span>
       </div>
-
-      {/* Group tabs */}
-      {groups.length > 1 && (
-        <div className="flex items-center gap-1.5 px-4 py-2.5 border-b border-border-subtle overflow-x-auto">
-          {groups.map(group => {
-            const cnt = wave.monday_items.filter(i => (i.group_name ?? 'General') === group).length
-            return (
-              <button
-                key={group}
-                onClick={() => setActiveGroup(group)}
-                className={cn(
-                  'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg whitespace-nowrap transition-all border',
-                  currentGroup === group
-                    ? 'bg-accent text-white border-accent shadow-sm'
-                    : 'text-text-secondary bg-surface border-border-subtle hover:text-foreground hover:border-border',
-                )}
-              >
-                {group}
-                <span className={cn(
-                  'rounded-full px-1.5 py-0.5 text-[10px] tabular-nums',
-                  currentGroup === group ? 'bg-white/20 text-white' : 'bg-surface-page text-text-muted',
-                )}>
-                  {cnt}
-                </span>
-              </button>
-            )
-          })}
+      <div className="flex flex-wrap gap-1.5 mb-3">
+        {item.creatives_status    && <StatusBadge label={item.creatives_status} />}
+        {item.landing_page_status && <StatusBadge label={item.landing_page_status} />}
+        {item.found_by && (
+          <span className="text-xs bg-surface border border-border-subtle px-1.5 py-0.5 rounded text-text-muted">
+            {item.found_by}
+          </span>
+        )}
+        {hasSubs && (
+          <span className="text-xs bg-surface border border-border-subtle px-1.5 py-0.5 rounded text-text-muted">
+            {item.monday_subitems.length} variant{item.monday_subitems.length !== 1 ? 's' : ''}
+          </span>
+        )}
+      </div>
+      {item.drive_link && (
+        <a href={item.drive_link} target="_blank" rel="noopener noreferrer"
+           className="text-xs text-accent hover:underline flex items-center gap-1">
+          Drive <ExternalLink size={10} />
+        </a>
+      )}
+      {open && (
+        <div className="mt-3 space-y-2 border-t border-border-subtle pt-3">
+          {item.monday_subitems.map(sub => (
+            <div key={sub.id} className="pl-2 border-l-2 border-border-subtle">
+              <p className="text-xs text-text-muted italic mb-1">{sub.name}</p>
+              <div className="flex flex-wrap gap-1">
+                {sub.ad_status      && <StatusBadge label={sub.ad_status} />}
+                {sub.website_status && <StatusBadge label={sub.website_status} />}
+              </div>
+            </div>
+          ))}
         </div>
       )}
-
-      {/* Table — flush inside the card, no extra padding */}
-      <Table containerClassName="rounded-none border-0 shadow-none overflow-x-auto">
-        <TableHead>
-          <tr>
-            <SortableHeader label="Product"      sortKey="name"                active={sortKey === 'name'}                dir={sortDir} onSort={toggleSort} className="w-56" />
-            <SortableHeader label="Creatives"    sortKey="creatives_status"    active={sortKey === 'creatives_status'}    dir={sortDir} onSort={toggleSort} />
-            <SortableHeader label="Landing Page" sortKey="landing_page_status" active={sortKey === 'landing_page_status'} dir={sortDir} onSort={toggleSort} />
-            <SortableHeader label="Found by"     sortKey="found_by"            active={sortKey === 'found_by'}            dir={sortDir} onSort={toggleSort} />
-            <TableHeader>Variants</TableHeader>
-            <TableHeader>Links</TableHeader>
-          </tr>
-        </TableHead>
-        <TableBody>
-          {items.length === 0 ? (
-            <tr>
-              <td colSpan={6} className="px-4 py-12 text-center text-sm text-text-muted">
-                No results match your filters.
-              </td>
-            </tr>
-          ) : (
-            items.map(item => <ItemRow key={item.id} item={item} />)
-          )}
-        </TableBody>
-      </Table>
     </div>
-  )
-}
-
-// ── Wave nav item ────────────────────────────────────────────────────────────
-
-function WaveNavItem({ wave, active, onClick }: { wave: MondayWave; active: boolean; onClick: () => void }) {
-  const dot  = WAVE_DOT[wave.wave_number]  ?? 'bg-gray-400'
-  const ring = WAVE_RING[wave.wave_number] ?? 'ring-gray-400/20'
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left group transition-all',
-        active
-          ? cn('bg-surface shadow-sm ring-1 font-medium text-foreground', ring)
-          : 'text-text-secondary hover:bg-surface-hover hover:text-foreground',
-      )}
-    >
-      <span className={cn('w-2 h-2 rounded-full shrink-0 transition-transform', dot, active && 'scale-125')} />
-      <span className="flex-1 truncate text-xs">{wave.name}</span>
-      <span className={cn(
-        'text-[10px] rounded-full px-1.5 py-0.5 shrink-0 tabular-nums',
-        active ? 'bg-accent/10 text-accent font-semibold' : 'bg-surface-page text-text-muted group-hover:bg-surface-hover',
-      )}>
-        {wave.monday_items.length}
-      </span>
-    </button>
   )
 }
 
 // ── Main page ────────────────────────────────────────────────────────────────
 
 export function WavesPage() {
-  const [waves, setWaves]         = useState<MondayWave[]>([])
-  const [loading, setLoading]     = useState(true)
+  const [waves, setWaves]           = useState<MondayWave[]>([])
+  const [loading, setLoading]       = useState(true)
   const [activeWave, setActiveWave] = useState<string | null>(null)
-  const [syncing, setSyncing]     = useState(false)
+  const [activeGroup, setActiveGroup] = useState<string>('')
+  const [search, setSearch]         = useState('')
+  const [filterCreatives, setFilterCreatives] = useState('')
+  const [filterLanding, setFilterLanding]     = useState('')
+  const [sortKey, setSortKey]       = useState<SortKey | null>(null)
+  const [sortDir, setSortDir]       = useState<SortDir>('asc')
+  const [syncing, setSyncing]       = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -415,6 +272,15 @@ export function WavesPage() {
     return () => { supabase.removeChannel(ch) }
   }, [load])
 
+  // Reset group/filters when wave changes
+  useEffect(() => {
+    setActiveGroup('')
+    setSearch('')
+    setFilterCreatives('')
+    setFilterLanding('')
+    setSortKey(null)
+  }, [activeWave])
+
   async function syncWave() {
     if (!current?.board_id) return
     setSyncing(true)
@@ -428,16 +294,57 @@ export function WavesPage() {
     }
   }
 
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortKey(key); setSortDir('asc') }
+  }
+
   const mainWaves   = waves.filter(w => w.wave_number !== 0).sort((a, b) => a.wave_number - b.wave_number)
   const stoppedWave = waves.find(w => w.wave_number === 0)
-  const current     = waves.find(w => w.id === activeWave)
   const allWaves    = [...mainWaves, ...(stoppedWave ? [stoppedWave] : [])]
+  const current     = waves.find(w => w.id === activeWave)
+
+  const groups = current
+    ? Array.from(new Set(current.monday_items.map(i => i.group_name ?? 'General')))
+    : []
+  const currentGroup = groups.includes(activeGroup) ? activeGroup : (groups[0] ?? '')
+
+  const creativesOptions = Array.from(new Set(
+    (current?.monday_items ?? []).map(i => i.creatives_status).filter((s): s is string => Boolean(s))
+  )).sort()
+  const landingOptions = Array.from(new Set(
+    (current?.monday_items ?? []).map(i => i.landing_page_status).filter((s): s is string => Boolean(s))
+  )).sort()
+
+  let items = (current?.monday_items ?? []).filter(i => (i.group_name ?? 'General') === currentGroup)
+  if (search.trim()) {
+    const q = search.toLowerCase()
+    items = items.filter(i => i.name.toLowerCase().includes(q))
+  }
+  if (filterCreatives) items = items.filter(i => i.creatives_status === filterCreatives)
+  if (filterLanding)   items = items.filter(i => i.landing_page_status === filterLanding)
+  if (sortKey) {
+    items = [...items].sort((a, b) => {
+      const av = (a[sortKey] ?? '').toLowerCase()
+      const bv = (b[sortKey] ?? '').toLowerCase()
+      return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av)
+    })
+  }
+
+  const hasFilters  = search || filterCreatives || filterLanding
+  const groupCount  = (current?.monday_items ?? []).filter(i => (i.group_name ?? 'General') === currentGroup).length
+
+  const waveTabs = allWaves.map(w => ({
+    id: w.id,
+    label: w.name,
+    count: w.monday_items.length,
+  }))
+
+  const SELECT_CLS = 'rounded-md border border-border bg-surface-elevated px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent/40'
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64 text-text-muted text-sm">
-        Loading waves…
-      </div>
+      <div className="flex items-center justify-center h-64 text-text-muted text-sm">Loading waves…</div>
     )
   }
 
@@ -452,81 +359,171 @@ export function WavesPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Waves"
-        actions={
-          current?.board_id ? (
+      <PageHeader title="Waves" />
+
+      <div className="space-y-4">
+
+        {/* ── Mobile: wave select ── */}
+        <div className="md:hidden">
+          <select
+            value={activeWave ?? ''}
+            onChange={e => setActiveWave(e.target.value)}
+            className={cn(SELECT_CLS, 'w-full')}
+          >
+            {allWaves.map(w => (
+              <option key={w.id} value={w.id}>{w.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* ── Desktop: wave tabs + sync ── */}
+        <div className="hidden md:flex items-center justify-between gap-4">
+          <Tabs
+            tabs={waveTabs}
+            active={activeWave ?? ''}
+            onChange={id => setActiveWave(String(id))}
+            className="flex-1"
+          />
+          {current?.board_id && (
             <button
               onClick={syncWave}
               disabled={syncing}
-              className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-foreground border border-border-subtle rounded-lg px-3 py-1.5 hover:bg-surface-hover transition-all disabled:opacity-50"
+              className="shrink-0 flex items-center gap-1.5 text-xs text-text-secondary hover:text-foreground border border-border-subtle rounded-md px-3 py-1.5 hover:bg-surface-hover transition-all disabled:opacity-50"
             >
               <RefreshCw size={11} className={cn(syncing && 'animate-spin')} />
               {syncing ? 'Syncing…' : 'Sync'}
             </button>
-          ) : undefined
-        }
-      />
-
-      {/* Mobile wave picker */}
-      <div className="lg:hidden mb-4">
-        <select
-          value={activeWave ?? ''}
-          onChange={e => setActiveWave(e.target.value)}
-          className="w-full text-sm rounded-lg border border-border-subtle bg-surface-elevated px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-accent/30"
-        >
-          {allWaves.map(w => (
-            <option key={w.id} value={w.id}>{w.name}</option>
-          ))}
-        </select>
-      </div>
-
-      {/* Two-column layout on lg+ */}
-      <div className="flex gap-5 items-start">
-
-        {/* Sidebar — desktop only */}
-        <aside className="hidden lg:flex flex-col w-52 shrink-0 rounded-xl border border-border-subtle bg-surface-elevated overflow-hidden sticky top-6">
-          <div className="px-4 py-3 border-b border-border-subtle">
-            <p className="text-[11px] font-bold text-text-muted uppercase tracking-widest">Waves</p>
-          </div>
-          <nav className="py-2 px-2 space-y-0.5">
-            {mainWaves.map(w => (
-              <WaveNavItem key={w.id} wave={w} active={activeWave === w.id} onClick={() => setActiveWave(w.id)} />
-            ))}
-          </nav>
-          {stoppedWave && (
-            <div className="px-2 pb-3 pt-2 border-t border-border-subtle">
-              <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider px-3 pb-1">Stopped</p>
-              <WaveNavItem
-                wave={stoppedWave}
-                active={activeWave === stoppedWave.id}
-                onClick={() => setActiveWave(stoppedWave.id)}
-              />
-            </div>
           )}
-        </aside>
+        </div>
 
-        {/* Content card */}
-        <div className="flex-1 min-w-0 rounded-xl border border-border-subtle bg-surface-elevated overflow-hidden">
-          {/* Card header */}
-          <div className="flex items-center gap-3 px-4 py-3 border-b border-border-subtle">
-            {current && (
-              <span className={cn(
-                'w-2.5 h-2.5 rounded-full shrink-0 ring-4',
-                WAVE_DOT[current.wave_number]  ?? 'bg-gray-400',
-                WAVE_RING[current.wave_number] ?? 'ring-gray-400/20',
-              )} />
-            )}
-            <span className="text-sm font-semibold text-foreground">{current?.name ?? '—'}</span>
-            {current && (
-              <span className="text-xs text-text-muted bg-surface border border-border-subtle px-2 py-0.5 rounded-full tabular-nums">
-                {current.monday_items.length} product{current.monday_items.length !== 1 ? 's' : ''}
-              </span>
+        {/* ── Group sub-tabs ── */}
+        {groups.length > 1 && (
+          <div className="flex items-center gap-1.5 overflow-x-auto">
+            {groups.map(group => {
+              const cnt = (current?.monday_items ?? []).filter(i => (i.group_name ?? 'General') === group).length
+              const isActive = currentGroup === group
+              return (
+                <button
+                  key={group}
+                  onClick={() => setActiveGroup(group)}
+                  className={cn(
+                    'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg whitespace-nowrap transition-all border',
+                    isActive
+                      ? 'bg-accent text-white border-accent shadow-sm'
+                      : 'text-text-secondary bg-surface-elevated border-border-subtle hover:text-foreground hover:border-border',
+                  )}
+                >
+                  {group}
+                  <span className={cn(
+                    'rounded-full px-1.5 py-0.5 text-[10px] tabular-nums',
+                    isActive ? 'bg-white/20 text-white' : 'bg-surface-page text-text-muted',
+                  )}>
+                    {cnt}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        )}
+
+        {/* ── Search + filters ── */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Search */}
+          <div className="relative flex-1 min-w-48">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-muted pointer-events-none" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search products…"
+              className="w-full rounded-md border border-border bg-surface pl-8 pr-7 py-1.5 text-xs text-foreground placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/40"
+            />
+            {search && (
+              <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-foreground">
+                <X className="h-3 w-3" />
+              </button>
             )}
           </div>
 
-          {/* Wave content */}
-          {current && <WaveContent key={current.id} wave={current} />}
+          {creativesOptions.length > 0 && (
+            <select
+              value={filterCreatives}
+              onChange={e => setFilterCreatives(e.target.value)}
+              className={cn(
+                'rounded-md border bg-surface-elevated px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-accent/40 cursor-pointer',
+                filterCreatives ? 'border-accent text-accent font-medium' : 'border-border text-text-secondary',
+              )}
+            >
+              <option value="">All Creatives</option>
+              {creativesOptions.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          )}
+
+          {landingOptions.length > 0 && (
+            <select
+              value={filterLanding}
+              onChange={e => setFilterLanding(e.target.value)}
+              className={cn(
+                'rounded-md border bg-surface-elevated px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-accent/40 cursor-pointer',
+                filterLanding ? 'border-accent text-accent font-medium' : 'border-border text-text-secondary',
+              )}
+            >
+              <option value="">All Landing Pages</option>
+              {landingOptions.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          )}
+
+          {hasFilters && (
+            <button
+              onClick={() => { setSearch(''); setFilterCreatives(''); setFilterLanding('') }}
+              className="flex items-center gap-1 text-xs text-text-muted hover:text-foreground px-2 py-1.5 rounded-md hover:bg-surface-hover transition-colors"
+            >
+              <X size={11} /> Clear
+            </button>
+          )}
+
+          {hasFilters && (
+            <span className="text-xs text-text-muted tabular-nums ml-auto">
+              {items.length} of {groupCount}
+            </span>
+          )}
+        </div>
+
+        {/* ── Mobile cards ── */}
+        <div className="block md:hidden space-y-3">
+          {items.length === 0 ? (
+            <p className="text-sm text-text-muted text-center py-10">
+              {hasFilters ? 'No results match your filters.' : 'No items in this wave yet.'}
+            </p>
+          ) : (
+            items.map(item => <ItemCard key={item.id} item={item} />)
+          )}
+        </div>
+
+        {/* ── Desktop table ── */}
+        <div className="hidden md:block">
+          <Table>
+            <TableHead>
+              <TableRow>
+                <SortableHeader label="Product"      sortKey="name"                active={sortKey === 'name'}                dir={sortDir} onSort={toggleSort} className="w-56" />
+                <SortableHeader label="Creatives"    sortKey="creatives_status"    active={sortKey === 'creatives_status'}    dir={sortDir} onSort={toggleSort} />
+                <SortableHeader label="Landing Page" sortKey="landing_page_status" active={sortKey === 'landing_page_status'} dir={sortDir} onSort={toggleSort} />
+                <SortableHeader label="Found by"     sortKey="found_by"            active={sortKey === 'found_by'}            dir={sortDir} onSort={toggleSort} />
+                <TableHeader>Variants</TableHeader>
+                <TableHeader>Links</TableHeader>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {items.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-text-muted py-12">
+                    {hasFilters ? 'No results match your filters.' : 'No items in this wave yet.'}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                items.map(item => <ItemRow key={item.id} item={item} />)
+              )}
+            </TableBody>
+          </Table>
         </div>
 
       </div>
