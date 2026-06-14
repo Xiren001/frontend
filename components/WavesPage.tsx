@@ -2,7 +2,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { api } from '@/lib/api'
 import { createClient } from '@/lib/supabase'
-import { useRole } from '@/lib/role-context'
 import type { MondayWave, MondayItem, MondaySubitem } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { ChevronDown, ChevronRight, ExternalLink } from 'lucide-react'
@@ -200,8 +199,7 @@ export function WavesPage() {
   const [waves, setWaves] = useState<MondayWave[]>([])
   const [loading, setLoading] = useState(true)
   const [activeWave, setActiveWave] = useState<string | null>(null)
-  const [registering, setRegistering] = useState<string | null>(null)
-  const { role } = useRole()
+  const [syncing, setSyncing] = useState(false)
   const load = useCallback(async () => {
     try {
       const data = await api.get<MondayWave[]>('/api/monday/waves')
@@ -227,15 +225,16 @@ export function WavesPage() {
     return () => { supabase.removeChannel(channel) }
   }, [load])
 
-  async function registerHooks(endpoint: string, label: string) {
-    setRegistering(label)
+  async function syncWave() {
+    if (!current?.board_id) return
+    setSyncing(true)
     try {
-      const result = await api.post<{ ok: boolean; results: Record<string, unknown> }>(`/api/monday/${endpoint}`, {})
-      alert(JSON.stringify(result.results, null, 2))
+      await api.post(`/api/monday/sync/${current.board_id}`, {})
+      await load()
     } catch (err: any) {
-      alert('Error: ' + err.message)
+      alert('Sync failed: ' + err.message)
     } finally {
-      setRegistering(null)
+      setSyncing(false)
     }
   }
 
@@ -285,30 +284,14 @@ export function WavesPage() {
             </button>
           ))}
         </div>
-        {role === 'admin' && (
-          <div className="flex gap-2 shrink-0">
-            <button
-              onClick={() => registerHooks('register-group-move-hooks', 'group')}
-              disabled={!!registering}
-              className="text-xs text-text-muted hover:text-foreground border border-border-subtle rounded px-2 py-1 disabled:opacity-50"
-            >
-              {registering === 'group' ? 'Registering…' : 'Register group webhooks'}
-            </button>
-            <button
-              onClick={() => registerHooks('register-item-move-hooks', 'item')}
-              disabled={!!registering}
-              className="text-xs text-text-muted hover:text-foreground border border-border-subtle rounded px-2 py-1 disabled:opacity-50"
-            >
-              {registering === 'item' ? 'Registering…' : 'Register item move webhooks'}
-            </button>
-            <button
-              onClick={() => registerHooks('register-crud-hooks', 'crud')}
-              disabled={!!registering}
-              className="text-xs text-text-muted hover:text-foreground border border-border-subtle rounded px-2 py-1 disabled:opacity-50"
-            >
-              {registering === 'crud' ? 'Registering…' : 'Register CRUD webhooks'}
-            </button>
-          </div>
+        {current?.board_id && (
+          <button
+            onClick={syncWave}
+            disabled={syncing}
+            className="shrink-0 text-xs text-text-muted hover:text-foreground border border-border-subtle rounded px-2 py-1 disabled:opacity-50"
+          >
+            {syncing ? 'Syncing…' : 'Sync'}
+          </button>
         )}
       </div>
 
