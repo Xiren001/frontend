@@ -4,9 +4,22 @@ import { api } from '@/lib/api'
 import { createClient } from '@/lib/supabase'
 import type { MondayWave, MondayItem, MondaySubitem } from '@/lib/types'
 import { cn } from '@/lib/utils'
-import { ChevronDown, ChevronRight, ExternalLink } from 'lucide-react'
+import { ChevronDown, ChevronRight, ExternalLink, RefreshCw } from 'lucide-react'
 
-// ── Status badge ────────────────────────────────────────────────────────────
+// ── Wave color palette ───────────────────────────────────────────────────────
+
+const WAVE_DOT: Record<number, string> = {
+  1: 'bg-violet-500',
+  2: 'bg-blue-500',
+  3: 'bg-emerald-500',
+  4: 'bg-amber-500',
+  5: 'bg-orange-500',
+  6: 'bg-fuchsia-500',
+  7: 'bg-teal-500',
+  0: 'bg-gray-400',
+}
+
+// ── Status badge ─────────────────────────────────────────────────────────────
 
 const STATUS_STYLE: Record<string, string> = {
   'not started yet':       'bg-gray-100 text-gray-500',
@@ -24,6 +37,7 @@ const STATUS_STYLE: Record<string, string> = {
   'ready to launch':       'bg-emerald-100 text-emerald-700',
   'building - dan':        'bg-sky-100 text-sky-700',
   'building - dora':       'bg-sky-100 text-sky-700',
+  'revisions needed':      'bg-red-100 text-red-600',
 }
 
 function StatusBadge({ label }: { label: string | null }) {
@@ -36,7 +50,7 @@ function StatusBadge({ label }: { label: string | null }) {
   )
 }
 
-// ── Platform flags ──────────────────────────────────────────────────────────
+// ── Platform flags ───────────────────────────────────────────────────────────
 
 const PLATFORMS: Array<{ key: keyof MondaySubitem; label: string }> = [
   { key: 'meta',            label: 'Meta' },
@@ -61,7 +75,7 @@ function PlatformFlags({ sub }: { sub: MondaySubitem }) {
   )
 }
 
-// ── Subitem row ─────────────────────────────────────────────────────────────
+// ── Subitem row ──────────────────────────────────────────────────────────────
 
 function SubitemRow({ sub }: { sub: MondaySubitem }) {
   return (
@@ -71,7 +85,7 @@ function SubitemRow({ sub }: { sub: MondaySubitem }) {
       <td className="px-3 py-2"><StatusBadge label={sub.website_status} /></td>
       <td className="px-3 py-2">
         {sub.concluded
-          ? <span className="text-xs text-green-600 font-medium">Done</span>
+          ? <span className="text-xs text-emerald-600 font-medium">Done</span>
           : <span className="text-xs text-text-muted">—</span>}
       </td>
       <td className="px-3 py-2"><PlatformFlags sub={sub} /></td>
@@ -95,7 +109,7 @@ function SubitemRow({ sub }: { sub: MondaySubitem }) {
   )
 }
 
-// ── Item row (expandable) ───────────────────────────────────────────────────
+// ── Item row (expandable) ────────────────────────────────────────────────────
 
 function ItemRow({ item }: { item: MondayItem }) {
   const [open, setOpen] = useState(false)
@@ -145,14 +159,16 @@ function ItemRow({ item }: { item: MondayItem }) {
   )
 }
 
-// ── Wave content ────────────────────────────────────────────────────────────
+// ── Wave content ─────────────────────────────────────────────────────────────
 
 function WaveContent({ wave }: { wave: MondayWave }) {
   const groups = Array.from(new Set(wave.monday_items.map(i => i.group_name ?? 'General')))
 
   if (!wave.monday_items.length) {
     return (
-      <div className="text-center py-16 text-text-muted text-sm">No items in this wave yet.</div>
+      <div className="flex items-center justify-center h-48 text-text-muted text-sm">
+        No items in this wave yet.
+      </div>
     )
   }
 
@@ -160,13 +176,13 @@ function WaveContent({ wave }: { wave: MondayWave }) {
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-border-subtle text-xs text-text-muted uppercase tracking-wide">
-            <th className="px-4 py-2 text-left font-medium w-64">Product</th>
-            <th className="px-3 py-2 text-left font-medium">Creatives</th>
-            <th className="px-3 py-2 text-left font-medium">Landing Page</th>
-            <th className="px-3 py-2 text-left font-medium">Found by</th>
-            <th className="px-3 py-2 text-left font-medium">Variants</th>
-            <th className="px-3 py-2 text-left font-medium">Links</th>
+          <tr className="border-b border-border-subtle text-xs text-text-muted uppercase tracking-wide bg-surface-elevated/60">
+            <th className="px-4 py-2.5 text-left font-medium w-64">Product</th>
+            <th className="px-3 py-2.5 text-left font-medium">Creatives</th>
+            <th className="px-3 py-2.5 text-left font-medium">Landing Page</th>
+            <th className="px-3 py-2.5 text-left font-medium">Found by</th>
+            <th className="px-3 py-2.5 text-left font-medium">Variants</th>
+            <th className="px-3 py-2.5 text-left font-medium">Links</th>
           </tr>
         </thead>
         <tbody>
@@ -176,7 +192,7 @@ function WaveContent({ wave }: { wave: MondayWave }) {
               <>
                 {groups.length > 1 && (
                   <tr key={`g-${group}`}>
-                    <td colSpan={6} className="px-4 pt-4 pb-1">
+                    <td colSpan={6} className="px-4 pt-5 pb-1.5">
                       <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">
                         {group}
                       </span>
@@ -193,18 +209,48 @@ function WaveContent({ wave }: { wave: MondayWave }) {
   )
 }
 
-// ── Main page ───────────────────────────────────────────────────────────────
+// ── Wave nav item ────────────────────────────────────────────────────────────
+
+function WaveNavItem({ wave, active, onClick }: { wave: MondayWave; active: boolean; onClick: () => void }) {
+  const dot = WAVE_DOT[wave.wave_number] ?? 'bg-gray-400'
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors text-left group',
+        active
+          ? 'bg-accent-muted text-accent font-medium'
+          : 'text-text-secondary hover:bg-surface-hover hover:text-foreground',
+      )}
+    >
+      <span className={cn('w-2 h-2 rounded-full shrink-0', dot)} />
+      <span className="flex-1 truncate">{wave.name}</span>
+      <span className={cn(
+        'text-xs rounded-full px-1.5 py-0.5 shrink-0 tabular-nums',
+        active ? 'bg-accent/15 text-accent' : 'bg-surface-page text-text-muted group-hover:bg-surface-hover',
+      )}>
+        {wave.monday_items.length}
+      </span>
+    </button>
+  )
+}
+
+// ── Main page ────────────────────────────────────────────────────────────────
 
 export function WavesPage() {
   const [waves, setWaves] = useState<MondayWave[]>([])
   const [loading, setLoading] = useState(true)
   const [activeWave, setActiveWave] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
+
   const load = useCallback(async () => {
     try {
       const data = await api.get<MondayWave[]>('/api/monday/waves')
       setWaves(data)
-      if (!activeWave && data.length) setActiveWave(data[0].id)
+      if (!activeWave && data.length) {
+        const first = data.find(w => w.wave_number !== 0) ?? data[0]
+        setActiveWave(first.id)
+      }
     } catch (err) {
       console.error('Failed to load waves:', err)
     } finally {
@@ -214,7 +260,6 @@ export function WavesPage() {
 
   useEffect(() => { load() }, [])
 
-  // Realtime: re-fetch on any monday_items or monday_subitems change
   useEffect(() => {
     const supabase = createClient()
     const channel = supabase
@@ -238,8 +283,9 @@ export function WavesPage() {
     }
   }
 
-  const current = waves.find(w => w.id === activeWave)
-
+  const mainWaves   = waves.filter(w => w.wave_number !== 0).sort((a, b) => a.wave_number - b.wave_number)
+  const stoppedWave = waves.find(w => w.wave_number === 0)
+  const current     = waves.find(w => w.id === activeWave)
 
   if (loading) {
     return (
@@ -259,45 +305,65 @@ export function WavesPage() {
   }
 
   return (
-    <div className="flex flex-col gap-0 h-full">
-      {/* Wave tabs */}
-      <div className="border-b border-border-subtle bg-surface-elevated px-4 flex items-center gap-4">
-        <div className="flex gap-0 overflow-x-auto">
-          {waves.map(w => (
-            <button
-              key={w.id}
-              onClick={() => setActiveWave(w.id)}
-              className={cn(
-                'px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap',
-                activeWave === w.id
-                  ? 'border-accent text-accent'
-                  : 'border-transparent text-text-muted hover:text-foreground hover:border-border-subtle'
-              )}
-            >
-              {w.name}
-              <span className={cn(
-                'ml-1.5 text-xs rounded-full px-1.5 py-0.5',
-                activeWave === w.id ? 'bg-accent/10 text-accent' : 'bg-surface-page text-text-muted'
-              )}>
-                {w.monday_items.length}
-              </span>
-            </button>
-          ))}
-        </div>
-        {current?.board_id && (
-          <button
-            onClick={syncWave}
-            disabled={syncing}
-            className="shrink-0 text-xs text-text-muted hover:text-foreground border border-border-subtle rounded px-2 py-1 disabled:opacity-50"
-          >
-            {syncing ? 'Syncing…' : 'Sync'}
-          </button>
-        )}
-      </div>
+    <div className="flex h-full overflow-hidden">
 
-      {/* Content */}
-      <div className="flex-1 overflow-auto bg-surface-elevated">
-        {current && <WaveContent wave={current} />}
+      {/* ── Side nav ── */}
+      <aside className="w-52 shrink-0 border-r border-border-subtle bg-surface-elevated flex flex-col overflow-hidden">
+        <div className="px-4 py-4 border-b border-border-subtle">
+          <p className="text-xs font-semibold text-text-muted uppercase tracking-widest">Waves</p>
+        </div>
+
+        <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-0.5">
+          {mainWaves.map(w => (
+            <WaveNavItem key={w.id} wave={w} active={activeWave === w.id} onClick={() => setActiveWave(w.id)} />
+          ))}
+        </nav>
+
+        {stoppedWave && (
+          <div className="border-t border-border-subtle px-2 py-2">
+            <WaveNavItem
+              wave={stoppedWave}
+              active={activeWave === stoppedWave.id}
+              onClick={() => setActiveWave(stoppedWave.id)}
+            />
+          </div>
+        )}
+      </aside>
+
+      {/* ── Content ── */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-3.5 border-b border-border-subtle bg-surface-elevated shrink-0">
+          <div className="flex items-center gap-3">
+            {current && (
+              <span className={cn('w-2.5 h-2.5 rounded-full shrink-0', WAVE_DOT[current.wave_number] ?? 'bg-gray-400')} />
+            )}
+            <h1 className="text-sm font-semibold text-foreground">{current?.name ?? '—'}</h1>
+            {current && (
+              <span className="text-xs text-text-muted bg-surface-page border border-border-subtle px-2 py-0.5 rounded-full">
+                {current.monday_items.length} product{current.monday_items.length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+
+          {current?.board_id && (
+            <button
+              onClick={syncWave}
+              disabled={syncing}
+              className="flex items-center gap-1.5 text-xs text-text-muted hover:text-foreground border border-border-subtle rounded-md px-3 py-1.5 hover:bg-surface-hover transition-colors disabled:opacity-50"
+            >
+              <RefreshCw size={11} className={cn(syncing && 'animate-spin')} />
+              {syncing ? 'Syncing…' : 'Sync'}
+            </button>
+          )}
+        </div>
+
+        {/* Table */}
+        <div className="flex-1 overflow-auto bg-surface-page">
+          {current && <WaveContent wave={current} />}
+        </div>
+
       </div>
     </div>
   )
