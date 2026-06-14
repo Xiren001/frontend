@@ -301,6 +301,13 @@ export function WavesPage() {
             >
               {registering === 'item' ? 'Registering…' : 'Register item move webhooks'}
             </button>
+            <button
+              onClick={() => registerHooks('register-crud-hooks', 'crud')}
+              disabled={!!registering}
+              className="text-xs text-text-muted hover:text-foreground border border-border-subtle rounded px-2 py-1 disabled:opacity-50"
+            >
+              {registering === 'crud' ? 'Registering…' : 'Register CRUD webhooks'}
+            </button>
           </div>
         )}
       </div>
