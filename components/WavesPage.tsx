@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase'
 import type { MondayWave, MondayItem, MondaySubitem } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { ChevronDown, ChevronRight, ExternalLink, RefreshCw } from 'lucide-react'
+import { Table, TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/components/ui/table'
 
 // ── Wave color palette ───────────────────────────────────────────────────────
 
@@ -79,17 +80,17 @@ function PlatformFlags({ sub }: { sub: MondaySubitem }) {
 
 function SubitemRow({ sub }: { sub: MondaySubitem }) {
   return (
-    <tr className="border-t border-border-subtle/50 bg-surface-page/50">
-      <td className="pl-10 pr-3 py-2 text-sm text-text-muted">{sub.name}</td>
-      <td className="px-3 py-2"><StatusBadge label={sub.ad_status} /></td>
-      <td className="px-3 py-2"><StatusBadge label={sub.website_status} /></td>
-      <td className="px-3 py-2">
+    <TableRow className="bg-surface-page/50 hover:bg-surface-hover/50">
+      <TableCell className="pl-10 text-text-muted">{sub.name}</TableCell>
+      <TableCell><StatusBadge label={sub.ad_status} /></TableCell>
+      <TableCell><StatusBadge label={sub.website_status} /></TableCell>
+      <TableCell>
         {sub.concluded
           ? <span className="text-xs text-emerald-600 font-medium">Done</span>
           : <span className="text-xs text-text-muted">—</span>}
-      </td>
-      <td className="px-3 py-2"><PlatformFlags sub={sub} /></td>
-      <td className="px-3 py-2">
+      </TableCell>
+      <TableCell><PlatformFlags sub={sub} /></TableCell>
+      <TableCell>
         <div className="flex gap-2">
           {sub.page_link && (
             <a href={sub.page_link} target="_blank" rel="noopener noreferrer"
@@ -104,8 +105,8 @@ function SubitemRow({ sub }: { sub: MondaySubitem }) {
             </a>
           )}
         </div>
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   )
 }
 
@@ -117,13 +118,12 @@ function ItemRow({ item }: { item: MondayItem }) {
 
   return (
     <>
-      <tr
-        className={cn('border-t border-border-subtle hover:bg-surface-hover transition-colors',
-          open && 'bg-surface-hover')}
+      <TableRow
+        className={cn(open && 'bg-surface-hover')}
         onClick={() => hasSubs && setOpen(o => !o)}
         style={{ cursor: hasSubs ? 'pointer' : 'default' }}
       >
-        <td className="px-4 py-3">
+        <TableCell>
           <div className="flex items-center gap-2">
             {hasSubs ? (
               open
@@ -132,16 +132,16 @@ function ItemRow({ item }: { item: MondayItem }) {
             ) : (
               <span className="w-3.5 flex-shrink-0" />
             )}
-            <span className="text-sm font-medium text-foreground">{item.name}</span>
+            <span className="font-medium">{item.name}</span>
           </div>
-        </td>
-        <td className="px-3 py-3"><StatusBadge label={item.creatives_status} /></td>
-        <td className="px-3 py-3"><StatusBadge label={item.landing_page_status} /></td>
-        <td className="px-3 py-3 text-sm text-text-muted">{item.found_by || '—'}</td>
-        <td className="px-3 py-3 text-xs text-text-muted">
+        </TableCell>
+        <TableCell><StatusBadge label={item.creatives_status} /></TableCell>
+        <TableCell><StatusBadge label={item.landing_page_status} /></TableCell>
+        <TableCell className="text-text-muted">{item.found_by || '—'}</TableCell>
+        <TableCell className="text-text-muted text-xs">
           {hasSubs ? `${item.monday_subitems.length} variant${item.monday_subitems.length !== 1 ? 's' : ''}` : '—'}
-        </td>
-        <td className="px-3 py-3">
+        </TableCell>
+        <TableCell>
           {item.drive_link && (
             <a href={item.drive_link} target="_blank" rel="noopener noreferrer"
                onClick={e => e.stopPropagation()}
@@ -149,8 +149,8 @@ function ItemRow({ item }: { item: MondayItem }) {
               Drive <ExternalLink size={10} />
             </a>
           )}
-        </td>
-      </tr>
+        </TableCell>
+      </TableRow>
 
       {open && item.monday_subitems.map(sub => (
         <SubitemRow key={sub.id} sub={sub} />
@@ -173,39 +173,37 @@ function WaveContent({ wave }: { wave: MondayWave }) {
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-border-subtle text-xs text-text-muted uppercase tracking-wide bg-surface-elevated/60">
-            <th className="px-4 py-2.5 text-left font-medium w-64">Product</th>
-            <th className="px-3 py-2.5 text-left font-medium">Creatives</th>
-            <th className="px-3 py-2.5 text-left font-medium">Landing Page</th>
-            <th className="px-3 py-2.5 text-left font-medium">Found by</th>
-            <th className="px-3 py-2.5 text-left font-medium">Variants</th>
-            <th className="px-3 py-2.5 text-left font-medium">Links</th>
-          </tr>
-        </thead>
-        <tbody>
-          {groups.map(group => {
-            const items = wave.monday_items.filter(i => (i.group_name ?? 'General') === group)
-            return (
-              <>
-                {groups.length > 1 && (
-                  <tr key={`g-${group}`}>
-                    <td colSpan={6} className="px-4 pt-5 pb-1.5">
-                      <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">
-                        {group}
-                      </span>
-                    </td>
-                  </tr>
-                )}
-                {items.map(item => <ItemRow key={item.id} item={item} />)}
-              </>
-            )
-          })}
-        </tbody>
-      </table>
-    </div>
+    <Table containerClassName="rounded-none border-0 shadow-none">
+      <TableHead>
+        <tr>
+          <TableHeader className="w-64">Product</TableHeader>
+          <TableHeader>Creatives</TableHeader>
+          <TableHeader>Landing Page</TableHeader>
+          <TableHeader>Found by</TableHeader>
+          <TableHeader>Variants</TableHeader>
+          <TableHeader>Links</TableHeader>
+        </tr>
+      </TableHead>
+      <TableBody>
+        {groups.map(group => {
+          const items = wave.monday_items.filter(i => (i.group_name ?? 'General') === group)
+          return (
+            <>
+              {groups.length > 1 && (
+                <tr key={`g-${group}`}>
+                  <td colSpan={6} className="px-4 pt-5 pb-1.5">
+                    <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">
+                      {group}
+                    </span>
+                  </td>
+                </tr>
+              )}
+              {items.map(item => <ItemRow key={item.id} item={item} />)}
+            </>
+          )
+        })}
+      </TableBody>
+    </Table>
   )
 }
 
@@ -360,7 +358,7 @@ export function WavesPage() {
         </div>
 
         {/* Table */}
-        <div className="flex-1 overflow-auto bg-surface-page">
+        <div className="flex-1 overflow-auto">
           {current && <WaveContent wave={current} />}
         </div>
 
