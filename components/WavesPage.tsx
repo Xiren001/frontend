@@ -421,10 +421,16 @@ function SubitemRow({ sub, visible, knownNames, showTimeline, showProofread, isA
 
       <TableCell className="p-0"><div className={inner}><PlatformFlags sub={sub} /></div></TableCell>
       <TableCell className="p-0">
-        <div className={inner}>
+        <div className={cn(inner, 'flex flex-col gap-0.5')}>
+          {sub.drive_link && (
+            <a href={sub.drive_link} target="_blank" rel="noopener noreferrer"
+               className="text-xs text-accent hover:underline flex items-center gap-0.5 whitespace-nowrap">
+              Drive <ExternalLink size={10} />
+            </a>
+          )}
           {sub.page_link && (
             <a href={sub.page_link} target="_blank" rel="noopener noreferrer"
-               className="text-xs text-accent hover:underline flex items-center gap-0.5">
+               className="text-xs text-accent hover:underline flex items-center gap-0.5 whitespace-nowrap">
               Page <ExternalLink size={10} />
             </a>
           )}
@@ -464,7 +470,7 @@ function SubitemHeaderRow({ visible, showTimeline, showProofread }: {
         <TableCell className="p-0"><div className={cls}><span className={lbl}>Proofread</span></div></TableCell>
       )}
       <TableCell className="p-0"><div className={cls}><span className={lbl}>Platforms</span></div></TableCell>
-      <TableCell className="p-0"><div className={cls}><span className={lbl}>Page</span></div></TableCell>
+      <TableCell className="p-0"><div className={cls}><span className={lbl}>Links</span></div></TableCell>
     </TableRow>
   )
 }
@@ -562,15 +568,7 @@ function ItemRow({ item, knownNames, showTimeline, showProofread, onUpdated, isA
             ? <span className="bg-surface-page border border-border-subtle rounded-full px-2 py-0.5 text-[11px]">{item.monday_subitems.length}</span>
             : '—'}
         </TableCell>
-        <TableCell>
-          {item.drive_link && (
-            <a href={item.drive_link} target="_blank" rel="noopener noreferrer"
-               onClick={e => e.stopPropagation()}
-               className="text-xs text-accent hover:underline flex items-center gap-0.5">
-              Drive <ExternalLink size={10} />
-            </a>
-          )}
-        </TableCell>
+        <TableCell />
       </TableRow>
       {hasSubs && <SubitemHeaderRow visible={open} showTimeline={showTimeline} showProofread={showProofread} />}
       {hasSubs && item.monday_subitems.map(sub => <SubitemRow key={sub.id} sub={sub} visible={open} knownNames={knownNames} showTimeline={showTimeline} showProofread={showProofread} isAdmin={isAdmin} onUpdated={onUpdated} />)}
@@ -693,12 +691,6 @@ function ItemCard({ item, showTimeline, showProofread, onUpdated, isAdmin }: {
         </div>
       )}
 
-      {item.drive_link && (
-        <a href={item.drive_link} target="_blank" rel="noopener noreferrer"
-           className="text-xs text-accent hover:underline flex items-center gap-1">
-          Drive <ExternalLink size={10} />
-        </a>
-      )}
       {open && (
         <div className="mt-3 space-y-2 border-t border-border-subtle pt-3">
           {item.monday_subitems.map(sub => {
@@ -723,6 +715,22 @@ function ItemCard({ item, showTimeline, showProofread, onUpdated, isAdmin }: {
                       <p className="font-mono font-semibold text-accent">
                         {lpDays(sub.lp_proofread_at, sub.lp_ready_to_launch_at)}d
                       </p>
+                    )}
+                  </div>
+                )}
+                {(sub.drive_link || sub.page_link) && (
+                  <div className="flex items-center gap-2 mt-1">
+                    {sub.drive_link && (
+                      <a href={sub.drive_link} target="_blank" rel="noopener noreferrer"
+                         className="text-xs text-accent hover:underline flex items-center gap-0.5">
+                        Drive <ExternalLink size={10} />
+                      </a>
+                    )}
+                    {sub.page_link && (
+                      <a href={sub.page_link} target="_blank" rel="noopener noreferrer"
+                         className="text-xs text-accent hover:underline flex items-center gap-0.5">
+                        Page <ExternalLink size={10} />
+                      </a>
                     )}
                   </div>
                 )}
@@ -1103,7 +1111,7 @@ export function WavesPage() {
                   <TableHeader className="whitespace-nowrap">Proofread avg</TableHeader>
                 )}
                 <TableHeader>Variants</TableHeader>
-                <TableHeader>Links</TableHeader>
+                <TableHeader />
               </TableRow>
             </TableHead>
             <TableBody>
