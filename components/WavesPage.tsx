@@ -293,11 +293,12 @@ function MarqueeName({ name, className = '' }: { name: string; className?: strin
 
 // ── Subitem row ──────────────────────────────────────────────────────────────
 
-function SubitemRow({ sub, visible, knownNames, showTimeline, isAdmin, onUpdated }: {
+function SubitemRow({ sub, visible, knownNames, showTimeline, showProofread, isAdmin, onUpdated }: {
   sub: MondaySubitem
   visible: boolean
   knownNames: Set<string>
   showTimeline?: boolean
+  showProofread?: boolean
   isAdmin: boolean
   onUpdated: () => void
 }) {
@@ -398,6 +399,24 @@ function SubitemRow({ sub, visible, knownNames, showTimeline, isAdmin, onUpdated
             </div>
           </TableCell>
         </>
+      ) : showProofread ? (
+        <TableCell className="p-0">
+          <div className={innerDate}>
+            <div className="flex flex-col gap-0.5 min-w-[90px]">
+              {isAdmin
+                ? <EditableDate value={sub.lp_proofread_at} field="lp_proofread_at" apiPath={apiPath} onUpdated={onUpdated} />
+                : <span className="font-mono text-xs text-foreground">{fmtTs(sub.lp_proofread_at)}</span>}
+              {isAdmin
+                ? <EditableDate value={sub.lp_ready_to_launch_at} field="lp_ready_to_launch_at" apiPath={apiPath} onUpdated={onUpdated} />
+                : <span className="font-mono text-xs text-text-muted">{fmtTs(sub.lp_ready_to_launch_at)}</span>}
+              {lpDays(sub.lp_proofread_at, sub.lp_ready_to_launch_at) !== null && (
+                <span className="text-[11px] font-mono font-semibold text-accent">
+                  {lpDays(sub.lp_proofread_at, sub.lp_ready_to_launch_at)}d
+                </span>
+              )}
+            </div>
+          </div>
+        </TableCell>
       ) : null}
 
       <TableCell className="p-0">
@@ -424,10 +443,11 @@ function SubitemRow({ sub, visible, knownNames, showTimeline, isAdmin, onUpdated
 
 // ── Item row ─────────────────────────────────────────────────────────────────
 
-function ItemRow({ item, knownNames, showTimeline, onUpdated, isAdmin }: {
+function ItemRow({ item, knownNames, showTimeline, showProofread, onUpdated, isAdmin }: {
   item: MondayItem
   knownNames: Set<string>
   showTimeline?: boolean
+  showProofread?: boolean
   onUpdated: () => void
   isAdmin: boolean
 }) {
@@ -493,6 +513,22 @@ function ItemRow({ item, knownNames, showTimeline, onUpdated, isAdmin }: {
             />
           </>
         ))}
+        {showProofread && (hasSubs ? (() => {
+          const agg = subitemPhaseAgg(item.monday_subitems)
+          return (
+            <TableCell className="whitespace-nowrap">
+              {agg.avgProof !== null
+                ? <div className="flex flex-col gap-0.5"><span className="font-mono text-xs font-semibold text-accent">{agg.avgProof}d avg</span><span className="text-[11px] text-text-muted">{agg.proofDone}/{agg.total}</span></div>
+                : <span className="text-text-muted text-xs">—</span>}
+            </TableCell>
+          )
+        })() : (
+          <LpPhaseCell
+            start={item.lp_proofread_at}     startField="lp_proofread_at"
+            end={item.lp_ready_to_launch_at} endField="lp_ready_to_launch_at"
+            outOfOrder={false} apiPath={`/api/monday/items/${item.id}/timestamps`} onUpdated={onUpdated} isAdmin={isAdmin}
+          />
+        ))}
         <TableCell className="text-text-muted text-xs">{item.found_by || '—'}</TableCell>
         <TableCell className="text-text-muted text-xs">
           {hasSubs
@@ -509,16 +545,17 @@ function ItemRow({ item, knownNames, showTimeline, onUpdated, isAdmin }: {
           )}
         </TableCell>
       </TableRow>
-      {hasSubs && item.monday_subitems.map(sub => <SubitemRow key={sub.id} sub={sub} visible={open} knownNames={knownNames} showTimeline={showTimeline} isAdmin={isAdmin} onUpdated={onUpdated} />)}
+      {hasSubs && item.monday_subitems.map(sub => <SubitemRow key={sub.id} sub={sub} visible={open} knownNames={knownNames} showTimeline={showTimeline} showProofread={showProofread} isAdmin={isAdmin} onUpdated={onUpdated} />)}
     </>
   )
 }
 
 // ── Mobile item card ──────────────────────────────────────────────────────────
 
-function ItemCard({ item, showTimeline, onUpdated, isAdmin }: {
+function ItemCard({ item, showTimeline, showProofread, onUpdated, isAdmin }: {
   item: MondayItem
   showTimeline?: boolean
+  showProofread?: boolean
   onUpdated: () => void
   isAdmin: boolean
 }) {
@@ -604,6 +641,35 @@ function ItemCard({ item, showTimeline, onUpdated, isAdmin }: {
         </div>
       )}
 
+      {showProofread && hasSubs && (() => {
+        const agg = subitemPhaseAgg(item.monday_subitems)
+        return (
+          <div className="mb-3 p-2 rounded-lg text-xs bg-surface border border-border-subtle">
+            <p className="font-medium text-text-muted mb-1">Proofread</p>
+            {agg.avgProof !== null
+              ? <><p className="font-mono font-semibold text-accent">{agg.avgProof}d avg</p><p className="text-text-muted">{agg.proofDone}/{agg.total}</p></>
+              : <p className="text-text-muted">—</p>}
+          </div>
+        )
+      })()}
+
+      {showProofread && !hasSubs && (
+        <div className="mb-3 p-2 rounded-lg text-xs bg-surface border border-border-subtle">
+          <p className="font-medium text-text-muted mb-1">Proofread</p>
+          {isAdmin
+            ? <EditableDate value={item.lp_proofread_at} field="lp_proofread_at" apiPath={`/api/monday/items/${item.id}/timestamps`} onUpdated={onUpdated} />
+            : <p className="font-mono text-foreground">{fmtTs(item.lp_proofread_at)}</p>}
+          {isAdmin
+            ? <EditableDate value={item.lp_ready_to_launch_at} field="lp_ready_to_launch_at" apiPath={`/api/monday/items/${item.id}/timestamps`} onUpdated={onUpdated} />
+            : <p className="font-mono text-text-muted">{fmtTs(item.lp_ready_to_launch_at)}</p>}
+          {lpDays(item.lp_proofread_at, item.lp_ready_to_launch_at) !== null && (
+            <p className="font-mono font-semibold mt-0.5 text-accent">
+              {lpDays(item.lp_proofread_at, item.lp_ready_to_launch_at)}d
+            </p>
+          )}
+        </div>
+      )}
+
       {item.drive_link && (
         <a href={item.drive_link} target="_blank" rel="noopener noreferrer"
            className="text-xs text-accent hover:underline flex items-center gap-1">
@@ -621,6 +687,22 @@ function ItemCard({ item, showTimeline, onUpdated, isAdmin }: {
                   {sub.ad_status      && <StatusBadge label={sub.ad_status} />}
                   {sub.website_status && <StatusBadge label={sub.website_status} />}
                 </div>
+                {showProofread && (
+                  <div className="mt-1 text-xs">
+                    <p className="text-[10px] font-medium mb-0.5 text-text-muted">Proofread</p>
+                    {isAdmin
+                      ? <EditableDate value={sub.lp_proofread_at} field="lp_proofread_at" apiPath={`/api/monday/subitems/${sub.id}/timestamps`} onUpdated={onUpdated} />
+                      : <p className="font-mono text-foreground">{fmtTs(sub.lp_proofread_at)}</p>}
+                    {isAdmin
+                      ? <EditableDate value={sub.lp_ready_to_launch_at} field="lp_ready_to_launch_at" apiPath={`/api/monday/subitems/${sub.id}/timestamps`} onUpdated={onUpdated} />
+                      : <p className="font-mono text-text-muted">{fmtTs(sub.lp_ready_to_launch_at)}</p>}
+                    {lpDays(sub.lp_proofread_at, sub.lp_ready_to_launch_at) !== null && (
+                      <p className="font-mono font-semibold text-accent">
+                        {lpDays(sub.lp_proofread_at, sub.lp_ready_to_launch_at)}d
+                      </p>
+                    )}
+                  </div>
+                )}
                 {showTimeline && (
                   <div className="grid grid-cols-3 gap-2 mt-1 text-xs">
                     {([
@@ -768,6 +850,7 @@ export function WavesPage() {
   const allWaves    = [...mainWaves, ...(stoppedWave ? [stoppedWave] : [])]
   const current      = waves.find(w => w.id === activeWave)
   const showTimeline = current?.wave_number === 1
+  const showProofread = (current?.wave_number ?? 0) >= 2
 
   const groups = current
     ? Array.from(new Set(current.monday_items.map(i => i.group_name ?? 'General')))
@@ -972,7 +1055,7 @@ export function WavesPage() {
               {hasFilters ? 'No results match your filters.' : 'No items in this wave yet.'}
             </p>
           ) : (
-            items.map(item => <ItemCard key={item.id} item={item} showTimeline={showTimeline} onUpdated={load} isAdmin={isAdmin} />)
+            items.map(item => <ItemCard key={item.id} item={item} showTimeline={showTimeline} showProofread={showProofread} onUpdated={load} isAdmin={isAdmin} />)
           )}
         </div>
 
@@ -993,6 +1076,9 @@ export function WavesPage() {
                     <TableHeader className="whitespace-nowrap">Testing</TableHeader>
                   </>
                 )}
+                {showProofread && (
+                  <TableHeader className="whitespace-nowrap">Proofread</TableHeader>
+                )}
                 <SortableHeader label="Found by"     sortKey="found_by"            active={sortKey === 'found_by'}            dir={sortDir} onSort={toggleSort} />
                 <TableHeader>Variants</TableHeader>
                 <TableHeader>Links</TableHeader>
@@ -1001,12 +1087,12 @@ export function WavesPage() {
             <TableBody>
               {items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={showTimeline ? 11 : 8} className="text-center text-text-muted py-12">
+                  <TableCell colSpan={showTimeline ? 11 : showProofread ? 9 : 8} className="text-center text-text-muted py-12">
                     {hasFilters ? 'No results match your filters.' : 'No items in this wave yet.'}
                   </TableCell>
                 </TableRow>
               ) : (
-                items.map(item => <ItemRow key={item.id} item={item} knownNames={knownNames} showTimeline={showTimeline} onUpdated={load} isAdmin={isAdmin} />)
+                items.map(item => <ItemRow key={item.id} item={item} knownNames={knownNames} showTimeline={showTimeline} showProofread={showProofread} onUpdated={load} isAdmin={isAdmin} />)
               )}
             </TableBody>
           </Table>
