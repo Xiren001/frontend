@@ -89,6 +89,11 @@ export interface MondayItem {
   landing_page_status: string | null
   drive_link: string | null
   found_by: string | null
+  lp_building_at: string | null
+  lp_ready_at: string | null
+  lp_proofread_at: string | null
+  lp_ready_to_launch_at: string | null
+  lp_launched_at: string | null
   monday_subitems: MondaySubitem[]
   created_at: string
   updated_at: string

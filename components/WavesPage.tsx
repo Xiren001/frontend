@@ -4,6 +4,66 @@ import { api } from '@/lib/api'
 import { createClient } from '@/lib/supabase'
 import type { MondayWave, MondayItem, MondaySubitem } from '@/lib/types'
 import { cn } from '@/lib/utils'
+
+// ── LP phase timeline helpers ─────────────────────────────────────────────────
+
+const LP_PHASE_KEYS: (keyof MondayItem)[] = [
+  'lp_building_at', 'lp_ready_at', 'lp_proofread_at', 'lp_ready_to_launch_at', 'lp_launched_at',
+]
+
+function isLpOutOfOrder(item: MondayItem): boolean {
+  let highest = -1
+  for (let i = 0; i < LP_PHASE_KEYS.length; i++) {
+    if (item[LP_PHASE_KEYS[i]]) highest = i
+  }
+  for (let i = 0; i < highest; i++) {
+    if (!item[LP_PHASE_KEYS[i]]) return true
+  }
+  return false
+}
+
+function lpDays(a: string | null, b: string | null): number | null {
+  if (!a || !b) return null
+  return Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86_400_000)
+}
+
+function fmtTs(ts: string | null): string {
+  if (!ts) return '—'
+  return new Date(ts).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
+}
+
+function LpPhaseCell({
+  start, end, outOfOrder, className = '',
+}: {
+  start: string | null
+  end?: string | null
+  outOfOrder: boolean
+  className?: string
+}) {
+  const days = end !== undefined ? lpDays(start, end) : null
+  const red = outOfOrder
+    ? 'bg-red-500/10 border border-red-500/30'
+    : ''
+  return (
+    <TableCell className={cn('whitespace-nowrap', red, className)}>
+      {start || end ? (
+        <div className="flex flex-col gap-0.5 min-w-[80px]">
+          <span className="font-mono text-xs text-foreground">{fmtTs(start)}</span>
+          {end !== undefined && (
+            <span className="font-mono text-xs text-text-muted">{fmtTs(end)}</span>
+          )}
+          {days !== null && (
+            <span className={cn('text-[11px] font-mono font-semibold', outOfOrder ? 'text-red-500' : 'text-accent')}>
+              {days}d
+            </span>
+          )}
+        </div>
+      ) : (
+        <span className="text-text-muted">—</span>
+      )}
+    </TableCell>
+  )
+}
 import {
   ChevronDown, ChevronRight, ChevronUp, ExternalLink,
   RefreshCw, Search, X,
@@ -41,11 +101,24 @@ const STATUS_STYLE: Record<string, string> = {
   'revisions needed':      'bg-red-100 text-red-600',
 }
 
+function getStatusStyle(label: string): string {
+  const l = label.toLowerCase()
+  if (STATUS_STYLE[l]) return STATUS_STYLE[l]
+  if (l.includes('waiting'))                           return 'bg-yellow-100 text-yellow-700'
+  if (l.includes('building') || l.includes('working')) return 'bg-sky-100 text-sky-700'
+  if (l.includes('progress'))                          return 'bg-blue-100 text-blue-700'
+  if (l.includes('proof'))                             return 'bg-teal-100 text-teal-700'
+  if (l.includes('ready') || l.includes('launch'))     return 'bg-emerald-100 text-emerald-700'
+  if (l.includes('running') || l.includes('expand'))   return 'bg-emerald-100 text-emerald-700'
+  if (l.includes('stop') || l.includes('revision'))    return 'bg-red-100 text-red-600'
+  if (l.includes('test'))                              return 'bg-orange-100 text-orange-700'
+  return 'bg-gray-100 text-gray-600'
+}
+
 function StatusBadge({ label }: { label: string | null }) {
   if (!label) return <span className="text-text-muted text-xs">—</span>
-  const style = STATUS_STYLE[label.toLowerCase()] ?? 'bg-gray-100 text-gray-600'
   return (
-    <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap', style)}>
+    <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap', getStatusStyle(label))}>
       {label}
     </span>
   )
@@ -203,9 +276,10 @@ function SubitemRow({ sub, visible, knownNames }: { sub: MondaySubitem; visible:
 
 // ── Item row ─────────────────────────────────────────────────────────────────
 
-function ItemRow({ item, knownNames }: { item: MondayItem; knownNames: Set<string> }) {
+function ItemRow({ item, knownNames, showTimeline }: { item: MondayItem; knownNames: Set<string>; showTimeline?: boolean }) {
   const [open, setOpen] = useState(false)
   const hasSubs = item.monday_subitems.length > 0
+  const outOfOrder = showTimeline ? isLpOutOfOrder(item) : false
 
   return (
     <>
@@ -226,6 +300,13 @@ function ItemRow({ item, knownNames }: { item: MondayItem; knownNames: Set<strin
         <TableCell className="text-text-muted text-xs">—</TableCell>
         <TableCell><StatusBadge label={item.creatives_status} /></TableCell>
         <TableCell><StatusBadge label={item.landing_page_status} /></TableCell>
+        {showTimeline && (
+          <>
+            <LpPhaseCell start={item.lp_building_at}  end={item.lp_ready_at}           outOfOrder={outOfOrder} />
+            <LpPhaseCell start={item.lp_proofread_at} end={item.lp_ready_to_launch_at} outOfOrder={outOfOrder} />
+            <LpPhaseCell start={item.lp_launched_at}                                   outOfOrder={outOfOrder} />
+          </>
+        )}
         <TableCell className="text-text-muted text-xs">{item.found_by || '—'}</TableCell>
         <TableCell className="text-text-muted text-xs">
           {hasSubs
@@ -249,12 +330,16 @@ function ItemRow({ item, knownNames }: { item: MondayItem; knownNames: Set<strin
 
 // ── Mobile item card ──────────────────────────────────────────────────────────
 
-function ItemCard({ item }: { item: MondayItem }) {
+function ItemCard({ item, showTimeline }: { item: MondayItem; showTimeline?: boolean }) {
   const [open, setOpen] = useState(false)
   const hasSubs = item.monday_subitems.length > 0
+  const outOfOrder = showTimeline ? isLpOutOfOrder(item) : false
 
   return (
-    <div className="bg-surface-elevated border border-border-subtle rounded-xl p-4">
+    <div className={cn(
+      'bg-surface-elevated border rounded-xl p-4',
+      outOfOrder ? 'border-red-500/40' : 'border-border-subtle',
+    )}>
       <div className="flex items-start justify-between gap-2 mb-3">
         <p className="text-sm font-medium text-foreground leading-snug">{item.name}</p>
         {hasSubs && (
@@ -280,6 +365,39 @@ function ItemCard({ item }: { item: MondayItem }) {
           </span>
         )}
       </div>
+
+      {showTimeline && (item.lp_building_at || item.lp_proofread_at || item.lp_launched_at) && (
+        <div className={cn(
+          'grid grid-cols-3 gap-2 mb-3 p-2 rounded-lg text-xs',
+          outOfOrder ? 'bg-red-500/10 border border-red-500/20' : 'bg-surface border border-border-subtle',
+        )}>
+          <div>
+            <p className={cn('font-medium mb-0.5', outOfOrder ? 'text-red-500' : 'text-text-muted')}>Phase 1</p>
+            <p className="font-mono text-foreground">{fmtTs(item.lp_building_at)}</p>
+            <p className="font-mono text-text-muted">{fmtTs(item.lp_ready_at)}</p>
+            {lpDays(item.lp_building_at, item.lp_ready_at) !== null && (
+              <p className={cn('font-mono font-semibold', outOfOrder ? 'text-red-500' : 'text-accent')}>
+                {lpDays(item.lp_building_at, item.lp_ready_at)}d
+              </p>
+            )}
+          </div>
+          <div>
+            <p className={cn('font-medium mb-0.5', outOfOrder ? 'text-red-500' : 'text-text-muted')}>Proofread</p>
+            <p className="font-mono text-foreground">{fmtTs(item.lp_proofread_at)}</p>
+            <p className="font-mono text-text-muted">{fmtTs(item.lp_ready_to_launch_at)}</p>
+            {lpDays(item.lp_proofread_at, item.lp_ready_to_launch_at) !== null && (
+              <p className={cn('font-mono font-semibold', outOfOrder ? 'text-red-500' : 'text-accent')}>
+                {lpDays(item.lp_proofread_at, item.lp_ready_to_launch_at)}d
+              </p>
+            )}
+          </div>
+          <div>
+            <p className={cn('font-medium mb-0.5', outOfOrder ? 'text-red-500' : 'text-text-muted')}>Testing</p>
+            <p className="font-mono text-foreground">{fmtTs(item.lp_launched_at)}</p>
+          </div>
+        </div>
+      )}
+
       {item.drive_link && (
         <a href={item.drive_link} target="_blank" rel="noopener noreferrer"
            className="text-xs text-accent hover:underline flex items-center gap-1">
@@ -396,7 +514,8 @@ export function WavesPage() {
   const mainWaves   = waves.filter(w => w.wave_number !== 0).sort((a, b) => a.wave_number - b.wave_number)
   const stoppedWave = waves.find(w => w.wave_number === 0)
   const allWaves    = [...mainWaves, ...(stoppedWave ? [stoppedWave] : [])]
-  const current     = waves.find(w => w.id === activeWave)
+  const current      = waves.find(w => w.id === activeWave)
+  const showTimeline = current?.wave_number === 1
 
   const groups = current
     ? Array.from(new Set(current.monday_items.map(i => i.group_name ?? 'General')))
@@ -589,7 +708,7 @@ export function WavesPage() {
               {hasFilters ? 'No results match your filters.' : 'No items in this wave yet.'}
             </p>
           ) : (
-            items.map(item => <ItemCard key={item.id} item={item} />)
+            items.map(item => <ItemCard key={item.id} item={item} showTimeline={showTimeline} />)
           )}
         </div>
 
@@ -603,6 +722,13 @@ export function WavesPage() {
                 <TableHeader>Shopify PDP</TableHeader>
                 <SortableHeader label="Creatives"    sortKey="creatives_status"    active={sortKey === 'creatives_status'}    dir={sortDir} onSort={toggleSort} />
                 <SortableHeader label="Landing Page" sortKey="landing_page_status" active={sortKey === 'landing_page_status'} dir={sortDir} onSort={toggleSort} />
+                {showTimeline && (
+                  <>
+                    <TableHeader className="whitespace-nowrap">Phase 1</TableHeader>
+                    <TableHeader className="whitespace-nowrap">Proofread</TableHeader>
+                    <TableHeader className="whitespace-nowrap">Testing</TableHeader>
+                  </>
+                )}
                 <SortableHeader label="Found by"     sortKey="found_by"            active={sortKey === 'found_by'}            dir={sortDir} onSort={toggleSort} />
                 <TableHeader>Variants</TableHeader>
                 <TableHeader>Links</TableHeader>
@@ -611,12 +737,12 @@ export function WavesPage() {
             <TableBody>
               {items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-text-muted py-12">
+                  <TableCell colSpan={showTimeline ? 11 : 8} className="text-center text-text-muted py-12">
                     {hasFilters ? 'No results match your filters.' : 'No items in this wave yet.'}
                   </TableCell>
                 </TableRow>
               ) : (
-                items.map(item => <ItemRow key={item.id} item={item} knownNames={knownNames} />)
+                items.map(item => <ItemRow key={item.id} item={item} knownNames={knownNames} showTimeline={showTimeline} />)
               )}
             </TableBody>
           </Table>
