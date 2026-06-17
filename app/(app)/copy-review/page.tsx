@@ -92,9 +92,9 @@ export default function CopyReviewPage() {
   const canMarkDone          = role === 'admin' || role === 'management' || role === 'ads' || role === 'website'
   const canUpdateLinks       = role === 'admin' || role === 'management' || role === 'website'
   const canModifyCorrections = role === 'admin' || role === 'management' || role === 'proofreader'
-  // ads + website can toggle correction done only once product is marked Ready
+  // ads + website can toggle correction done only once product is marked Ready; proofreader cannot resolve
   const canToggleCorrectionDone = (product: ProofProduct | null) =>
-    role === 'admin' || role === 'management' || role === 'proofreader' ||
+    role === 'admin' || role === 'management' ||
     (!!product?.ready_for_revision && (role === 'ads' || role === 'website'))
 
   const [products, setProducts] = useState<ProofProduct[]>([])
@@ -212,6 +212,15 @@ export default function CopyReviewPage() {
     if (!myDone && !product.ready_for_revision) {
       setDoneShakeKey(k => k + 1)
       return
+    }
+    // website/ads: block if they have unresolved corrections in their own tab
+    if (!myDone && (isWebsite || isAds)) {
+      const mySource = isWebsite ? 'website' : 'ads'
+      const unresolved = (corrections[product.id] ?? []).filter(c => c.source === mySource && !c.done)
+      if (unresolved.length > 0) {
+        setDoneShakeKey(k => k + 1)
+        return
+      }
     }
     setTogglingDone(true)
     try {
@@ -533,11 +542,8 @@ export default function CopyReviewPage() {
                       <div className="flex items-center justify-between mt-2.5 gap-1">
                         <div className="flex items-center gap-1">
                           {langFilter === 'all' && p.language && <Badge variant="accent">{p.language}</Badge>}
-                          {(p.website_done || p.ads_done || p.done) && (
-                            <Badge variant={p.done ? 'muted' : 'default'}>
-                              Done {p.done ? 2 : (p.website_done ? 1 : 0) + (p.ads_done ? 1 : 0)}/2
-                            </Badge>
-                          )}
+                          {(p.website_done || p.done) && <Badge variant="default">Web ✓</Badge>}
+                          {(p.ads_done || p.done) && <Badge variant="default">Ads ✓</Badge>}
                           {isReady && !p.done && <Badge variant="default">Ready</Badge>}
                           {noLinks && <Badge variant="warn">Needs links</Badge>}
                         </div>
@@ -652,11 +658,8 @@ export default function CopyReviewPage() {
                       {selectedProduct.proofreader && (
                         <span className="text-xs text-text-muted truncate">{selectedProduct.proofreader}</span>
                       )}
-                      {(selectedProduct.website_done || selectedProduct.ads_done || selectedProduct.done) && (
-                        <Badge variant={selectedProduct.done ? 'muted' : 'default'}>
-                          Done {selectedProduct.done ? 2 : (selectedProduct.website_done ? 1 : 0) + (selectedProduct.ads_done ? 1 : 0)}/2
-                        </Badge>
-                      )}
+                      {(selectedProduct.website_done || selectedProduct.done) && <Badge variant="default">Web ✓</Badge>}
+                      {(selectedProduct.ads_done || selectedProduct.done) && <Badge variant="default">Ads ✓</Badge>}
                       <span className="text-xs text-text-muted font-mono">
                         {L.resolvedOf(selectedCorrections.filter(c => c.done).length, selectedProduct.correction_count)}
                       </span>
@@ -739,13 +742,22 @@ export default function CopyReviewPage() {
                         const isAds     = role === 'ads'
                         const myDone    = isWebsite ? selectedProduct.website_done : isAds ? selectedProduct.ads_done : selectedProduct.done
                         const doneCount = selectedProduct.done ? 2 : (selectedProduct.website_done ? 1 : 0) + (selectedProduct.ads_done ? 1 : 0)
-                        const canAct    = myDone || selectedProduct.ready_for_revision
+                        const mySource  = isWebsite ? 'website' : 'ads'
+                        const unresolved = (isWebsite || isAds)
+                          ? selectedCorrections.filter(c => c.source === mySource && !c.done).length
+                          : 0
+                        const canAct = myDone || (selectedProduct.ready_for_revision && unresolved === 0)
+                        const blockTitle = !selectedProduct.ready_for_revision
+                          ? 'Mark as Ready first'
+                          : unresolved > 0
+                            ? `Resolve all ${mySource} corrections first`
+                            : undefined
                         return (
                           <span key={doneShakeKey} className={cn('flex-1 sm:flex-none inline-flex', doneShakeKey > 0 && 'animate-proof-shake')}>
                             <button
                               onClick={() => toggleTeamDone(selectedProduct)}
                               disabled={togglingDone}
-                              title={!canAct ? 'Mark as Ready first' : undefined}
+                              title={!canAct ? blockTitle : undefined}
                               className={cn(
                                 'flex w-full items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all active:scale-95 border',
                                 !canAct
