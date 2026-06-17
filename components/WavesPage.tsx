@@ -237,7 +237,7 @@ function PlatformFlags({ sub }: { sub: MondaySubitem }) {
 
 // ── Sortable header ───────────────────────────────────────────────────────────
 
-type SortKey = 'name' | 'creatives_status' | 'landing_page_status' | 'found_by'
+type SortKey = 'name' | 'creatives_status' | 'landing_page_status'
 type SortDir = 'asc' | 'desc'
 
 function SortableHeader({ label, sortKey, active, dir, onSort, className }: {
@@ -419,13 +419,6 @@ function SubitemRow({ sub, visible, knownNames, showTimeline, showProofread, isA
         </TableCell>
       ) : null}
 
-      <TableCell className="p-0">
-        <div className={inner}>
-          {sub.concluded
-            ? <span className="text-xs text-emerald-600 font-medium">Done</span>
-            : <span className="text-xs text-text-muted">—</span>}
-        </div>
-      </TableCell>
       <TableCell className="p-0"><div className={inner}><PlatformFlags sub={sub} /></div></TableCell>
       <TableCell className="p-0">
         <div className={inner}>
@@ -437,6 +430,41 @@ function SubitemRow({ sub, visible, knownNames, showTimeline, showProofread, isA
           )}
         </div>
       </TableCell>
+    </TableRow>
+  )
+}
+
+// ── Subitem header row ────────────────────────────────────────────────────────
+
+function SubitemHeaderRow({ visible, showTimeline, showProofread }: {
+  visible: boolean
+  showTimeline?: boolean
+  showProofread?: boolean
+}) {
+  const cls = cn(
+    'overflow-hidden transition-[max-height,opacity,padding] duration-200 ease-in-out px-2',
+    visible ? 'max-h-8 opacity-100 py-1' : 'max-h-0 opacity-0 py-0',
+  )
+  const lbl = 'text-[10px] font-semibold uppercase tracking-wider text-text-muted'
+  return (
+    <TableRow className="bg-surface-elevated/40 border-l-0">
+      <TableCell className="p-0"><div className={cls}><span className={cn(lbl, 'pl-10')}>Variant</span></div></TableCell>
+      <TableCell className="p-0"><div className={cls}><span className={lbl}>Product Name</span></div></TableCell>
+      <TableCell className="p-0"><div className={cls}><span className={lbl}>PDP</span></div></TableCell>
+      <TableCell className="p-0"><div className={cls}><span className={lbl}>Ad Status</span></div></TableCell>
+      <TableCell className="p-0"><div className={cls}><span className={lbl}>Web Status</span></div></TableCell>
+      {showTimeline && (
+        <>
+          <TableCell className="p-0"><div className={cls}><span className={lbl}>Phase 1</span></div></TableCell>
+          <TableCell className="p-0"><div className={cls}><span className={lbl}>Proofread</span></div></TableCell>
+          <TableCell className="p-0"><div className={cls}><span className={lbl}>Testing</span></div></TableCell>
+        </>
+      )}
+      {showProofread && (
+        <TableCell className="p-0"><div className={cls}><span className={lbl}>Proofread</span></div></TableCell>
+      )}
+      <TableCell className="p-0"><div className={cls}><span className={lbl}>Platforms</span></div></TableCell>
+      <TableCell className="p-0"><div className={cls}><span className={lbl}>Page</span></div></TableCell>
     </TableRow>
   )
 }
@@ -529,7 +557,6 @@ function ItemRow({ item, knownNames, showTimeline, showProofread, onUpdated, isA
             outOfOrder={false} apiPath={`/api/monday/items/${item.id}/timestamps`} onUpdated={onUpdated} isAdmin={isAdmin}
           />
         ))}
-        <TableCell className="text-text-muted text-xs">{item.found_by || '—'}</TableCell>
         <TableCell className="text-text-muted text-xs">
           {hasSubs
             ? <span className="bg-surface-page border border-border-subtle rounded-full px-2 py-0.5 text-[11px]">{item.monday_subitems.length}</span>
@@ -545,6 +572,7 @@ function ItemRow({ item, knownNames, showTimeline, showProofread, onUpdated, isA
           )}
         </TableCell>
       </TableRow>
+      {hasSubs && <SubitemHeaderRow visible={open} showTimeline={showTimeline} showProofread={showProofread} />}
       {hasSubs && item.monday_subitems.map(sub => <SubitemRow key={sub.id} sub={sub} visible={open} knownNames={knownNames} showTimeline={showTimeline} showProofread={showProofread} isAdmin={isAdmin} onUpdated={onUpdated} />)}
     </>
   )
@@ -582,11 +610,6 @@ function ItemCard({ item, showTimeline, showProofread, onUpdated, isAdmin }: {
       <div className="flex flex-wrap gap-1.5 mb-3">
         {item.creatives_status    && <StatusBadge label={item.creatives_status} />}
         {item.landing_page_status && <StatusBadge label={item.landing_page_status} />}
-        {item.found_by && (
-          <span className="text-xs bg-surface border border-border-subtle px-1.5 py-0.5 rounded text-text-muted">
-            {item.found_by}
-          </span>
-        )}
         {hasSubs && (
           <span className="text-xs bg-surface border border-border-subtle px-1.5 py-0.5 rounded text-text-muted">
             {item.monday_subitems.length} variant{item.monday_subitems.length !== 1 ? 's' : ''}
@@ -1079,7 +1102,6 @@ export function WavesPage() {
                 {showProofread && (
                   <TableHeader className="whitespace-nowrap">Proofread</TableHeader>
                 )}
-                <SortableHeader label="Found by"     sortKey="found_by"            active={sortKey === 'found_by'}            dir={sortDir} onSort={toggleSort} />
                 <TableHeader>Variants</TableHeader>
                 <TableHeader>Links</TableHeader>
               </TableRow>
@@ -1087,7 +1109,7 @@ export function WavesPage() {
             <TableBody>
               {items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={showTimeline ? 11 : showProofread ? 9 : 8} className="text-center text-text-muted py-12">
+                  <TableCell colSpan={showTimeline ? 10 : showProofread ? 8 : 7} className="text-center text-text-muted py-12">
                     {hasFilters ? 'No results match your filters.' : 'No items in this wave yet.'}
                   </TableCell>
                 </TableRow>
