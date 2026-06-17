@@ -1094,13 +1094,13 @@ export function WavesPage() {
                 <SortableHeader label="Landing Page" sortKey="landing_page_status" active={sortKey === 'landing_page_status'} dir={sortDir} onSort={toggleSort} />
                 {showTimeline && (
                   <>
-                    <TableHeader className="whitespace-nowrap">Phase 1</TableHeader>
-                    <TableHeader className="whitespace-nowrap">Proofread</TableHeader>
-                    <TableHeader className="whitespace-nowrap">Testing</TableHeader>
+                    <TableHeader className="whitespace-nowrap">Phase 1 avg</TableHeader>
+                    <TableHeader className="whitespace-nowrap">Proofread avg</TableHeader>
+                    <TableHeader className="whitespace-nowrap">Launched</TableHeader>
                   </>
                 )}
                 {showProofread && (
-                  <TableHeader className="whitespace-nowrap">Proofread</TableHeader>
+                  <TableHeader className="whitespace-nowrap">Proofread avg</TableHeader>
                 )}
                 <TableHeader>Variants</TableHeader>
                 <TableHeader>Links</TableHeader>
