@@ -8,19 +8,37 @@ import { cn } from '@/lib/utils'
 
 // ── LP phase timeline helpers ─────────────────────────────────────────────────
 
-const LP_PHASE_KEYS: (keyof MondayItem)[] = [
+const LP_PHASE_FIELD_NAMES = [
   'lp_building_at', 'lp_ready_at', 'lp_proofread_at', 'lp_ready_to_launch_at', 'lp_launched_at',
-]
+] as const
 
-function isLpOutOfOrder(item: MondayItem): boolean {
+function isOutOfOrder(obj: Record<string, unknown>): boolean {
   let highest = -1
-  for (let i = 0; i < LP_PHASE_KEYS.length; i++) {
-    if (item[LP_PHASE_KEYS[i]]) highest = i
+  for (let i = 0; i < LP_PHASE_FIELD_NAMES.length; i++) {
+    if (obj[LP_PHASE_FIELD_NAMES[i]]) highest = i
   }
   for (let i = 0; i < highest; i++) {
-    if (!item[LP_PHASE_KEYS[i]]) return true
+    if (!obj[LP_PHASE_FIELD_NAMES[i]]) return true
   }
   return false
+}
+
+function subitemPhaseAgg(subitems: MondaySubitem[]) {
+  const avg = (nums: (number | null)[]) => {
+    const valid = nums.filter((n): n is number => n !== null)
+    return valid.length ? Math.round(valid.reduce((a, b) => a + b, 0) / valid.length) : null
+  }
+  const buildDays  = subitems.map(s => lpDays(s.lp_building_at, s.lp_ready_at))
+  const proofDays  = subitems.map(s => lpDays(s.lp_proofread_at, s.lp_ready_to_launch_at))
+  const launched   = subitems.filter(s => s.lp_launched_at).length
+  return {
+    avgBuild:  avg(buildDays),
+    buildDone: buildDays.filter(n => n !== null).length,
+    avgProof:  avg(proofDays),
+    proofDone: proofDays.filter(n => n !== null).length,
+    launched,
+    total: subitems.length,
+  }
 }
 
 function lpDays(a: string | null, b: string | null): number | null {
@@ -34,11 +52,11 @@ function fmtTs(ts: string | null): string {
 }
 
 function EditableDate({
-  value, field, itemId, onUpdated,
+  value, field, apiPath, onUpdated,
 }: {
   value: string | null
   field: string
-  itemId: string
+  apiPath: string
   onUpdated: () => void
 }) {
   const [editing, setEditing] = useState(false)
@@ -47,7 +65,7 @@ function EditableDate({
   async function save(dateStr: string | null) {
     setSaving(true)
     try {
-      await api.patch(`/api/monday/items/${itemId}/timestamps`, {
+      await api.patch(apiPath, {
         [field]: dateStr ? `${dateStr}T00:00:00.000Z` : null,
       })
       onUpdated()
@@ -99,14 +117,14 @@ function EditableDate({
 }
 
 function LpPhaseCell({
-  start, startField, end, endField, outOfOrder, itemId, onUpdated, isAdmin,
+  start, startField, end, endField, outOfOrder, apiPath, onUpdated, isAdmin,
 }: {
   start: string | null
   startField: string
   end?: string | null
   endField?: string
   outOfOrder: boolean
-  itemId: string
+  apiPath: string
   onUpdated: () => void
   isAdmin: boolean
 }) {
@@ -116,11 +134,11 @@ function LpPhaseCell({
     <TableCell className={cn('whitespace-nowrap', red)}>
       <div className="flex flex-col gap-0.5 min-w-[90px]">
         {isAdmin
-          ? <EditableDate value={start} field={startField} itemId={itemId} onUpdated={onUpdated} />
+          ? <EditableDate value={start} field={startField} apiPath={apiPath} onUpdated={onUpdated} />
           : <span className="font-mono text-xs text-foreground">{fmtTs(start)}</span>}
         {end !== undefined && (
           isAdmin && endField
-            ? <EditableDate value={end} field={endField} itemId={itemId} onUpdated={onUpdated} />
+            ? <EditableDate value={end} field={endField} apiPath={apiPath} onUpdated={onUpdated} />
             : <span className="font-mono text-xs text-text-muted">{fmtTs(end ?? null)}</span>
         )}
         {days !== null && (
@@ -275,7 +293,14 @@ function MarqueeName({ name, className = '' }: { name: string; className?: strin
 
 // ── Subitem row ──────────────────────────────────────────────────────────────
 
-function SubitemRow({ sub, visible, knownNames }: { sub: MondaySubitem; visible: boolean; knownNames: Set<string> }) {
+function SubitemRow({ sub, visible, knownNames, showTimeline, isAdmin, onUpdated }: {
+  sub: MondaySubitem
+  visible: boolean
+  knownNames: Set<string>
+  showTimeline?: boolean
+  isAdmin: boolean
+  onUpdated: () => void
+}) {
   const inner = cn(
     'overflow-hidden transition-[max-height,opacity,padding] duration-200 ease-in-out px-4',
     visible ? 'max-h-16 opacity-100 py-2' : 'max-h-0 opacity-0 py-0',
@@ -284,6 +309,13 @@ function SubitemRow({ sub, visible, knownNames }: { sub: MondaySubitem; visible:
     'transition-[max-height,opacity,padding] duration-200 ease-in-out px-4',
     visible ? 'max-h-40 opacity-100 py-2' : 'max-h-0 opacity-0 py-0',
   )
+  const innerDate = cn(
+    'overflow-hidden transition-[max-height,opacity,padding] duration-200 ease-in-out px-4',
+    visible ? 'max-h-24 opacity-100 py-2' : 'max-h-0 opacity-0 py-0',
+  )
+  const outOfOrder = showTimeline ? isOutOfOrder(sub as unknown as Record<string, unknown>) : false
+  const apiPath = `/api/monday/subitems/${sub.id}/timestamps`
+
   return (
     <TableRow
       className={cn('bg-surface/40 hover:bg-surface-hover/30 border-l-0')}
@@ -320,6 +352,54 @@ function SubitemRow({ sub, visible, knownNames }: { sub: MondaySubitem; visible:
       </TableCell>
       <TableCell className="p-0"><div className={inner}><StatusBadge label={sub.ad_status} /></div></TableCell>
       <TableCell className="p-0"><div className={inner}><StatusBadge label={sub.website_status} /></div></TableCell>
+
+      {/* Phase date cells — only when timeline is active */}
+      {showTimeline ? (
+        <>
+          <TableCell className={cn('p-0', outOfOrder && 'bg-red-500/10')}>
+            <div className={innerDate}>
+              <div className="flex flex-col gap-0.5 min-w-[90px]">
+                {isAdmin
+                  ? <EditableDate value={sub.lp_building_at} field="lp_building_at" apiPath={apiPath} onUpdated={onUpdated} />
+                  : <span className="font-mono text-xs text-foreground">{fmtTs(sub.lp_building_at)}</span>}
+                {isAdmin
+                  ? <EditableDate value={sub.lp_ready_at} field="lp_ready_at" apiPath={apiPath} onUpdated={onUpdated} />
+                  : <span className="font-mono text-xs text-text-muted">{fmtTs(sub.lp_ready_at)}</span>}
+                {lpDays(sub.lp_building_at, sub.lp_ready_at) !== null && (
+                  <span className={cn('text-[11px] font-mono font-semibold', outOfOrder ? 'text-red-500' : 'text-accent')}>
+                    {lpDays(sub.lp_building_at, sub.lp_ready_at)}d
+                  </span>
+                )}
+              </div>
+            </div>
+          </TableCell>
+          <TableCell className={cn('p-0', outOfOrder && 'bg-red-500/10')}>
+            <div className={innerDate}>
+              <div className="flex flex-col gap-0.5 min-w-[90px]">
+                {isAdmin
+                  ? <EditableDate value={sub.lp_proofread_at} field="lp_proofread_at" apiPath={apiPath} onUpdated={onUpdated} />
+                  : <span className="font-mono text-xs text-foreground">{fmtTs(sub.lp_proofread_at)}</span>}
+                {isAdmin
+                  ? <EditableDate value={sub.lp_ready_to_launch_at} field="lp_ready_to_launch_at" apiPath={apiPath} onUpdated={onUpdated} />
+                  : <span className="font-mono text-xs text-text-muted">{fmtTs(sub.lp_ready_to_launch_at)}</span>}
+                {lpDays(sub.lp_proofread_at, sub.lp_ready_to_launch_at) !== null && (
+                  <span className={cn('text-[11px] font-mono font-semibold', outOfOrder ? 'text-red-500' : 'text-accent')}>
+                    {lpDays(sub.lp_proofread_at, sub.lp_ready_to_launch_at)}d
+                  </span>
+                )}
+              </div>
+            </div>
+          </TableCell>
+          <TableCell className={cn('p-0', outOfOrder && 'bg-red-500/10')}>
+            <div className={innerDate}>
+              {isAdmin
+                ? <EditableDate value={sub.lp_launched_at} field="lp_launched_at" apiPath={apiPath} onUpdated={onUpdated} />
+                : <span className="font-mono text-xs text-foreground">{fmtTs(sub.lp_launched_at)}</span>}
+            </div>
+          </TableCell>
+        </>
+      ) : null}
+
       <TableCell className="p-0">
         <div className={inner}>
           {sub.concluded
@@ -353,7 +433,7 @@ function ItemRow({ item, knownNames, showTimeline, onUpdated, isAdmin }: {
 }) {
   const [open, setOpen] = useState(false)
   const hasSubs = item.monday_subitems.length > 0
-  const outOfOrder = showTimeline ? isLpOutOfOrder(item) : false
+  const outOfOrder = showTimeline && !hasSubs ? isOutOfOrder(item as unknown as Record<string, unknown>) : false
 
   return (
     <>
@@ -374,24 +454,45 @@ function ItemRow({ item, knownNames, showTimeline, onUpdated, isAdmin }: {
         <TableCell className="text-text-muted text-xs">—</TableCell>
         <TableCell><StatusBadge label={item.creatives_status} /></TableCell>
         <TableCell><StatusBadge label={item.landing_page_status} /></TableCell>
-        {showTimeline && (
+        {showTimeline && (hasSubs ? (() => {
+          const agg = subitemPhaseAgg(item.monday_subitems)
+          return (
+            <>
+              <TableCell className="whitespace-nowrap">
+                {agg.avgBuild !== null
+                  ? <div className="flex flex-col gap-0.5"><span className="font-mono text-xs font-semibold text-accent">{agg.avgBuild}d avg</span><span className="text-[11px] text-text-muted">{agg.buildDone}/{agg.total}</span></div>
+                  : <span className="text-text-muted text-xs">—</span>}
+              </TableCell>
+              <TableCell className="whitespace-nowrap">
+                {agg.avgProof !== null
+                  ? <div className="flex flex-col gap-0.5"><span className="font-mono text-xs font-semibold text-accent">{agg.avgProof}d avg</span><span className="text-[11px] text-text-muted">{agg.proofDone}/{agg.total}</span></div>
+                  : <span className="text-text-muted text-xs">—</span>}
+              </TableCell>
+              <TableCell className="whitespace-nowrap">
+                {agg.launched > 0
+                  ? <span className="font-mono text-xs font-semibold text-accent">{agg.launched}/{agg.total}</span>
+                  : <span className="text-text-muted text-xs">—</span>}
+              </TableCell>
+            </>
+          )
+        })() : (
           <>
             <LpPhaseCell
               start={item.lp_building_at}  startField="lp_building_at"
               end={item.lp_ready_at}       endField="lp_ready_at"
-              outOfOrder={outOfOrder} itemId={item.id} onUpdated={onUpdated} isAdmin={isAdmin}
+              outOfOrder={outOfOrder} apiPath={`/api/monday/items/${item.id}/timestamps`} onUpdated={onUpdated} isAdmin={isAdmin}
             />
             <LpPhaseCell
               start={item.lp_proofread_at}      startField="lp_proofread_at"
               end={item.lp_ready_to_launch_at}  endField="lp_ready_to_launch_at"
-              outOfOrder={outOfOrder} itemId={item.id} onUpdated={onUpdated} isAdmin={isAdmin}
+              outOfOrder={outOfOrder} apiPath={`/api/monday/items/${item.id}/timestamps`} onUpdated={onUpdated} isAdmin={isAdmin}
             />
             <LpPhaseCell
               start={item.lp_launched_at} startField="lp_launched_at"
-              outOfOrder={outOfOrder} itemId={item.id} onUpdated={onUpdated} isAdmin={isAdmin}
+              outOfOrder={outOfOrder} apiPath={`/api/monday/items/${item.id}/timestamps`} onUpdated={onUpdated} isAdmin={isAdmin}
             />
           </>
-        )}
+        ))}
         <TableCell className="text-text-muted text-xs">{item.found_by || '—'}</TableCell>
         <TableCell className="text-text-muted text-xs">
           {hasSubs
@@ -408,7 +509,7 @@ function ItemRow({ item, knownNames, showTimeline, onUpdated, isAdmin }: {
           )}
         </TableCell>
       </TableRow>
-      {hasSubs && item.monday_subitems.map(sub => <SubitemRow key={sub.id} sub={sub} visible={open} knownNames={knownNames} />)}
+      {hasSubs && item.monday_subitems.map(sub => <SubitemRow key={sub.id} sub={sub} visible={open} knownNames={knownNames} showTimeline={showTimeline} isAdmin={isAdmin} onUpdated={onUpdated} />)}
     </>
   )
 }
@@ -423,7 +524,7 @@ function ItemCard({ item, showTimeline, onUpdated, isAdmin }: {
 }) {
   const [open, setOpen] = useState(false)
   const hasSubs = item.monday_subitems.length > 0
-  const outOfOrder = showTimeline ? isLpOutOfOrder(item) : false
+  const outOfOrder = showTimeline && !hasSubs ? isOutOfOrder(item as unknown as Record<string, unknown>) : false
 
   return (
     <div className={cn(
@@ -456,11 +557,28 @@ function ItemCard({ item, showTimeline, onUpdated, isAdmin }: {
         )}
       </div>
 
-      {showTimeline && (
-        <div className={cn(
-          'grid grid-cols-3 gap-2 mb-3 p-2 rounded-lg text-xs',
-          outOfOrder ? 'bg-red-500/10 border border-red-500/20' : 'bg-surface border border-border-subtle',
-        )}>
+      {showTimeline && hasSubs && (() => {
+        const agg = subitemPhaseAgg(item.monday_subitems)
+        return (
+          <div className="grid grid-cols-3 gap-2 mb-3 p-2 rounded-lg text-xs bg-surface border border-border-subtle">
+            <div>
+              <p className="font-medium text-text-muted mb-1">Phase 1</p>
+              {agg.avgBuild !== null ? <><p className="font-mono font-semibold text-accent">{agg.avgBuild}d avg</p><p className="text-text-muted">{agg.buildDone}/{agg.total}</p></> : <p className="text-text-muted">—</p>}
+            </div>
+            <div>
+              <p className="font-medium text-text-muted mb-1">Proofread</p>
+              {agg.avgProof !== null ? <><p className="font-mono font-semibold text-accent">{agg.avgProof}d avg</p><p className="text-text-muted">{agg.proofDone}/{agg.total}</p></> : <p className="text-text-muted">—</p>}
+            </div>
+            <div>
+              <p className="font-medium text-text-muted mb-1">Testing</p>
+              {agg.launched > 0 ? <p className="font-mono font-semibold text-accent">{agg.launched}/{agg.total}</p> : <p className="text-text-muted">—</p>}
+            </div>
+          </div>
+        )
+      })()}
+
+      {showTimeline && !hasSubs && (
+        <div className={cn('grid grid-cols-3 gap-2 mb-3 p-2 rounded-lg text-xs', outOfOrder ? 'bg-red-500/10 border border-red-500/20' : 'bg-surface border border-border-subtle')}>
           {([
             { label: 'Phase 1',  startField: 'lp_building_at',  start: item.lp_building_at,  endField: 'lp_ready_at',           end: item.lp_ready_at           },
             { label: 'Proofread',startField: 'lp_proofread_at', start: item.lp_proofread_at,  endField: 'lp_ready_to_launch_at', end: item.lp_ready_to_launch_at },
@@ -469,11 +587,11 @@ function ItemCard({ item, showTimeline, onUpdated, isAdmin }: {
             <div key={phase.label}>
               <p className={cn('font-medium mb-1', outOfOrder ? 'text-red-500' : 'text-text-muted')}>{phase.label}</p>
               {isAdmin
-                ? <EditableDate value={phase.start} field={phase.startField} itemId={item.id} onUpdated={onUpdated} />
+                ? <EditableDate value={phase.start} field={phase.startField} apiPath={`/api/monday/items/${item.id}/timestamps`} onUpdated={onUpdated} />
                 : <p className="font-mono text-foreground">{fmtTs(phase.start)}</p>}
               {phase.endField !== undefined && (
                 isAdmin
-                  ? <EditableDate value={phase.end ?? null} field={phase.endField} itemId={item.id} onUpdated={onUpdated} />
+                  ? <EditableDate value={phase.end ?? null} field={phase.endField} apiPath={`/api/monday/items/${item.id}/timestamps`} onUpdated={onUpdated} />
                   : <p className="font-mono text-text-muted">{fmtTs(phase.end ?? null)}</p>
               )}
               {phase.end !== undefined && lpDays(phase.start, phase.end ?? null) !== null && (
@@ -494,15 +612,44 @@ function ItemCard({ item, showTimeline, onUpdated, isAdmin }: {
       )}
       {open && (
         <div className="mt-3 space-y-2 border-t border-border-subtle pt-3">
-          {item.monday_subitems.map(sub => (
-            <div key={sub.id} className="pl-2 border-l-2 border-border-subtle">
-              <p className="text-xs text-text-muted italic mb-1">{sub.name}</p>
-              <div className="flex flex-wrap gap-1">
-                {sub.ad_status      && <StatusBadge label={sub.ad_status} />}
-                {sub.website_status && <StatusBadge label={sub.website_status} />}
+          {item.monday_subitems.map(sub => {
+            const subOut = showTimeline ? isOutOfOrder(sub as unknown as Record<string, unknown>) : false
+            return (
+              <div key={sub.id} className={cn('pl-2 border-l-2', subOut ? 'border-red-400' : 'border-border-subtle')}>
+                <p className="text-xs text-text-muted italic mb-1">{sub.name}</p>
+                <div className="flex flex-wrap gap-1 mb-1">
+                  {sub.ad_status      && <StatusBadge label={sub.ad_status} />}
+                  {sub.website_status && <StatusBadge label={sub.website_status} />}
+                </div>
+                {showTimeline && (
+                  <div className="grid grid-cols-3 gap-2 mt-1 text-xs">
+                    {([
+                      { label: 'Phase 1',  startField: 'lp_building_at',  start: sub.lp_building_at,  endField: 'lp_ready_at',           end: sub.lp_ready_at           },
+                      { label: 'Proofread',startField: 'lp_proofread_at', start: sub.lp_proofread_at,  endField: 'lp_ready_to_launch_at', end: sub.lp_ready_to_launch_at },
+                      { label: 'Testing',  startField: 'lp_launched_at',  start: sub.lp_launched_at,   endField: undefined,               end: undefined                  },
+                    ] as { label: string; startField: string; start: string | null; endField?: string; end?: string | null }[]).map(phase => (
+                      <div key={phase.label}>
+                        <p className={cn('text-[10px] font-medium mb-0.5', subOut ? 'text-red-400' : 'text-text-muted')}>{phase.label}</p>
+                        {isAdmin
+                          ? <EditableDate value={phase.start} field={phase.startField} apiPath={`/api/monday/subitems/${sub.id}/timestamps`} onUpdated={onUpdated} />
+                          : <p className="font-mono text-foreground">{fmtTs(phase.start)}</p>}
+                        {phase.endField !== undefined && (
+                          isAdmin
+                            ? <EditableDate value={phase.end ?? null} field={phase.endField} apiPath={`/api/monday/subitems/${sub.id}/timestamps`} onUpdated={onUpdated} />
+                            : <p className="font-mono text-text-muted">{fmtTs(phase.end ?? null)}</p>
+                        )}
+                        {phase.end !== undefined && lpDays(phase.start, phase.end ?? null) !== null && (
+                          <p className={cn('font-mono font-semibold', subOut ? 'text-red-400' : 'text-accent')}>
+                            {lpDays(phase.start, phase.end ?? null)}d
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

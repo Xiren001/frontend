@@ -75,6 +75,11 @@ export interface MondaySubitem {
   pinterest: boolean
   google_shopping: boolean
   google_search: boolean
+  lp_building_at: string | null
+  lp_ready_at: string | null
+  lp_proofread_at: string | null
+  lp_ready_to_launch_at: string | null
+  lp_launched_at: string | null
   created_at: string
   updated_at: string
 }
