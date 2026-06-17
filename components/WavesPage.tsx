@@ -670,7 +670,8 @@ export function WavesPage() {
   const [filterLanding, setFilterLanding]     = useState('')
   const [sortKey, setSortKey]       = useState<SortKey | null>(null)
   const [sortDir, setSortDir]       = useState<SortDir>('asc')
-  const [syncing, setSyncing]       = useState(false)
+  const [syncing, setSyncing]           = useState(false)
+  const [registeringHooks, setRegisteringHooks] = useState(false)
   const [knownNames, setKnownNames] = useState<Set<string>>(new Set())
 
   const load = useCallback(async () => {
@@ -740,6 +741,20 @@ export function WavesPage() {
       alert('Sync failed: ' + err.message)
     } finally {
       setSyncing(false)
+    }
+  }
+
+  async function registerHooks() {
+    setRegisteringHooks(true)
+    try {
+      const res = await api.post<{ ok: boolean; results: Record<string, unknown> }>('/api/monday/register-hooks', {})
+      const boards = Object.keys(res.results)
+      const ok = boards.filter(b => (res.results[b] as any)?.id).length
+      alert(`Hooks registered: ${ok}/${boards.length} boards`)
+    } catch (err: any) {
+      alert('Register failed: ' + err.message)
+    } finally {
+      setRegisteringHooks(false)
     }
   }
 
@@ -834,16 +849,28 @@ export function WavesPage() {
             onChange={id => setActiveWave(String(id))}
             className="flex-1"
           />
-          {current?.board_id && (
-            <button
-              onClick={syncWave}
-              disabled={syncing}
-              className="shrink-0 flex items-center gap-1.5 text-xs text-text-secondary hover:text-foreground border border-border-subtle rounded-md px-3 py-1.5 hover:bg-surface-hover transition-all disabled:opacity-50"
-            >
-              <RefreshCw size={11} className={cn(syncing && 'animate-spin')} />
-              {syncing ? 'Syncing…' : 'Sync'}
-            </button>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            {isAdmin && (
+              <button
+                onClick={registerHooks}
+                disabled={registeringHooks}
+                className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-foreground border border-border-subtle rounded-md px-3 py-1.5 hover:bg-surface-hover transition-all disabled:opacity-50"
+                title="Register Monday.com webhooks for all boards"
+              >
+                {registeringHooks ? 'Registering…' : 'Register Hooks'}
+              </button>
+            )}
+            {current?.board_id && (
+              <button
+                onClick={syncWave}
+                disabled={syncing}
+                className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-foreground border border-border-subtle rounded-md px-3 py-1.5 hover:bg-surface-hover transition-all disabled:opacity-50"
+              >
+                <RefreshCw size={11} className={cn(syncing && 'animate-spin')} />
+                {syncing ? 'Syncing…' : 'Sync'}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* ── Group sub-tabs ── */}
