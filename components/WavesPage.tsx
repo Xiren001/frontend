@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback, useRef, type CSSProperties } from 'react'
 import { api } from '@/lib/api'
+import { useRole } from '@/lib/role-context'
 import { createClient } from '@/lib/supabase'
 import type { MondayWave, MondayItem, MondaySubitem } from '@/lib/types'
 import { cn } from '@/lib/utils'
@@ -32,35 +33,102 @@ function fmtTs(ts: string | null): string {
   return new Date(ts).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
 }
 
+function EditableDate({
+  value, field, itemId, onUpdated,
+}: {
+  value: string | null
+  field: string
+  itemId: string
+  onUpdated: () => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  async function save(dateStr: string | null) {
+    setSaving(true)
+    try {
+      await api.patch(`/api/monday/items/${itemId}/timestamps`, {
+        [field]: dateStr ? `${dateStr}T00:00:00.000Z` : null,
+      })
+      onUpdated()
+    } finally {
+      setSaving(false)
+      setEditing(false)
+    }
+  }
+
+  if (editing) {
+    return (
+      <input
+        type="date"
+        defaultValue={value ? value.slice(0, 10) : ''}
+        onBlur={e => save(e.target.value || null)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') save((e.target as HTMLInputElement).value || null)
+          if (e.key === 'Escape') setEditing(false)
+        }}
+        autoFocus
+        className="font-mono text-xs bg-surface border border-accent/40 rounded px-1 py-0.5 w-28 focus:outline-none focus:ring-1 focus:ring-accent/40"
+      />
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-1 group/date">
+      <button
+        onClick={() => setEditing(true)}
+        disabled={saving}
+        className="font-mono text-xs text-left transition-colors disabled:opacity-50 hover:text-accent"
+      >
+        {value
+          ? <span className="text-foreground">{fmtTs(value)}</span>
+          : <span className="text-text-muted opacity-0 group-hover/date:opacity-100">+ date</span>}
+      </button>
+      {value && (
+        <button
+          onClick={() => save(null)}
+          disabled={saving}
+          className="opacity-0 group-hover/date:opacity-100 text-text-muted hover:text-danger transition-all"
+          title="Clear date"
+        >
+          <X size={9} />
+        </button>
+      )}
+    </div>
+  )
+}
+
 function LpPhaseCell({
-  start, end, outOfOrder, className = '',
+  start, startField, end, endField, outOfOrder, itemId, onUpdated, isAdmin,
 }: {
   start: string | null
+  startField: string
   end?: string | null
+  endField?: string
   outOfOrder: boolean
-  className?: string
+  itemId: string
+  onUpdated: () => void
+  isAdmin: boolean
 }) {
   const days = end !== undefined ? lpDays(start, end) : null
-  const red = outOfOrder
-    ? 'bg-red-500/10 border border-red-500/30'
-    : ''
+  const red = outOfOrder ? 'bg-red-500/10 border border-red-500/30' : ''
   return (
-    <TableCell className={cn('whitespace-nowrap', red, className)}>
-      {start || end ? (
-        <div className="flex flex-col gap-0.5 min-w-[80px]">
-          <span className="font-mono text-xs text-foreground">{fmtTs(start)}</span>
-          {end !== undefined && (
-            <span className="font-mono text-xs text-text-muted">{fmtTs(end)}</span>
-          )}
-          {days !== null && (
-            <span className={cn('text-[11px] font-mono font-semibold', outOfOrder ? 'text-red-500' : 'text-accent')}>
-              {days}d
-            </span>
-          )}
-        </div>
-      ) : (
-        <span className="text-text-muted">—</span>
-      )}
+    <TableCell className={cn('whitespace-nowrap', red)}>
+      <div className="flex flex-col gap-0.5 min-w-[90px]">
+        {isAdmin
+          ? <EditableDate value={start} field={startField} itemId={itemId} onUpdated={onUpdated} />
+          : <span className="font-mono text-xs text-foreground">{fmtTs(start)}</span>}
+        {end !== undefined && (
+          isAdmin && endField
+            ? <EditableDate value={end} field={endField} itemId={itemId} onUpdated={onUpdated} />
+            : <span className="font-mono text-xs text-text-muted">{fmtTs(end ?? null)}</span>
+        )}
+        {days !== null && (
+          <span className={cn('text-[11px] font-mono font-semibold', outOfOrder ? 'text-red-500' : 'text-accent')}>
+            {days}d
+          </span>
+        )}
+      </div>
     </TableCell>
   )
 }
@@ -276,7 +344,13 @@ function SubitemRow({ sub, visible, knownNames }: { sub: MondaySubitem; visible:
 
 // ── Item row ─────────────────────────────────────────────────────────────────
 
-function ItemRow({ item, knownNames, showTimeline }: { item: MondayItem; knownNames: Set<string>; showTimeline?: boolean }) {
+function ItemRow({ item, knownNames, showTimeline, onUpdated, isAdmin }: {
+  item: MondayItem
+  knownNames: Set<string>
+  showTimeline?: boolean
+  onUpdated: () => void
+  isAdmin: boolean
+}) {
   const [open, setOpen] = useState(false)
   const hasSubs = item.monday_subitems.length > 0
   const outOfOrder = showTimeline ? isLpOutOfOrder(item) : false
@@ -302,9 +376,20 @@ function ItemRow({ item, knownNames, showTimeline }: { item: MondayItem; knownNa
         <TableCell><StatusBadge label={item.landing_page_status} /></TableCell>
         {showTimeline && (
           <>
-            <LpPhaseCell start={item.lp_building_at}  end={item.lp_ready_at}           outOfOrder={outOfOrder} />
-            <LpPhaseCell start={item.lp_proofread_at} end={item.lp_ready_to_launch_at} outOfOrder={outOfOrder} />
-            <LpPhaseCell start={item.lp_launched_at}                                   outOfOrder={outOfOrder} />
+            <LpPhaseCell
+              start={item.lp_building_at}  startField="lp_building_at"
+              end={item.lp_ready_at}       endField="lp_ready_at"
+              outOfOrder={outOfOrder} itemId={item.id} onUpdated={onUpdated} isAdmin={isAdmin}
+            />
+            <LpPhaseCell
+              start={item.lp_proofread_at}      startField="lp_proofread_at"
+              end={item.lp_ready_to_launch_at}  endField="lp_ready_to_launch_at"
+              outOfOrder={outOfOrder} itemId={item.id} onUpdated={onUpdated} isAdmin={isAdmin}
+            />
+            <LpPhaseCell
+              start={item.lp_launched_at} startField="lp_launched_at"
+              outOfOrder={outOfOrder} itemId={item.id} onUpdated={onUpdated} isAdmin={isAdmin}
+            />
           </>
         )}
         <TableCell className="text-text-muted text-xs">{item.found_by || '—'}</TableCell>
@@ -330,7 +415,12 @@ function ItemRow({ item, knownNames, showTimeline }: { item: MondayItem; knownNa
 
 // ── Mobile item card ──────────────────────────────────────────────────────────
 
-function ItemCard({ item, showTimeline }: { item: MondayItem; showTimeline?: boolean }) {
+function ItemCard({ item, showTimeline, onUpdated, isAdmin }: {
+  item: MondayItem
+  showTimeline?: boolean
+  onUpdated: () => void
+  isAdmin: boolean
+}) {
   const [open, setOpen] = useState(false)
   const hasSubs = item.monday_subitems.length > 0
   const outOfOrder = showTimeline ? isLpOutOfOrder(item) : false
@@ -366,35 +456,33 @@ function ItemCard({ item, showTimeline }: { item: MondayItem; showTimeline?: boo
         )}
       </div>
 
-      {showTimeline && (item.lp_building_at || item.lp_proofread_at || item.lp_launched_at) && (
+      {showTimeline && (
         <div className={cn(
           'grid grid-cols-3 gap-2 mb-3 p-2 rounded-lg text-xs',
           outOfOrder ? 'bg-red-500/10 border border-red-500/20' : 'bg-surface border border-border-subtle',
         )}>
-          <div>
-            <p className={cn('font-medium mb-0.5', outOfOrder ? 'text-red-500' : 'text-text-muted')}>Phase 1</p>
-            <p className="font-mono text-foreground">{fmtTs(item.lp_building_at)}</p>
-            <p className="font-mono text-text-muted">{fmtTs(item.lp_ready_at)}</p>
-            {lpDays(item.lp_building_at, item.lp_ready_at) !== null && (
-              <p className={cn('font-mono font-semibold', outOfOrder ? 'text-red-500' : 'text-accent')}>
-                {lpDays(item.lp_building_at, item.lp_ready_at)}d
-              </p>
-            )}
-          </div>
-          <div>
-            <p className={cn('font-medium mb-0.5', outOfOrder ? 'text-red-500' : 'text-text-muted')}>Proofread</p>
-            <p className="font-mono text-foreground">{fmtTs(item.lp_proofread_at)}</p>
-            <p className="font-mono text-text-muted">{fmtTs(item.lp_ready_to_launch_at)}</p>
-            {lpDays(item.lp_proofread_at, item.lp_ready_to_launch_at) !== null && (
-              <p className={cn('font-mono font-semibold', outOfOrder ? 'text-red-500' : 'text-accent')}>
-                {lpDays(item.lp_proofread_at, item.lp_ready_to_launch_at)}d
-              </p>
-            )}
-          </div>
-          <div>
-            <p className={cn('font-medium mb-0.5', outOfOrder ? 'text-red-500' : 'text-text-muted')}>Testing</p>
-            <p className="font-mono text-foreground">{fmtTs(item.lp_launched_at)}</p>
-          </div>
+          {([
+            { label: 'Phase 1',  startField: 'lp_building_at',  start: item.lp_building_at,  endField: 'lp_ready_at',           end: item.lp_ready_at           },
+            { label: 'Proofread',startField: 'lp_proofread_at', start: item.lp_proofread_at,  endField: 'lp_ready_to_launch_at', end: item.lp_ready_to_launch_at },
+            { label: 'Testing',  startField: 'lp_launched_at',  start: item.lp_launched_at,   endField: undefined,               end: undefined                  },
+          ] as { label: string; startField: string; start: string | null; endField?: string; end?: string | null }[]).map(phase => (
+            <div key={phase.label}>
+              <p className={cn('font-medium mb-1', outOfOrder ? 'text-red-500' : 'text-text-muted')}>{phase.label}</p>
+              {isAdmin
+                ? <EditableDate value={phase.start} field={phase.startField} itemId={item.id} onUpdated={onUpdated} />
+                : <p className="font-mono text-foreground">{fmtTs(phase.start)}</p>}
+              {phase.endField !== undefined && (
+                isAdmin
+                  ? <EditableDate value={phase.end ?? null} field={phase.endField} itemId={item.id} onUpdated={onUpdated} />
+                  : <p className="font-mono text-text-muted">{fmtTs(phase.end ?? null)}</p>
+              )}
+              {phase.end !== undefined && lpDays(phase.start, phase.end ?? null) !== null && (
+                <p className={cn('font-mono font-semibold mt-0.5', outOfOrder ? 'text-red-500' : 'text-accent')}>
+                  {lpDays(phase.start, phase.end ?? null)}d
+                </p>
+              )}
+            </div>
+          ))}
         </div>
       )}
 
@@ -424,6 +512,8 @@ function ItemCard({ item, showTimeline }: { item: MondayItem; showTimeline?: boo
 // ── Main page ────────────────────────────────────────────────────────────────
 
 export function WavesPage() {
+  const { role } = useRole()
+  const isAdmin = role === 'admin'
   const [waves, setWaves]           = useState<MondayWave[]>([])
   const [loading, setLoading]       = useState(true)
   const [activeWave, setActiveWave] = useState<string | null>(null)
@@ -708,7 +798,7 @@ export function WavesPage() {
               {hasFilters ? 'No results match your filters.' : 'No items in this wave yet.'}
             </p>
           ) : (
-            items.map(item => <ItemCard key={item.id} item={item} showTimeline={showTimeline} />)
+            items.map(item => <ItemCard key={item.id} item={item} showTimeline={showTimeline} onUpdated={load} isAdmin={isAdmin} />)
           )}
         </div>
 
@@ -742,7 +832,7 @@ export function WavesPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                items.map(item => <ItemRow key={item.id} item={item} knownNames={knownNames} showTimeline={showTimeline} />)
+                items.map(item => <ItemRow key={item.id} item={item} knownNames={knownNames} showTimeline={showTimeline} onUpdated={load} isAdmin={isAdmin} />)
               )}
             </TableBody>
           </Table>
