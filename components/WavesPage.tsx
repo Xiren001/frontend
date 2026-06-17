@@ -1088,8 +1088,8 @@ export function WavesPage() {
             <TableHead>
               <TableRow>
                 <SortableHeader label="Product"      sortKey="name"                active={sortKey === 'name'}                dir={sortDir} onSort={toggleSort} className="w-56" />
-                <TableHeader>Product Name</TableHeader>
-                <TableHeader>Shopify PDP</TableHeader>
+                <TableHeader />
+                <TableHeader />
                 <SortableHeader label="Creatives"    sortKey="creatives_status"    active={sortKey === 'creatives_status'}    dir={sortDir} onSort={toggleSort} />
                 <SortableHeader label="Landing Page" sortKey="landing_page_status" active={sortKey === 'landing_page_status'} dir={sortDir} onSort={toggleSort} />
                 {showTimeline && (
