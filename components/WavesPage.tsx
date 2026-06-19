@@ -151,7 +151,7 @@ function LpPhaseCell({
         {days !== null && (
           <span className={cn(
             'inline-flex font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded-full mt-0.5 w-fit',
-            outOfOrder ? 'bg-red-500/10 text-red-500' : 'bg-accent/10 text-accent',
+            outOfOrder ? 'bg-red-500/15 text-red-500 ring-1 ring-inset ring-red-500/30' : 'bg-accent/15 text-accent ring-1 ring-inset ring-accent/30',
           )}>
             {days}d
           </span>
@@ -171,37 +171,39 @@ const WAVE_COLOR: Record<number, string> = {
 
 // ── Status badge ─────────────────────────────────────────────────────────────
 
+const R = 'ring-1 ring-inset'
+
 const STATUS_STYLE: Record<string, string> = {
-  'not started yet':       'bg-gray-100 text-gray-500',
-  'in progress':           'bg-blue-100 text-blue-700',
-  'ready':                 'bg-green-100 text-green-700',
-  'launched':              'bg-violet-100 text-violet-700',
-  'running':               'bg-emerald-100 text-emerald-700',
-  'stopped':               'bg-red-100 text-red-600',
-  'waiting for editor':    'bg-yellow-100 text-yellow-700',
-  'waiting for builder':   'bg-yellow-100 text-yellow-700',
-  'working on it':         'bg-blue-100 text-blue-700',
-  'waiting for proofread': 'bg-orange-100 text-orange-700',
-  'proofread done':        'bg-teal-100 text-teal-700',
-  'ready for revision':    'bg-orange-100 text-orange-700',
-  'ready to launch':       'bg-emerald-100 text-emerald-700',
-  'building - dan':        'bg-sky-100 text-sky-700',
-  'building - dora':       'bg-sky-100 text-sky-700',
-  'revisions needed':      'bg-red-100 text-red-600',
+  'not started yet':       `bg-gray-400/10 text-gray-500 ${R} ring-gray-400/30`,
+  'in progress':           `bg-blue-400/10 text-blue-500 ${R} ring-blue-400/30`,
+  'ready':                 `bg-green-400/10 text-green-500 ${R} ring-green-400/30`,
+  'launched':              `bg-violet-400/10 text-violet-500 ${R} ring-violet-400/30`,
+  'running':               `bg-emerald-400/10 text-emerald-500 ${R} ring-emerald-400/30`,
+  'stopped':               `bg-red-400/10 text-red-500 ${R} ring-red-400/30`,
+  'waiting for editor':    `bg-yellow-400/10 text-yellow-600 ${R} ring-yellow-400/30`,
+  'waiting for builder':   `bg-yellow-400/10 text-yellow-600 ${R} ring-yellow-400/30`,
+  'working on it':         `bg-blue-400/10 text-blue-500 ${R} ring-blue-400/30`,
+  'waiting for proofread': `bg-orange-400/10 text-orange-500 ${R} ring-orange-400/30`,
+  'proofread done':        `bg-teal-400/10 text-teal-500 ${R} ring-teal-400/30`,
+  'ready for revision':    `bg-orange-400/10 text-orange-500 ${R} ring-orange-400/30`,
+  'ready to launch':       `bg-emerald-400/10 text-emerald-500 ${R} ring-emerald-400/30`,
+  'building - dan':        `bg-sky-400/10 text-sky-500 ${R} ring-sky-400/30`,
+  'building - dora':       `bg-sky-400/10 text-sky-500 ${R} ring-sky-400/30`,
+  'revisions needed':      `bg-red-400/10 text-red-500 ${R} ring-red-400/30`,
 }
 
 function getStatusStyle(label: string): string {
   const l = label.toLowerCase()
   if (STATUS_STYLE[l]) return STATUS_STYLE[l]
-  if (l.includes('waiting'))                           return 'bg-yellow-100 text-yellow-700'
-  if (l.includes('building') || l.includes('working')) return 'bg-sky-100 text-sky-700'
-  if (l.includes('progress'))                          return 'bg-blue-100 text-blue-700'
-  if (l.includes('proof'))                             return 'bg-teal-100 text-teal-700'
-  if (l.includes('ready') || l.includes('launch'))     return 'bg-emerald-100 text-emerald-700'
-  if (l.includes('running') || l.includes('expand'))   return 'bg-emerald-100 text-emerald-700'
-  if (l.includes('stop') || l.includes('revision'))    return 'bg-red-100 text-red-600'
-  if (l.includes('test'))                              return 'bg-orange-100 text-orange-700'
-  return 'bg-gray-100 text-gray-600'
+  if (l.includes('waiting'))                           return `bg-yellow-400/10 text-yellow-600 ${R} ring-yellow-400/30`
+  if (l.includes('building') || l.includes('working')) return `bg-sky-400/10 text-sky-500 ${R} ring-sky-400/30`
+  if (l.includes('progress'))                          return `bg-blue-400/10 text-blue-500 ${R} ring-blue-400/30`
+  if (l.includes('proof'))                             return `bg-teal-400/10 text-teal-500 ${R} ring-teal-400/30`
+  if (l.includes('ready') || l.includes('launch'))     return `bg-emerald-400/10 text-emerald-500 ${R} ring-emerald-400/30`
+  if (l.includes('running') || l.includes('expand'))   return `bg-emerald-400/10 text-emerald-500 ${R} ring-emerald-400/30`
+  if (l.includes('stop') || l.includes('revision'))    return `bg-red-400/10 text-red-500 ${R} ring-red-400/30`
+  if (l.includes('test'))                              return `bg-orange-400/10 text-orange-500 ${R} ring-orange-400/30`
+  return `bg-gray-400/10 text-gray-500 ${R} ring-gray-400/30`
 }
 
 function StatusBadge({ label }: { label: string | null }) {
@@ -372,7 +374,7 @@ function SubitemRow({ sub, visible, knownNames, showTimeline, showProofread, isA
                 {lpDays(sub.lp_building_at, sub.lp_ready_at) !== null && (
                   <span className={cn(
                     'inline-flex font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded-full mt-0.5 w-fit',
-                    outOfOrder ? 'bg-red-500/10 text-red-500' : 'bg-accent/10 text-accent',
+                    outOfOrder ? 'bg-red-500/15 text-red-500 ring-1 ring-inset ring-red-500/30' : 'bg-accent/15 text-accent ring-1 ring-inset ring-accent/30',
                   )}>
                     {lpDays(sub.lp_building_at, sub.lp_ready_at)}d
                   </span>
@@ -392,7 +394,7 @@ function SubitemRow({ sub, visible, knownNames, showTimeline, showProofread, isA
                 {lpDays(sub.lp_proofread_at, sub.lp_ready_to_launch_at) !== null && (
                   <span className={cn(
                     'inline-flex font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded-full mt-0.5 w-fit',
-                    outOfOrder ? 'bg-red-500/10 text-red-500' : 'bg-accent/10 text-accent',
+                    outOfOrder ? 'bg-red-500/15 text-red-500 ring-1 ring-inset ring-red-500/30' : 'bg-accent/15 text-accent ring-1 ring-inset ring-accent/30',
                   )}>
                     {lpDays(sub.lp_proofread_at, sub.lp_ready_to_launch_at)}d
                   </span>
@@ -419,7 +421,7 @@ function SubitemRow({ sub, visible, knownNames, showTimeline, showProofread, isA
                 ? <EditableDate value={sub.lp_ready_to_launch_at} field="lp_ready_to_launch_at" apiPath={apiPath} onUpdated={onUpdated} />
                 : <span className="font-mono text-xs text-text-muted">{fmtTs(sub.lp_ready_to_launch_at)}</span>}
               {lpDays(sub.lp_proofread_at, sub.lp_ready_to_launch_at) !== null && (
-                <span className="inline-flex font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded-full mt-0.5 w-fit bg-accent/10 text-accent">
+                <span className="inline-flex font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded-full mt-0.5 w-fit bg-accent/15 text-accent ring-1 ring-inset ring-accent/30">
                   {lpDays(sub.lp_proofread_at, sub.lp_ready_to_launch_at)}d
                 </span>
               )}
@@ -679,7 +681,7 @@ function ItemCard({ item, showTimeline, showProofread, onUpdated, isAdmin }: {
               {phase.end !== undefined && lpDays(phase.start, phase.end ?? null) !== null && (
                 <p className={cn(
                   'inline-flex font-mono font-semibold mt-0.5 text-[10px] px-1.5 py-0.5 rounded-full',
-                  outOfOrder ? 'bg-red-500/10 text-red-500' : 'bg-accent/10 text-accent',
+                  outOfOrder ? 'bg-red-500/15 text-red-500 ring-1 ring-inset ring-red-500/30' : 'bg-accent/15 text-accent ring-1 ring-inset ring-accent/30',
                 )}>
                   {lpDays(phase.start, phase.end ?? null)}d
                 </p>
@@ -711,7 +713,7 @@ function ItemCard({ item, showTimeline, showProofread, onUpdated, isAdmin }: {
             ? <EditableDate value={item.lp_ready_to_launch_at} field="lp_ready_to_launch_at" apiPath={`/api/monday/items/${item.id}/timestamps`} onUpdated={onUpdated} />
             : <p className="font-mono text-text-muted">{fmtTs(item.lp_ready_to_launch_at)}</p>}
           {lpDays(item.lp_proofread_at, item.lp_ready_to_launch_at) !== null && (
-            <p className="inline-flex font-mono font-semibold mt-0.5 text-[10px] bg-accent/10 text-accent px-1.5 py-0.5 rounded-full">
+            <p className="inline-flex font-mono font-semibold mt-0.5 text-[10px] bg-accent/15 text-accent ring-1 ring-inset ring-accent/30 px-1.5 py-0.5 rounded-full">
               {lpDays(item.lp_proofread_at, item.lp_ready_to_launch_at)}d
             </p>
           )}
@@ -739,7 +741,7 @@ function ItemCard({ item, showTimeline, showProofread, onUpdated, isAdmin }: {
                       ? <EditableDate value={sub.lp_ready_to_launch_at} field="lp_ready_to_launch_at" apiPath={`/api/monday/subitems/${sub.id}/timestamps`} onUpdated={onUpdated} />
                       : <p className="font-mono text-text-muted">{fmtTs(sub.lp_ready_to_launch_at)}</p>}
                     {lpDays(sub.lp_proofread_at, sub.lp_ready_to_launch_at) !== null && (
-                      <p className="inline-flex font-mono font-semibold text-[10px] bg-accent/10 text-accent px-1.5 py-0.5 rounded-full">
+                      <p className="inline-flex font-mono font-semibold text-[10px] bg-accent/15 text-accent ring-1 ring-inset ring-accent/30 px-1.5 py-0.5 rounded-full">
                         {lpDays(sub.lp_proofread_at, sub.lp_ready_to_launch_at)}d
                       </p>
                     )}
@@ -781,7 +783,7 @@ function ItemCard({ item, showTimeline, showProofread, onUpdated, isAdmin }: {
                         {phase.end !== undefined && lpDays(phase.start, phase.end ?? null) !== null && (
                           <p className={cn(
                             'inline-flex font-mono font-semibold text-[10px] px-1.5 py-0.5 rounded-full',
-                            subOut ? 'bg-red-500/10 text-red-400' : 'bg-accent/10 text-accent',
+                            subOut ? 'bg-red-500/15 text-red-400 ring-1 ring-inset ring-red-500/30' : 'bg-accent/15 text-accent ring-1 ring-inset ring-accent/30',
                           )}>
                             {lpDays(phase.start, phase.end ?? null)}d
                           </p>
