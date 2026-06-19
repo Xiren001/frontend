@@ -1,10 +1,17 @@
 'use client'
 import { useState, useEffect, useCallback, useRef, type CSSProperties } from 'react'
+import {
+  ChevronDown, ChevronRight, ChevronUp, ExternalLink,
+  RefreshCw, Search, X,
+} from 'lucide-react'
 import { api } from '@/lib/api'
 import { useRole } from '@/lib/role-context'
 import { createClient } from '@/lib/supabase'
 import type { MondayWave, MondayItem, MondaySubitem } from '@/lib/types'
 import { cn } from '@/lib/utils'
+import { Table, TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/components/ui/table'
+import { PageHeader } from '@/components/ui/page-header'
+import { Tabs } from '@/components/ui/tabs'
 
 // ── LP phase timeline helpers ─────────────────────────────────────────────────
 
@@ -142,7 +149,10 @@ function LpPhaseCell({
             : <span className="font-mono text-xs text-text-muted">{fmtTs(end ?? null)}</span>
         )}
         {days !== null && (
-          <span className={cn('text-[11px] font-mono font-semibold', outOfOrder ? 'text-red-500' : 'text-accent')}>
+          <span className={cn(
+            'inline-flex font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded-full mt-0.5 w-fit',
+            outOfOrder ? 'bg-red-500/10 text-red-500' : 'bg-accent/10 text-accent',
+          )}>
             {days}d
           </span>
         )}
@@ -150,13 +160,6 @@ function LpPhaseCell({
     </TableCell>
   )
 }
-import {
-  ChevronDown, ChevronRight, ChevronUp, ExternalLink,
-  RefreshCw, Search, X,
-} from 'lucide-react'
-import { Table, TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/components/ui/table'
-import { PageHeader } from '@/components/ui/page-header'
-import { Tabs } from '@/components/ui/tabs'
 
 // ── Wave color palette ───────────────────────────────────────────────────────
 
@@ -367,7 +370,10 @@ function SubitemRow({ sub, visible, knownNames, showTimeline, showProofread, isA
                   ? <EditableDate value={sub.lp_ready_at} field="lp_ready_at" apiPath={apiPath} onUpdated={onUpdated} />
                   : <span className="font-mono text-xs text-text-muted">{fmtTs(sub.lp_ready_at)}</span>}
                 {lpDays(sub.lp_building_at, sub.lp_ready_at) !== null && (
-                  <span className={cn('text-[11px] font-mono font-semibold', outOfOrder ? 'text-red-500' : 'text-accent')}>
+                  <span className={cn(
+                    'inline-flex font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded-full mt-0.5 w-fit',
+                    outOfOrder ? 'bg-red-500/10 text-red-500' : 'bg-accent/10 text-accent',
+                  )}>
                     {lpDays(sub.lp_building_at, sub.lp_ready_at)}d
                   </span>
                 )}
@@ -384,7 +390,10 @@ function SubitemRow({ sub, visible, knownNames, showTimeline, showProofread, isA
                   ? <EditableDate value={sub.lp_ready_to_launch_at} field="lp_ready_to_launch_at" apiPath={apiPath} onUpdated={onUpdated} />
                   : <span className="font-mono text-xs text-text-muted">{fmtTs(sub.lp_ready_to_launch_at)}</span>}
                 {lpDays(sub.lp_proofread_at, sub.lp_ready_to_launch_at) !== null && (
-                  <span className={cn('text-[11px] font-mono font-semibold', outOfOrder ? 'text-red-500' : 'text-accent')}>
+                  <span className={cn(
+                    'inline-flex font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded-full mt-0.5 w-fit',
+                    outOfOrder ? 'bg-red-500/10 text-red-500' : 'bg-accent/10 text-accent',
+                  )}>
                     {lpDays(sub.lp_proofread_at, sub.lp_ready_to_launch_at)}d
                   </span>
                 )}
@@ -410,7 +419,7 @@ function SubitemRow({ sub, visible, knownNames, showTimeline, showProofread, isA
                 ? <EditableDate value={sub.lp_ready_to_launch_at} field="lp_ready_to_launch_at" apiPath={apiPath} onUpdated={onUpdated} />
                 : <span className="font-mono text-xs text-text-muted">{fmtTs(sub.lp_ready_to_launch_at)}</span>}
               {lpDays(sub.lp_proofread_at, sub.lp_ready_to_launch_at) !== null && (
-                <span className="text-[11px] font-mono font-semibold text-accent">
+                <span className="inline-flex font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded-full mt-0.5 w-fit bg-accent/10 text-accent">
                   {lpDays(sub.lp_proofread_at, sub.lp_ready_to_launch_at)}d
                 </span>
               )}
@@ -514,17 +523,23 @@ function ItemRow({ item, knownNames, showTimeline, showProofread, onUpdated, isA
             <>
               <TableCell className="whitespace-nowrap">
                 {agg.avgBuild !== null
-                  ? <div className="flex flex-col gap-0.5"><span className="font-mono text-xs font-semibold text-accent">{agg.avgBuild}d avg</span><span className="text-[11px] text-text-muted">{agg.buildDone}/{agg.total}</span></div>
+                  ? <div className="flex flex-col gap-0.5">
+                      <span className="font-mono text-xs font-semibold text-accent tabular-nums">{agg.avgBuild}d avg</span>
+                      <span className="text-[11px] text-text-muted tabular-nums">{agg.buildDone}/{agg.total}</span>
+                    </div>
                   : <span className="text-text-muted text-xs">—</span>}
               </TableCell>
               <TableCell className="whitespace-nowrap">
                 {agg.avgProof !== null
-                  ? <div className="flex flex-col gap-0.5"><span className="font-mono text-xs font-semibold text-accent">{agg.avgProof}d avg</span><span className="text-[11px] text-text-muted">{agg.proofDone}/{agg.total}</span></div>
+                  ? <div className="flex flex-col gap-0.5">
+                      <span className="font-mono text-xs font-semibold text-accent tabular-nums">{agg.avgProof}d avg</span>
+                      <span className="text-[11px] text-text-muted tabular-nums">{agg.proofDone}/{agg.total}</span>
+                    </div>
                   : <span className="text-text-muted text-xs">—</span>}
               </TableCell>
               <TableCell className="whitespace-nowrap">
                 {agg.launched > 0
-                  ? <span className="font-mono text-xs font-semibold text-accent">{agg.launched}/{agg.total}</span>
+                  ? <span className="font-mono text-xs font-semibold text-accent tabular-nums">{agg.launched}/{agg.total}</span>
                   : <span className="text-text-muted text-xs">—</span>}
               </TableCell>
             </>
@@ -552,7 +567,10 @@ function ItemRow({ item, knownNames, showTimeline, showProofread, onUpdated, isA
           return (
             <TableCell className="whitespace-nowrap">
               {agg.avgProof !== null
-                ? <div className="flex flex-col gap-0.5"><span className="font-mono text-xs font-semibold text-accent">{agg.avgProof}d avg</span><span className="text-[11px] text-text-muted">{agg.proofDone}/{agg.total}</span></div>
+                ? <div className="flex flex-col gap-0.5">
+                    <span className="font-mono text-xs font-semibold text-accent tabular-nums">{agg.avgProof}d avg</span>
+                    <span className="text-[11px] text-text-muted tabular-nums">{agg.proofDone}/{agg.total}</span>
+                  </div>
                 : <span className="text-text-muted text-xs">—</span>}
             </TableCell>
           )
@@ -621,15 +639,21 @@ function ItemCard({ item, showTimeline, showProofread, onUpdated, isAdmin }: {
           <div className="grid grid-cols-3 gap-2 mb-3 p-2 rounded-lg text-xs bg-surface border border-border-subtle">
             <div>
               <p className="font-medium text-text-muted mb-1">Phase 1</p>
-              {agg.avgBuild !== null ? <><p className="font-mono font-semibold text-accent">{agg.avgBuild}d avg</p><p className="text-text-muted">{agg.buildDone}/{agg.total}</p></> : <p className="text-text-muted">—</p>}
+              {agg.avgBuild !== null
+                ? <><p className="font-mono font-semibold text-accent tabular-nums">{agg.avgBuild}d avg</p><p className="text-text-muted tabular-nums">{agg.buildDone}/{agg.total}</p></>
+                : <p className="text-text-muted">—</p>}
             </div>
             <div>
               <p className="font-medium text-text-muted mb-1">Proofread</p>
-              {agg.avgProof !== null ? <><p className="font-mono font-semibold text-accent">{agg.avgProof}d avg</p><p className="text-text-muted">{agg.proofDone}/{agg.total}</p></> : <p className="text-text-muted">—</p>}
+              {agg.avgProof !== null
+                ? <><p className="font-mono font-semibold text-accent tabular-nums">{agg.avgProof}d avg</p><p className="text-text-muted tabular-nums">{agg.proofDone}/{agg.total}</p></>
+                : <p className="text-text-muted">—</p>}
             </div>
             <div>
               <p className="font-medium text-text-muted mb-1">Testing</p>
-              {agg.launched > 0 ? <p className="font-mono font-semibold text-accent">{agg.launched}/{agg.total}</p> : <p className="text-text-muted">—</p>}
+              {agg.launched > 0
+                ? <p className="font-mono font-semibold text-accent tabular-nums">{agg.launched}/{agg.total}</p>
+                : <p className="text-text-muted">—</p>}
             </div>
           </div>
         )
@@ -653,7 +677,10 @@ function ItemCard({ item, showTimeline, showProofread, onUpdated, isAdmin }: {
                   : <p className="font-mono text-text-muted">{fmtTs(phase.end ?? null)}</p>
               )}
               {phase.end !== undefined && lpDays(phase.start, phase.end ?? null) !== null && (
-                <p className={cn('font-mono font-semibold mt-0.5', outOfOrder ? 'text-red-500' : 'text-accent')}>
+                <p className={cn(
+                  'inline-flex font-mono font-semibold mt-0.5 text-[10px] px-1.5 py-0.5 rounded-full',
+                  outOfOrder ? 'bg-red-500/10 text-red-500' : 'bg-accent/10 text-accent',
+                )}>
                   {lpDays(phase.start, phase.end ?? null)}d
                 </p>
               )}
@@ -668,7 +695,7 @@ function ItemCard({ item, showTimeline, showProofread, onUpdated, isAdmin }: {
           <div className="mb-3 p-2 rounded-lg text-xs bg-surface border border-border-subtle">
             <p className="font-medium text-text-muted mb-1">Proofread</p>
             {agg.avgProof !== null
-              ? <><p className="font-mono font-semibold text-accent">{agg.avgProof}d avg</p><p className="text-text-muted">{agg.proofDone}/{agg.total}</p></>
+              ? <><p className="font-mono font-semibold text-accent tabular-nums">{agg.avgProof}d avg</p><p className="text-text-muted tabular-nums">{agg.proofDone}/{agg.total}</p></>
               : <p className="text-text-muted">—</p>}
           </div>
         )
@@ -684,7 +711,7 @@ function ItemCard({ item, showTimeline, showProofread, onUpdated, isAdmin }: {
             ? <EditableDate value={item.lp_ready_to_launch_at} field="lp_ready_to_launch_at" apiPath={`/api/monday/items/${item.id}/timestamps`} onUpdated={onUpdated} />
             : <p className="font-mono text-text-muted">{fmtTs(item.lp_ready_to_launch_at)}</p>}
           {lpDays(item.lp_proofread_at, item.lp_ready_to_launch_at) !== null && (
-            <p className="font-mono font-semibold mt-0.5 text-accent">
+            <p className="inline-flex font-mono font-semibold mt-0.5 text-[10px] bg-accent/10 text-accent px-1.5 py-0.5 rounded-full">
               {lpDays(item.lp_proofread_at, item.lp_ready_to_launch_at)}d
             </p>
           )}
@@ -712,7 +739,7 @@ function ItemCard({ item, showTimeline, showProofread, onUpdated, isAdmin }: {
                       ? <EditableDate value={sub.lp_ready_to_launch_at} field="lp_ready_to_launch_at" apiPath={`/api/monday/subitems/${sub.id}/timestamps`} onUpdated={onUpdated} />
                       : <p className="font-mono text-text-muted">{fmtTs(sub.lp_ready_to_launch_at)}</p>}
                     {lpDays(sub.lp_proofread_at, sub.lp_ready_to_launch_at) !== null && (
-                      <p className="font-mono font-semibold text-accent">
+                      <p className="inline-flex font-mono font-semibold text-[10px] bg-accent/10 text-accent px-1.5 py-0.5 rounded-full">
                         {lpDays(sub.lp_proofread_at, sub.lp_ready_to_launch_at)}d
                       </p>
                     )}
@@ -752,7 +779,10 @@ function ItemCard({ item, showTimeline, showProofread, onUpdated, isAdmin }: {
                             : <p className="font-mono text-text-muted">{fmtTs(phase.end ?? null)}</p>
                         )}
                         {phase.end !== undefined && lpDays(phase.start, phase.end ?? null) !== null && (
-                          <p className={cn('font-mono font-semibold', subOut ? 'text-red-400' : 'text-accent')}>
+                          <p className={cn(
+                            'inline-flex font-mono font-semibold text-[10px] px-1.5 py-0.5 rounded-full',
+                            subOut ? 'bg-red-500/10 text-red-400' : 'bg-accent/10 text-accent',
+                          )}>
                             {lpDays(phase.start, phase.end ?? null)}d
                           </p>
                         )}
