@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Modal, FormField } from '@/components/ui/modal'
 import { Input } from '@/components/ui/input'
-import { cn, currentMonth } from '@/lib/utils'
+import { cn, currentMonth, formatDate } from '@/lib/utils'
 import { Pencil, Trash2, Plus, ExternalLink, Languages, ArrowLeft, ChevronRight, HelpCircle, Search, X, Check, RotateCcw, Copy } from 'lucide-react'
 import { Tabs } from '@/components/ui/tabs'
 import { translateSeverity, translateIssueType, translateLocation, UI } from '@/lib/proof-translations'
@@ -530,12 +530,15 @@ export default function CopyReviewPage() {
                             : 'bg-surface-elevated border-border-subtle hover:bg-surface-hover/50 md:border-l-transparent',
                       )}
                     >
-                      <p className={cn(
-                        'text-[15px] font-medium leading-snug line-clamp-2',
-                        p.done ? 'text-text-muted line-through' : 'text-foreground',
-                      )}>
-                        {p.product_name}
-                      </p>
+                      <div className="flex items-start justify-between gap-2">
+                        <p className={cn(
+                          'text-[15px] font-medium leading-snug line-clamp-2',
+                          p.done ? 'text-text-muted line-through' : 'text-foreground',
+                        )}>
+                          {p.product_name}
+                        </p>
+                        <span className="text-xs font-mono text-text-muted shrink-0 mt-0.5">{formatDate(p.created_at)}</span>
+                      </div>
                       {p.proofreader && (
                         <p className="text-sm text-text-muted mt-1 truncate">{p.proofreader}</p>
                       )}
