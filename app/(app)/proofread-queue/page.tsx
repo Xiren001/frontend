@@ -77,13 +77,13 @@ export default function ProofreadQueuePage() {
 
   // ── Derived ────────────────────────────────────────────────────────────
   const weekNumbers = Array.from(new Set(
-    activeItems.filter(b => b.source === 'build' && b.week_number != null).map(b => b.week_number!)
+    activeItems.filter(b => b.source === 'wave' && b.week_number != null).map(b => b.week_number!)
   )).sort((a, b) => a - b)
 
   const hasDirectItems = activeItems.some(b => b.source === 'proof_product')
 
   const doneWeekNumbers = Array.from(new Set(
-    doneItems.filter(b => b.source === 'build' && b.week_number != null).map(b => b.week_number!)
+    doneItems.filter(b => b.source === 'wave' && b.week_number != null).map(b => b.week_number!)
   )).sort((a, b) => a - b)
 
   const hasDoneDirectItems = doneItems.some(b => b.source === 'proof_product')
