@@ -3,13 +3,11 @@ import { useEffect, useState, useCallback } from 'react'
 import { api } from '@/lib/api'
 import { useRealtimeRefresh } from '@/lib/use-realtime-refresh'
 import { formatDate, currentMonth, cn } from '@/lib/utils'
-import Link from 'next/link'
 import { PageHeader } from '@/components/ui/page-header'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs } from '@/components/ui/tabs'
-import { createClient } from '@/lib/supabase'
 import { Search, X, CheckCircle2, Clock, ExternalLink } from 'lucide-react'
 import { useRole } from '@/lib/role-context'
 
@@ -29,7 +27,7 @@ interface ProofQueueItem {
   outcome: string | null
   done: boolean
   created_at: string | null
-  source: 'build' | 'proof_product'
+  source: 'wave' | 'proof_product'
 }
 
 function derivedWeek(item: ProofQueueItem): number | null {
@@ -60,41 +58,17 @@ export default function ProofreadQueuePage() {
   const [directWeek, setDirectWeek]   = useState<number | 'all'>('all')
   const [langTab, setLangTab]         = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
-  const [isAdmin, setIsAdmin]         = useState(false)
-  const [advancing, setAdvancing]     = useState<string | null>(null)
-
   const load = useCallback(() => {
     api.get<ProofQueueItem[]>(`/api/builds/proofread-queue?month=${month}`)
       .then(setItems).catch(console.error)
   }, [month])
 
-  useRealtimeRefresh('builds', load)
+  useRealtimeRefresh('monday_subitems', load)
 
-  useEffect(() => {
-    load()
-    const supabase = createClient()
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session) return
-      const { data } = await supabase.from('profiles').select('role').eq('id', session.user.id).single()
-      setIsAdmin(data?.role === 'admin')
-    })
-  }, [load])
+  useEffect(() => { load() }, [load])
 
   useEffect(() => { setWeekTab('all'); setDirectWeek('all'); setLangTab('all'); setSearchQuery('') }, [month, viewMode])
   useEffect(() => { setDirectWeek('all') }, [weekTab])
-
-  async function endProofread(item: ProofQueueItem) {
-    if (!item.build_id) return
-    setAdvancing(item.id)
-    try {
-      await api.put(`/api/builds/${item.build_id}`, {
-        proof_end: new Date().toISOString().split('T')[0],
-      })
-      load()
-    } finally {
-      setAdvancing(null)
-    }
-  }
 
   // ── Split active / done ────────────────────────────────────────────────
   const activeItems = items.filter(b => !b.done)
@@ -205,13 +179,13 @@ export default function ProofreadQueuePage() {
   })()
 
   const showGroupHeaders = weekTab === 'all' || (weekTab === 'duplicates' && viewMode === 'active')
-  const colSpan = isAdmin ? 9 : 8
+  const colSpan = 8
 
   // ── Shared item renderer helpers ───────────────────────────────────────
   function SourceBadge({ b }: { b: ProofQueueItem }) {
     return b.source === 'proof_product'
       ? <Badge variant="muted">Direct</Badge>
-      : <Badge variant="default">Tracker</Badge>
+      : <Badge variant="default">Wave</Badge>
   }
 
   function TypeBadge({ b }: { b: ProofQueueItem }) {
@@ -431,24 +405,9 @@ export default function ProofreadQueuePage() {
                         )}
                       </div>
 
-                      {/* Proofreader + admin actions */}
-                      {(b.proofreader || (isAdmin && viewMode === 'active' && b.build_id)) && (
-                        <div className="flex items-center justify-between gap-2 pt-3 mt-3 border-t border-border-subtle">
-                          <span className="text-sm text-text-muted truncate">{b.proofreader ?? ''}</span>
-                          {isAdmin && viewMode === 'active' && b.build_id && (
-                            <div className="flex items-center gap-2 shrink-0">
-                              <Link href={`/qa-checklist/${b.build_id}`} className="text-sm text-accent hover:text-accent-bright">
-                                QA
-                              </Link>
-                              <button
-                                onClick={() => endProofread(b)}
-                                disabled={advancing === b.id}
-                                className="text-sm font-medium px-3 py-1.5 rounded border text-text-secondary border-border hover:border-text-secondary transition-colors disabled:opacity-40"
-                              >
-                                {advancing === b.id ? '…' : 'Done →'}
-                              </button>
-                            </div>
-                          )}
+                      {b.proofreader && (
+                        <div className="pt-3 mt-3 border-t border-border-subtle">
+                          <span className="text-sm text-text-muted">{b.proofreader}</span>
                         </div>
                       )}
                     </div>
@@ -475,7 +434,6 @@ export default function ProofreadQueuePage() {
                 : <TableHeader className="text-right">Days</TableHeader>}
               {viewMode === 'active' && <TableHeader>Flag</TableHeader>}
               <TableHeader>Proofreader</TableHeader>
-              {isAdmin && <TableHeader />}
             </TableRow>
           </TableHead>
           <TableBody>
@@ -548,22 +506,6 @@ export default function ProofreadQueuePage() {
                         </>
                       )}
                       <TableCell>{b.proofreader ?? <span className="text-text-muted">—</span>}</TableCell>
-                      {isAdmin && (
-                        <TableCell className="text-right whitespace-nowrap">
-                          {viewMode === 'active' && b.build_id && (
-                            <div className="flex items-center justify-end gap-3">
-                              <Link href={`/qa-checklist/${b.build_id}`} className="text-sm text-accent hover:text-accent-bright">QA</Link>
-                              <button
-                                onClick={() => endProofread(b)}
-                                disabled={advancing === b.id}
-                                className="text-sm font-medium px-3 py-1 rounded border text-text-secondary border-border hover:border-text-secondary transition-colors disabled:opacity-40"
-                              >
-                                {advancing === b.id ? '…' : 'Done →'}
-                              </button>
-                            </div>
-                          )}
-                        </TableCell>
-                      )}
                     </TableRow>
                   )
                 })}

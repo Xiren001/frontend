@@ -18,7 +18,6 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Trophy,
-  Star,
   Menu,
   X,
   ClipboardList,
@@ -39,7 +38,6 @@ const NAV = [
   { href: '/copy-review',             label: 'Proofreading',        icon: FileCheck },
   { href: '/proofreader-payments',   label: 'Proofreader Payments', icon: Wallet   },
   { href: '/mistake-log',            label: 'Mistake Log',          icon: AlertTriangle },
-  { href: '/product-ranking', label: 'Product Ranking',  icon: Star },
   { href: '/winning-products',label: 'Winning Products', icon: Trophy },
   { href: '/weekly-report',   label: 'Weekly Report',    icon: CalendarDays },
   { href: '/monthly-report',  label: 'Monthly Report',   icon: BarChart3 },
@@ -84,7 +82,7 @@ export function NavSidebar() {
       return item.href === '/waves' || item.href === '/proofread-queue' || item.href === '/copy-review'
     }
     if (role === 'management') {
-      const blocked = ['/settings', '/team-tasks', '/monthly-planner', '/winning-products', '/product-ranking']
+      const blocked = ['/settings', '/team-tasks', '/monthly-planner', '/winning-products']
       return !blocked.includes(item.href)
     }
     if (role === 'website') {
