@@ -351,9 +351,10 @@ export default function CopyReviewPage() {
     : 'EN'
   const L = UI[uiLang]
 
-  function productGroup(p: ProofProduct): 0 | 1 | 2 | 3 | 4 {
-    if (p.done) return 4
-    if (!p.pdp_url || !p.drive_folder) return 3
+  function productGroup(p: ProofProduct): 0 | 1 | 2 | 3 | 4 | 5 {
+    if (p.done) return 5
+    if (!p.pdp_url || !p.drive_folder) return 4
+    if (!p.language) return 3
     if (p.ready_for_revision) return 2
     if (p.correction_count === 0) return 0
     return 1
@@ -369,14 +370,15 @@ export default function CopyReviewPage() {
     return diff !== 0 ? diff : a.product_name.localeCompare(b.product_name)
   })
 
-  const presentGroups = Array.from(new Set(sortedVisible.map(p => productGroup(p)))).sort() as (0|1|2|3|4)[]
+  const presentGroups = Array.from(new Set(sortedVisible.map(p => productGroup(p)))).sort() as (0|1|2|3|4|5)[]
 
   const GROUP_LABELS: Record<number, { label: string; description: string }> = {
     0: { label: 'No corrections',      description: 'Just added — nothing flagged yet' },
     1: { label: 'Has corrections',     description: 'Proofreader found issues' },
     2: { label: 'Ready for revision',  description: 'Writer can now apply the fixes' },
-    3: { label: 'Needs links',         description: 'PDP or Drive folder URL is missing' },
-    4: { label: 'Done',                description: 'Fully resolved' },
+    3: { label: 'Needs language',      description: 'Language is not set for this product' },
+    4: { label: 'Needs links',         description: 'PDP or Drive folder URL is missing' },
+    5: { label: 'Done',                description: 'Fully resolved' },
   }
 
   return (
@@ -485,7 +487,8 @@ export default function CopyReviewPage() {
                 const doneCnt    = corrections[p.id]?.filter(c => c.done).length ?? null
                 const group      = productGroup(p)
                 const isReady    = group === 2
-                const noLinks    = group === 3
+                const noLang     = group === 3
+                const noLinks    = group === 4
                 const prevGroup  = idx > 0 ? productGroup(sortedVisible[idx - 1]) : -1
                 const showHeader = dateSort === 'status' && group !== prevGroup
                 return (
@@ -493,20 +496,23 @@ export default function CopyReviewPage() {
                     {showHeader && (
                       <div id={`group-${group}`} className={cn(
                         'px-4 py-2 md:border-y border-border-subtle rounded-lg md:rounded-none mb-1 md:mb-0',
-                        isReady  ? 'bg-green-500/5'  :
-                        noLinks  ? 'bg-yellow-500/5' : 'bg-surface-elevated/30',
+                        isReady  ? 'bg-green-500/5'   :
+                        noLang   ? 'bg-orange-500/5'  :
+                        noLinks  ? 'bg-yellow-500/5'  : 'bg-surface-elevated/30',
                       )}>
                         <p className={cn(
                           'text-xs font-semibold uppercase tracking-widest',
-                          isReady  ? 'text-green-500/70'  :
-                          noLinks  ? 'text-yellow-500/70' : 'text-text-muted',
+                          isReady  ? 'text-green-500/70'   :
+                          noLang   ? 'text-orange-500/70'  :
+                          noLinks  ? 'text-yellow-500/70'  : 'text-text-muted',
                         )}>
                           {GROUP_LABELS[group].label}
                         </p>
                         <p className={cn(
                           'text-[10px] mt-0.5',
-                          isReady  ? 'text-green-500/50'  :
-                          noLinks  ? 'text-yellow-500/50' : 'text-text-muted/60',
+                          isReady  ? 'text-green-500/50'   :
+                          noLang   ? 'text-orange-500/50'  :
+                          noLinks  ? 'text-yellow-500/50'  : 'text-text-muted/60',
                         )}>
                           {GROUP_LABELS[group].description}
                         </p>
@@ -525,6 +531,8 @@ export default function CopyReviewPage() {
                           ? 'bg-accent-muted/40 border-accent md:border-l-accent'
                           : isReady
                             ? 'bg-green-500/[0.04] border-green-500/20 hover:bg-green-500/10 md:border-l-transparent'
+                          : noLang
+                            ? 'bg-orange-500/[0.04] border-orange-500/20 hover:bg-orange-500/10 md:border-l-transparent'
                           : noLinks
                             ? 'bg-yellow-500/[0.04] border-yellow-500/20 hover:bg-yellow-500/10 md:border-l-transparent'
                             : 'bg-surface-elevated border-border-subtle hover:bg-surface-hover/50 md:border-l-transparent',
@@ -545,6 +553,7 @@ export default function CopyReviewPage() {
                           {(p.website_done || p.done) && <Badge variant="default">Web ✓</Badge>}
                           {(p.ads_done || p.done) && <Badge variant="default">Ads ✓</Badge>}
                           {isReady && !p.done && <Badge variant="default">Ready</Badge>}
+                          {noLang  && <Badge variant="warn">Needs lang</Badge>}
                           {noLinks && <Badge variant="warn">Needs links</Badge>}
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
@@ -1229,6 +1238,7 @@ export default function CopyReviewPage() {
                   { label: 'No corrections', color: 'text-text-muted', hint: 'Just added — nothing flagged yet' },
                   { label: 'Has corrections', color: 'text-text-secondary', hint: 'Proofreader found issues' },
                   { label: 'Ready for revision', color: 'text-green-400', hint: 'Writer can now apply the fixes' },
+                  { label: 'Needs language', color: 'text-orange-400', hint: 'Language is not set for this product' },
                   { label: 'Needs links', color: 'text-yellow-400', hint: 'PDP or Drive folder URL is missing' },
                   { label: 'Done', color: 'text-text-muted', hint: 'Fully resolved', strike: true },
                 ].map(g => (
