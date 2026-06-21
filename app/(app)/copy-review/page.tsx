@@ -530,15 +530,12 @@ export default function CopyReviewPage() {
                             : 'bg-surface-elevated border-border-subtle hover:bg-surface-hover/50 md:border-l-transparent',
                       )}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <p className={cn(
-                          'text-[15px] font-medium leading-snug line-clamp-2',
-                          p.done ? 'text-text-muted line-through' : 'text-foreground',
-                        )}>
-                          {p.product_name}
-                        </p>
-                        <span className="text-xs font-mono text-text-muted shrink-0 mt-0.5">{formatDate(p.created_at)}</span>
-                      </div>
+                      <p className={cn(
+                        'text-[15px] font-medium leading-snug line-clamp-2',
+                        p.done ? 'text-text-muted line-through' : 'text-foreground',
+                      )}>
+                        {p.product_name}
+                      </p>
                       {p.proofreader && (
                         <p className="text-sm text-text-muted mt-1 truncate">{p.proofreader}</p>
                       )}
@@ -638,21 +635,26 @@ export default function CopyReviewPage() {
                 <div className="shrink-0 px-4 py-4 border-b border-border-subtle bg-surface-elevated/30 space-y-3">
 
                   {/* Name — hidden on mobile (shown in the back bar above) */}
-                  <h2 className="hidden md:block text-base font-semibold leading-snug">
-                    {!isProofreader && selectedProduct.monday_url ? (
-                      <a
-                        href={selectedProduct.monday_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 group text-foreground hover:text-accent transition-colors"
-                      >
-                        {selectedProduct.product_name}
-                        <ExternalLink className="h-3.5 w-3.5 text-text-muted group-hover:text-accent transition-colors shrink-0" />
-                      </a>
-                    ) : (
-                      <span className="text-foreground">{selectedProduct.product_name}</span>
-                    )}
-                  </h2>
+                  <div className="hidden md:block">
+                    <div className="flex items-start justify-between gap-3">
+                      <h2 className="text-base font-semibold leading-snug">
+                        {!isProofreader && selectedProduct.monday_url ? (
+                          <a
+                            href={selectedProduct.monday_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 group text-foreground hover:text-accent transition-colors"
+                          >
+                            {selectedProduct.product_name}
+                            <ExternalLink className="h-3.5 w-3.5 text-text-muted group-hover:text-accent transition-colors shrink-0" />
+                          </a>
+                        ) : (
+                          <span className="text-foreground">{selectedProduct.product_name}</span>
+                        )}
+                      </h2>
+                      <span className="text-xs font-mono text-text-muted shrink-0 mt-0.5">{formatDate(selectedProduct.created_at)}</span>
+                    </div>
+                  </div>
 
                   {/* Badges + icon actions row */}
                   <div className="flex items-start justify-between gap-2">
