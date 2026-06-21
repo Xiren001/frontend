@@ -387,7 +387,12 @@ export default function ProofreadQueuePage() {
                             {b.product_name}
                           </span>
                         )}
-                        {flagged && <Badge variant="danger">RED</Badge>}
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          {flagged && <Badge variant="danger">RED</Badge>}
+                          {b.created_at && (
+                            <span className="text-xs font-mono text-text-muted">{formatDate(b.created_at)}</span>
+                          )}
+                        </div>
                       </div>
 
                       {/* Badges */}
@@ -517,6 +522,9 @@ export default function ProofreadQueuePage() {
                           </a>
                         ) : (
                           <span>{b.product_name}</span>
+                        )}
+                        {b.created_at && (
+                          <p className="text-xs font-mono text-text-muted mt-0.5">{formatDate(b.created_at)}</p>
                         )}
                       </TableCell>
                       <TableCell><SourceBadge b={b} /></TableCell>
