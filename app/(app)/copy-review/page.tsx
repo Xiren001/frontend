@@ -132,10 +132,6 @@ export default function CopyReviewPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const dateSort = 'status' as const
 
-  // Date range filter
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo]     = useState('')
-
   // How to use
   const [howToUseOpen, setHowToUseOpen] = useState(false)
   const [helpStep, setHelpStep] = useState(0)
@@ -368,14 +364,7 @@ export default function CopyReviewPage() {
     ? visible.filter(p => p.product_name.toLowerCase().includes(q) || (p.proofreader ?? '').toLowerCase().includes(q))
     : visible
 
-  const dateFiltered = searchFiltered.filter(p => {
-    const d = p.created_at.slice(0, 10)
-    if (dateFrom && d < dateFrom) return false
-    if (dateTo   && d > dateTo)   return false
-    return true
-  })
-
-  const sortedVisible = [...dateFiltered].sort((a, b) => {
+  const sortedVisible = [...searchFiltered].sort((a, b) => {
     const diff = productGroup(a) - productGroup(b)
     return diff !== 0 ? diff : a.product_name.localeCompare(b.product_name)
   })
@@ -450,7 +439,7 @@ export default function CopyReviewPage() {
             'w-full md:w-64 lg:w-72',
             mobileDetailOpen ? 'hidden md:flex' : 'flex',
           )}>
-            {/* Search + date range */}
+            {/* Search + sort */}
             <div className="shrink-0 px-3 py-2.5 border-b border-border-subtle space-y-2">
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-muted pointer-events-none" />
@@ -468,34 +457,6 @@ export default function CopyReviewPage() {
                     <X className="h-3 w-3" />
                   </button>
                 )}
-              </div>
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">Date added</span>
-                  {(dateFrom || dateTo) && (
-                    <button
-                      onClick={() => { setDateFrom(''); setDateTo('') }}
-                      className="text-[10px] text-accent hover:text-accent-bright"
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <input
-                    type="date"
-                    value={dateFrom}
-                    onChange={e => setDateFrom(e.target.value)}
-                    className="flex-1 min-w-0 rounded-md border border-border bg-surface px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-accent/40"
-                  />
-                  <span className="text-xs text-text-muted shrink-0">–</span>
-                  <input
-                    type="date"
-                    value={dateTo}
-                    onChange={e => setDateTo(e.target.value)}
-                    className="flex-1 min-w-0 rounded-md border border-border bg-surface px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-accent/40"
-                  />
-                </div>
               </div>
             </div>
 
