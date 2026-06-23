@@ -35,8 +35,8 @@ function toDateStr(date: Date): string {
 }
 
 function formatWeekRange(startISO: string, endISO: string): string {
-  const start = new Date(startISO + 'T00:00:00')
-  const end = new Date(endISO + 'T00:00:00')
+  const start = new Date(startISO)
+  const end = new Date(endISO)
   const fmt = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
   return `${fmt(start)} – ${fmt(end)}, ${start.getFullYear()}`
 }
