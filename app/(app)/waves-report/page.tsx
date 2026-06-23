@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from '@/lib/api'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface WavesWeeklyReport {
   weekStart: string
@@ -35,10 +35,260 @@ function toDateStr(date: Date): string {
 }
 
 function formatWeekRange(startISO: string, endISO: string): string {
-  const start = new Date(startISO)
-  const end = new Date(endISO)
+  const start = new Date(startISO + 'T00:00:00')
+  const end = new Date(endISO + 'T00:00:00')
   const fmt = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
   return `${fmt(start)} – ${fmt(end)}, ${start.getFullYear()}`
+}
+
+function addWeeks(dateStr: string, n: number): string {
+  const d = new Date(dateStr + 'T00:00:00')
+  d.setDate(d.getDate() + n * 7)
+  return toDateStr(getMondayOfWeek(d))
+}
+
+const PRESETS = [
+  { label: 'This week', offset: 0 },
+  { label: 'Last week', offset: -1 },
+  { label: '2 weeks ago', offset: -2 },
+  { label: '3 weeks ago', offset: -3 },
+  { label: '4 weeks ago', offset: -4 },
+  { label: '6 weeks ago', offset: -6 },
+  { label: '8 weeks ago', offset: -8 },
+]
+
+const DAYS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']
+
+function WeekPicker({
+  selected,
+  onSelect,
+}: {
+  selected: string
+  onSelect: (weekStart: string) => void
+}) {
+  const today = new Date()
+  const [viewYear, setViewYear] = useState(() => {
+    const d = new Date(selected + 'T00:00:00')
+    return d.getFullYear()
+  })
+  const [viewMonth, setViewMonth] = useState(() => {
+    const d = new Date(selected + 'T00:00:00')
+    return d.getMonth()
+  })
+
+  const todayMonday = toDateStr(getMondayOfWeek(today))
+
+  function prevMonth() {
+    if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1) }
+    else setViewMonth(m => m - 1)
+  }
+  function nextMonth() {
+    if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1) }
+    else setViewMonth(m => m + 1)
+  }
+
+  // Build calendar grid
+  const firstDay = new Date(viewYear, viewMonth, 1)
+  // Monday-first: 0=Mon … 6=Sun
+  const startOffset = (firstDay.getDay() + 6) % 7
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate()
+  // Fill grid to complete weeks
+  const totalCells = Math.ceil((startOffset + daysInMonth) / 7) * 7
+
+  const cells: (Date | null)[] = []
+  for (let i = 0; i < totalCells; i++) {
+    const dayNum = i - startOffset + 1
+    if (dayNum < 1 || dayNum > daysInMonth) cells.push(null)
+    else cells.push(new Date(viewYear, viewMonth, dayNum))
+  }
+
+  const weeks: (Date | null)[][] = []
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7))
+
+  function getWeekMonday(weekRow: (Date | null)[]): string | null {
+    const firstReal = weekRow.find(d => d !== null)
+    if (!firstReal) return null
+    return toDateStr(getMondayOfWeek(firstReal))
+  }
+
+  const monthName = new Date(viewYear, viewMonth).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+
+  return (
+    <div className="w-[260px]">
+      {/* Month nav */}
+      <div className="flex items-center justify-between mb-3">
+        <button
+          onClick={prevMonth}
+          className="flex items-center justify-center w-7 h-7 rounded-lg text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <span className="text-sm font-medium text-foreground">{monthName}</span>
+        <button
+          onClick={nextMonth}
+          className="flex items-center justify-center w-7 h-7 rounded-lg text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Day headers */}
+      <div className="grid grid-cols-7 mb-1">
+        {DAYS.map(d => (
+          <div key={d} className="text-center text-[10px] font-medium text-text-muted py-1">{d}</div>
+        ))}
+      </div>
+
+      {/* Week rows */}
+      {weeks.map((week, wi) => {
+        const weekMonday = getWeekMonday(week)
+        const isSelected = weekMonday === selected
+        const isFuture = weekMonday ? weekMonday > todayMonday : false
+
+        return (
+          <button
+            key={wi}
+            disabled={isFuture || !weekMonday}
+            onClick={() => weekMonday && onSelect(weekMonday)}
+            className={[
+              'grid grid-cols-7 w-full rounded-lg mb-0.5 transition-colors',
+              isFuture
+                ? 'opacity-30 cursor-not-allowed'
+                : isSelected
+                  ? 'bg-foreground text-background'
+                  : 'hover:bg-surface-hover',
+            ].join(' ')}
+          >
+            {week.map((day, di) => (
+              <div
+                key={di}
+                className={[
+                  'text-center text-sm py-1.5',
+                  !day ? 'text-transparent' : isSelected ? 'text-background' : 'text-foreground',
+                ].join(' ')}
+              >
+                {day?.getDate() ?? '·'}
+              </div>
+            ))}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function DateFilter({
+  weekStart,
+  report,
+  onChange,
+}: {
+  weekStart: string
+  report: WavesWeeklyReport | null
+  onChange: (ws: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [pending, setPending] = useState(weekStart)
+  const ref = useRef<HTMLDivElement>(null)
+
+  const todayMonday = toDateStr(getMondayOfWeek(new Date()))
+  const activePreset = PRESETS.find(p => addWeeks(todayMonday, p.offset) === weekStart)
+
+  // Sync pending when parent weekStart changes externally (shouldn't normally happen)
+  useEffect(() => { setPending(weekStart) }, [weekStart])
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  function apply() {
+    onChange(pending)
+    setOpen(false)
+  }
+
+  function cancel() {
+    setPending(weekStart)
+    setOpen(false)
+  }
+
+  const displayLabel = report
+    ? formatWeekRange(report.weekStart, report.weekEnd)
+    : weekStart
+
+  return (
+    <div ref={ref} className="relative">
+      {/* Trigger button */}
+      <button
+        onClick={() => { setPending(weekStart); setOpen(o => !o) }}
+        className={[
+          'flex items-center gap-2 h-9 pl-3 pr-3 rounded-lg border text-sm font-medium transition-colors',
+          open
+            ? 'border-foreground bg-surface-elevated text-foreground'
+            : 'border-border-subtle bg-surface-elevated text-foreground hover:bg-surface-hover',
+        ].join(' ')}
+      >
+        <CalendarDays className="h-4 w-4 text-text-muted shrink-0" />
+        <span className="whitespace-nowrap">{displayLabel}</span>
+        {activePreset && activePreset.offset !== 0 && (
+          <span className="text-text-muted font-normal">· {activePreset.label}</span>
+        )}
+      </button>
+
+      {/* Popover */}
+      {open && (
+        <div className="absolute right-0 top-full mt-2 z-50 bg-surface-elevated border border-border-subtle rounded-xl shadow-xl p-4 min-w-max">
+          <div className="flex flex-col sm:flex-row gap-0">
+            {/* Presets sidebar */}
+            <div className="sm:w-44 sm:border-r border-border-subtle sm:pr-4 mb-3 sm:mb-0 sm:mr-5">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-2 px-1">Quick select</p>
+              {PRESETS.map(p => {
+                const ws = addWeeks(todayMonday, p.offset)
+                const isActive = pending === ws
+                return (
+                  <button
+                    key={p.offset}
+                    onClick={() => setPending(ws)}
+                    className={[
+                      'w-full text-left text-sm px-2 py-1.5 rounded-lg transition-colors',
+                      isActive
+                        ? 'bg-foreground text-background font-medium'
+                        : 'text-foreground hover:bg-surface-hover',
+                    ].join(' ')}
+                  >
+                    {p.label}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Calendar */}
+            <WeekPicker selected={pending} onSelect={setPending} />
+          </div>
+
+          {/* Footer */}
+          <div className="flex items-center justify-end gap-2 mt-4 pt-3 border-t border-border-subtle">
+            <button
+              onClick={cancel}
+              className="px-4 py-1.5 text-sm rounded-lg border border-border-subtle text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={apply}
+              className="px-4 py-1.5 text-sm font-medium rounded-lg bg-foreground text-background hover:opacity-90 transition-opacity"
+            >
+              Apply
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 function MetricCard({
@@ -99,14 +349,6 @@ export default function WavesReportPage() {
       .finally(() => setLoading(false))
   }, [weekStart])
 
-  function shiftWeek(delta: number) {
-    const d = new Date(weekStart + 'T00:00:00')
-    d.setDate(d.getDate() + delta * 7)
-    setWeekStart(toDateStr(d))
-  }
-
-  const isThisWeek = weekStart === toDateStr(getMondayOfWeek(new Date()))
-
   return (
     <div className="min-h-screen bg-background px-4 py-6 md:px-8 md:py-8 max-w-6xl mx-auto">
       {/* Header */}
@@ -115,34 +357,7 @@ export default function WavesReportPage() {
           <h1 className="text-xl font-semibold text-foreground">Waves Weekly Report</h1>
           <p className="text-sm text-text-muted mt-0.5">Performance metrics across all waves</p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={() => shiftWeek(-1)}
-            className="flex items-center justify-center w-8 h-8 rounded-lg border border-border-subtle bg-surface-elevated text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
-            aria-label="Previous week"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <div className="text-sm font-medium text-foreground text-center min-w-[160px]">
-            {report ? formatWeekRange(report.weekStart, report.weekEnd) : '—'}
-          </div>
-          <button
-            onClick={() => shiftWeek(1)}
-            disabled={isThisWeek}
-            className="flex items-center justify-center w-8 h-8 rounded-lg border border-border-subtle bg-surface-elevated text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            aria-label="Next week"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
-          {!isThisWeek && (
-            <button
-              onClick={() => setWeekStart(toDateStr(getMondayOfWeek(new Date())))}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-border-subtle bg-surface-elevated text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
-            >
-              This week
-            </button>
-          )}
-        </div>
+        <DateFilter weekStart={weekStart} report={report} onChange={setWeekStart} />
       </div>
 
       {error && (
