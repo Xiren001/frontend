@@ -912,7 +912,7 @@ export function WavesPage() {
   const stoppedWave = waves.find(w => w.wave_number === 0)
   const allWaves    = [...mainWaves, ...(stoppedWave ? [stoppedWave] : [])]
   const current      = waves.find(w => w.id === activeWave)
-  const showTimeline = current?.wave_number === 1
+  const showTimeline = (current?.wave_number ?? 0) >= 1
   const showProofread = (current?.wave_number ?? 0) >= 2
 
   const groups = current
