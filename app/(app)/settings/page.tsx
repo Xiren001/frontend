@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Modal, FormField } from '@/components/ui/modal'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import { Plus, Trash2, RefreshCw, Copy, Check as CheckIcon, Download, FileText } from 'lucide-react'
+import { Plus, Trash2, RefreshCw, Copy, Check as CheckIcon, Download, FileText, Send, X } from 'lucide-react'
 
 const PIPELINE_FIELDS: { key: keyof Settings; label: string; unit: string }[] = [
   { key: 'build_target_days',  label: 'Build target',          unit: 'days' },
@@ -42,6 +42,13 @@ interface AdminUser {
   created_at: string
 }
 
+interface NotifConfig {
+  languages: string[]
+  emailMap: Record<string, string[]>
+  delayMinutes: number
+  pendingCount: Record<string, number>
+}
+
 function emptyUserForm() {
   return { email: '', password: '', role: '' }
 }
@@ -64,6 +71,14 @@ export default function SettingsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [pwCopied, setPwCopied] = useState(false)
 
+  // Proof notification state
+  const [notifConfig, setNotifConfig] = useState<NotifConfig | null>(null)
+  const [notifEmailDraft, setNotifEmailDraft] = useState<Record<string, string[]>>({})
+  const [notifEmailInput, setNotifEmailInput] = useState<Record<string, string>>({})
+  const [notifDelay, setNotifDelay] = useState<number>(1)
+  const [notifSending, setNotifSending] = useState<string | null>(null)
+  const [notifSaved, setNotifSaved] = useState<string | null>(null)
+
   function applySettings(s: Settings) { setSettings(s); setDraft(s) }
   function loadSettings() {
     api.get<Settings>('/api/settings').then(applySettings).catch(console.error)
@@ -76,6 +91,15 @@ export default function SettingsPage() {
     if (!isAdmin) return
     api.get<string[]>('/api/admin/users/languages').then(setLanguages).catch(console.error)
     api.get<AdminUser[]>('/api/admin/users/users').then(setUsers).catch(console.error)
+  }, [isAdmin])
+
+  useEffect(() => {
+    if (!isAdmin) return
+    api.get<NotifConfig>('/api/proof-notifications/config').then(cfg => {
+      setNotifConfig(cfg)
+      setNotifEmailDraft(cfg.emailMap)
+      setNotifDelay(cfg.delayMinutes)
+    }).catch(console.error)
   }, [isAdmin])
 
   function cancelEdit() {
@@ -154,6 +178,46 @@ export default function SettingsPage() {
 
   function roleKey(lang: string) {
     return `proofreader_${lang.toLowerCase()}`
+  }
+
+  // ── Notification helpers ──────────────────────────────────────────────────
+  function notifEmails(lang: string): string[] {
+    return notifEmailDraft[lang] ?? []
+  }
+
+  function addNotifEmail(lang: string) {
+    const val = (notifEmailInput[lang] ?? '').trim()
+    if (!val || notifEmails(lang).includes(val)) return
+    const updated = [...notifEmails(lang), val]
+    setNotifEmailDraft(d => ({ ...d, [lang]: updated }))
+    setNotifEmailInput(i => ({ ...i, [lang]: '' }))
+    api.put('/api/proof-notifications/emails', { language: lang, emails: updated }).catch(console.error)
+  }
+
+  function removeNotifEmail(lang: string, email: string) {
+    const updated = notifEmails(lang).filter(e => e !== email)
+    setNotifEmailDraft(d => ({ ...d, [lang]: updated }))
+    api.put('/api/proof-notifications/emails', { language: lang, emails: updated }).catch(console.error)
+  }
+
+  async function saveNotifDelay(val: number) {
+    setNotifDelay(val)
+    await api.put('/api/proof-notifications/delay', { delayMinutes: val }).catch(console.error)
+  }
+
+  async function sendNotifEmails(lang: string) {
+    setNotifSending(lang)
+    try {
+      await api.post('/api/proof-notifications/send', { language: lang })
+      setNotifSaved(lang)
+      // Refresh pending counts
+      const cfg = await api.get<NotifConfig>('/api/proof-notifications/config')
+      setNotifConfig(cfg)
+      setNotifEmailDraft(cfg.emailMap)
+      setTimeout(() => setNotifSaved(null), 2500)
+    } finally {
+      setNotifSending(null)
+    }
   }
 
   if (!settings) return <p className="text-sm text-text-muted font-mono">Loading…</p>
@@ -345,6 +409,124 @@ export default function SettingsPage() {
                     )
                   })}
                 </>
+              )}
+            </Card>
+          </div>
+        )}
+
+        {/* ── Proof Notifications (admin only) ── */}
+        {isAdmin && (
+          <div>
+            <div className="mb-3">
+              <h2 className="text-sm font-medium text-foreground">Proof Notifications</h2>
+              <p className="text-xs text-text-muted mt-0.5">
+                Email alerts when new products enter the proofreading queue. Sent automatically after the delay.
+              </p>
+            </div>
+
+            {/* Delay setting */}
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-sm text-text-secondary">Delay before sending</span>
+              <Input
+                type="number"
+                mono
+                className="w-20 text-right"
+                value={notifDelay}
+                min={0}
+                onChange={e => setNotifDelay(Number(e.target.value))}
+                onBlur={e => saveNotifDelay(Number(e.target.value))}
+              />
+              <span className="text-sm text-text-muted">minutes</span>
+            </div>
+
+            <Card className="divide-y divide-border-subtle">
+              {!notifConfig ? (
+                <p className="px-5 py-6 text-sm text-text-muted text-center">Loading…</p>
+              ) : notifConfig.languages.length === 0 ? (
+                <p className="px-5 py-6 text-sm text-text-muted text-center">
+                  No languages in the proofreading queue yet.
+                </p>
+              ) : (
+                notifConfig.languages.map(lang => {
+                  const pending = notifConfig.pendingCount[lang] ?? 0
+                  const emails  = notifEmails(lang)
+                  const isSending = notifSending === lang
+                  const isSent    = notifSaved === lang
+                  const canSend   = pending > 0 && emails.length > 0 && !isSending
+
+                  return (
+                    <div key={lang} className="px-5 py-4 space-y-3">
+                      {/* Header row */}
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="accent">{lang}</Badge>
+                          {pending > 0 ? (
+                            <span className="text-xs font-mono text-amber-500 font-medium">
+                              {pending} pending
+                            </span>
+                          ) : (
+                            <span className="text-xs text-text-muted font-mono">0 pending</span>
+                          )}
+                        </div>
+                        <Button
+                          size="sm"
+                          variant={canSend ? 'primary' : 'secondary'}
+                          disabled={!canSend}
+                          onClick={() => sendNotifEmails(lang)}
+                          title={
+                            emails.length === 0 ? 'No emails configured'
+                            : pending === 0 ? 'No pending products'
+                            : undefined
+                          }
+                        >
+                          {isSent ? (
+                            <><CheckIcon className="h-3.5 w-3.5 mr-1.5" />Sent</>
+                          ) : (
+                            <><Send className="h-3.5 w-3.5 mr-1.5" />{isSending ? 'Sending…' : 'Send Emails'}</>
+                          )}
+                        </Button>
+                      </div>
+
+                      {/* Email chips */}
+                      <div className="flex flex-wrap gap-1.5">
+                        {emails.map(email => (
+                          <span
+                            key={email}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-surface-elevated border border-border text-text-secondary"
+                          >
+                            {email}
+                            <button
+                              onClick={() => removeNotifEmail(lang, email)}
+                              className="text-text-muted hover:text-danger transition-colors ml-0.5"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+
+                      {/* Add email input */}
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="email"
+                          placeholder="Add email address…"
+                          value={notifEmailInput[lang] ?? ''}
+                          onChange={e => setNotifEmailInput(i => ({ ...i, [lang]: e.target.value }))}
+                          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addNotifEmail(lang) } }}
+                          className="text-sm"
+                        />
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => addNotifEmail(lang)}
+                          disabled={!(notifEmailInput[lang] ?? '').trim()}
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                })
               )}
             </Card>
           </div>
