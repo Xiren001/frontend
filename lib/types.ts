@@ -196,6 +196,12 @@ export interface ReportTargets {
 }
 
 
+export interface PlannerNote {
+  id: string
+  date: string
+  notes: string
+}
+
 export interface BuildSummaryShort {
   product_name: string
   language: string | null
