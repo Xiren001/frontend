@@ -595,7 +595,7 @@ function ItemRow({ item, index, knownNames, showTimeline, showProofread, onUpdat
         <TableCell />
       </TableRow>
       {hasSubs && <SubitemHeaderRow visible={open} showTimeline={showTimeline} showProofread={showProofread} />}
-      {hasSubs && item.monday_subitems.map(sub => <SubitemRow key={sub.id} sub={sub} visible={open} knownNames={knownNames} showTimeline={showTimeline} showProofread={showProofread} isAdmin={isAdmin} onUpdated={onUpdated} />)}
+      {hasSubs && [...item.monday_subitems].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase())).map(sub => <SubitemRow key={sub.id} sub={sub} visible={open} knownNames={knownNames} showTimeline={showTimeline} showProofread={showProofread} isAdmin={isAdmin} onUpdated={onUpdated} />)}
     </>
   )
 }
@@ -938,13 +938,15 @@ export function WavesPage() {
   }
   if (filterCreatives) items = items.filter(i => i.creatives_status === filterCreatives)
   if (filterLanding)   items = items.filter(i => i.landing_page_status === filterLanding)
-  if (sortKey) {
-    items = [...items].sort((a, b) => {
+  items = [...items].sort((a, b) => {
+    if (sortKey) {
       const av = (a[sortKey] ?? '').toLowerCase()
       const bv = (b[sortKey] ?? '').toLowerCase()
-      return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av)
-    })
-  }
+      const cmp = sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av)
+      if (cmp !== 0) return cmp
+    }
+    return a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+  })
 
   const hasFilters  = search || filterCreatives || filterLanding
   const groupCount  = (current?.monday_items ?? []).filter(i => (i.group_name ?? 'General') === currentGroup).length
