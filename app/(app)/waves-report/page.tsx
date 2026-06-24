@@ -12,6 +12,7 @@ interface WavesWeeklyReport {
   avgDaysProofread: number | null
   avgEnToOthersLaunch: number | null
   wave1ProofreadQueue: number
+  wave2to7ProofreadQueue: number
   pctTestedToWave2: number | null
   avgDaysWaveToAllDone: number | null
   newLangsThisWeek: number
@@ -408,9 +409,14 @@ export default function WavesReportPage() {
           <Section title="Proofread Queue" />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <MetricCard
-              label="Waiting in Queue (Waves 2–7)"
+              label="Waiting in Queue (Wave 1)"
               value={report.wave1ProofreadQueue}
-              sub="Subitems awaiting proofread in waves 2–7"
+              sub="Wave 1 subitems awaiting proofread"
+            />
+            <MetricCard
+              label="Waiting in Queue (Waves 2–7)"
+              value={report.wave2to7ProofreadQueue}
+              sub="Waves 2–7 subitems awaiting proofread"
             />
           </div>
 
