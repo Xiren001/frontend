@@ -13,7 +13,9 @@ interface WavesWeeklyReport {
   avgEnToOthersLaunch: number | null
   wave1ProofreadQueue: number
   wave2to7ProofreadQueue: number
-  pctTestedToWave2: number | null
+  wave1Total: number
+  wave1ToWave2Count: number
+  pctWave1ToWave2: number | null
   avgDaysWaveToAllDone: number | null
   newLangsThisWeek: number
   avgLangsPerActive: number | null
@@ -424,9 +426,9 @@ export default function WavesReportPage() {
           <Section title="Wave Progression" />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <MetricCard
-              label="Tested → Wave 2+"
-              value={report.pctTestedToWave2 !== null ? `${report.pctTestedToWave2}%` : null}
-              sub="Of Wave 1+2 launched products"
+              label="Wave 1 → Wave 2"
+              value={report.pctWave1ToWave2 !== null ? `${report.pctWave1ToWave2}%` : null}
+              sub={`${report.wave1ToWave2Count} of ${report.wave1Total} Wave 1 products`}
             />
             <MetricCard
               label="Wave → All 3 Done"
