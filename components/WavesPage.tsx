@@ -507,7 +507,7 @@ function ItemRow({ item, index, knownNames, showTimeline, showProofread, onUpdat
     <>
       <TableRow
         className={cn(open && 'bg-surface-hover/60')}
-        onClick={() => hasSubs && setOpen(o => !o)}
+        onClick={() => { if (!hasSubs || window.getSelection()?.toString()) return; setOpen(o => !o) }}
         style={{ cursor: hasSubs ? 'pointer' : 'default' }}
       >
         <TableCell className="text-center text-xs text-text-muted/50 font-mono tabular-nums w-8 select-none">{index}</TableCell>
