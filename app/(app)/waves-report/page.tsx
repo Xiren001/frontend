@@ -388,9 +388,9 @@ export default function WavesReportPage() {
               sub="Landing page status: Launched"
             />
             <MetricCard
-              label="Avg Days: Spot → EN Phase 1 Done"
+              label="Avg Days: EN Phase 1 (Wave 1)"
               value={report.avgSpotToEnLaunch !== null ? `${report.avgSpotToEnLaunch}d` : null}
-              sub="Item created → English Phase 1 complete"
+              sub="Phase 1 duration for EN/English subitems"
             />
             <MetricCard
               label="Avg Days in Proofread"
