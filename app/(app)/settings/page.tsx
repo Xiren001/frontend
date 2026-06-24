@@ -253,7 +253,7 @@ export default function SettingsPage() {
       </div>
 
       {/* ── Content ── */}
-      <div className="max-w-2xl">
+      <div>
 
         {/* Pipeline */}
         {tab === 'pipeline' && (
@@ -265,20 +265,26 @@ export default function SettingsPage() {
               )}
             </div>
 
-            <Card className="divide-y divide-border-subtle">
-              <div className="px-5 py-2.5">
-                <p className="text-xs font-medium text-text-muted uppercase tracking-wider">Pipeline Targets</p>
-              </div>
-              {PIPELINE_FIELDS.map(fieldRow)}
-              <div className="px-5 py-2.5">
-                <p className="text-xs font-medium text-text-muted uppercase tracking-wider">Report Targets</p>
-              </div>
-              {REPORT_TARGET_FIELDS.map(fieldRow)}
-              <div className="px-5 py-2.5">
-                <p className="text-xs font-medium text-text-muted uppercase tracking-wider">Approval Thresholds</p>
-              </div>
-              {THRESHOLD_FIELDS.map(fieldRow)}
-            </Card>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card className="divide-y divide-border-subtle">
+                <div className="px-5 py-2.5">
+                  <p className="text-xs font-medium text-text-muted uppercase tracking-wider">Pipeline Targets</p>
+                </div>
+                {PIPELINE_FIELDS.map(fieldRow)}
+              </Card>
+              <Card className="divide-y divide-border-subtle">
+                <div className="px-5 py-2.5">
+                  <p className="text-xs font-medium text-text-muted uppercase tracking-wider">Report Targets</p>
+                </div>
+                {REPORT_TARGET_FIELDS.map(fieldRow)}
+              </Card>
+              <Card className="divide-y divide-border-subtle">
+                <div className="px-5 py-2.5">
+                  <p className="text-xs font-medium text-text-muted uppercase tracking-wider">Approval Thresholds</p>
+                </div>
+                {THRESHOLD_FIELDS.map(fieldRow)}
+              </Card>
+            </div>
 
             {editing && (
               <div className="flex justify-end gap-2">
