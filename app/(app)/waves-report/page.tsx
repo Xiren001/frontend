@@ -408,9 +408,9 @@ export default function WavesReportPage() {
           <Section title="Proofread Queue" />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <MetricCard
-              label="Waiting in Queue (Wave 1)"
+              label="Waiting in Queue (Waves 2–7)"
               value={report.wave1ProofreadQueue}
-              sub="Wave 1 subitems awaiting proofread"
+              sub="Subitems awaiting proofread in waves 2–7"
             />
           </div>
 
