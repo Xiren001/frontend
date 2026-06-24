@@ -3,7 +3,7 @@ import { type HTMLAttributes, type TdHTMLAttributes, type ThHTMLAttributes } fro
 
 export function Table({ className, containerClassName, ...props }: HTMLAttributes<HTMLTableElement> & { containerClassName?: string }) {
   return (
-    <div className={cn('rounded-xl border border-border-subtle bg-surface-elevated shadow-sm overflow-x-auto', containerClassName)}>
+    <div className={cn('rounded-lg border border-border-subtle bg-surface-elevated overflow-x-auto', containerClassName)}>
       <table className={cn('w-full text-sm', className)} {...props} />
     </div>
   )
@@ -35,7 +35,7 @@ export function TableHeader({ className, ...props }: ThHTMLAttributes<HTMLTableC
   return (
     <th
       className={cn(
-        'px-4 py-3 text-left text-xs font-semibold text-text-muted',
+        'px-4 py-2 text-left text-xs font-semibold text-text-muted',
         className,
       )}
       {...props}
@@ -47,7 +47,7 @@ export function TableCell({ className, mono, ...props }: TdHTMLAttributes<HTMLTa
   return (
     <td
       className={cn(
-        'px-4 py-3 text-sm text-foreground',
+        'px-4 py-2 text-sm text-foreground',
         mono && 'font-mono text-xs text-text-secondary',
         className,
       )}

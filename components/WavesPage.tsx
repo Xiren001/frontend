@@ -327,6 +327,7 @@ function SubitemRow({ sub, visible, knownNames, showTimeline, showProofread, isA
       className={cn('bg-surface/40 hover:bg-surface-hover/30 border-l-0')}
       style={!visible ? { borderBottomWidth: 0 } : undefined}
     >
+      <TableCell className="p-0" />
       <TableCell className="p-0">
         <div className={inner}>
           <div className="flex items-center gap-2 pl-4">
@@ -465,6 +466,7 @@ function SubitemHeaderRow({ visible, showTimeline, showProofread }: {
   const lbl = 'text-[10px] font-semibold uppercase tracking-wider text-text-muted'
   return (
     <TableRow className="bg-surface-elevated/40 border-l-0">
+      <TableCell className="p-0" />
       <TableCell className="p-0"><div className={cls}><span className={cn(lbl, 'pl-10')}>Variant</span></div></TableCell>
       <TableCell className="p-0"><div className={cls}><span className={lbl}>Product Name</span></div></TableCell>
       <TableCell className="p-0"><div className={cls}><span className={lbl}>PDP</span></div></TableCell>
@@ -488,8 +490,9 @@ function SubitemHeaderRow({ visible, showTimeline, showProofread }: {
 
 // ── Item row ─────────────────────────────────────────────────────────────────
 
-function ItemRow({ item, knownNames, showTimeline, showProofread, onUpdated, isAdmin }: {
+function ItemRow({ item, index, knownNames, showTimeline, showProofread, onUpdated, isAdmin }: {
   item: MondayItem
+  index: number
   knownNames: Set<string>
   showTimeline?: boolean
   showProofread?: boolean
@@ -507,6 +510,7 @@ function ItemRow({ item, knownNames, showTimeline, showProofread, onUpdated, isA
         onClick={() => hasSubs && setOpen(o => !o)}
         style={{ cursor: hasSubs ? 'pointer' : 'default' }}
       >
+        <TableCell className="text-center text-xs text-text-muted/50 font-mono tabular-nums w-8 select-none">{index}</TableCell>
         <TableCell>
           <div className="flex items-center gap-2 min-w-0">
             <span className="text-text-muted flex-shrink-0 w-3.5">
@@ -1127,6 +1131,7 @@ export function WavesPage() {
           <Table>
             <TableHead>
               <TableRow>
+                <TableHeader className="w-8 text-center text-text-muted/60">#</TableHeader>
                 <SortableHeader label="Product"      sortKey="name"                active={sortKey === 'name'}                dir={sortDir} onSort={toggleSort} className="w-56" />
                 <TableHeader />
                 <TableHeader />
@@ -1149,12 +1154,12 @@ export function WavesPage() {
             <TableBody>
               {items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={showTimeline ? 10 : showProofread ? 8 : 7} className="text-center text-text-muted py-12">
+                  <TableCell colSpan={showTimeline ? 11 : showProofread ? 9 : 8} className="text-center text-text-muted py-12">
                     {hasFilters ? 'No results match your filters.' : 'No items in this wave yet.'}
                   </TableCell>
                 </TableRow>
               ) : (
-                items.map(item => <ItemRow key={item.id} item={item} knownNames={knownNames} showTimeline={showTimeline} showProofread={showProofread} onUpdated={load} isAdmin={isAdmin} />)
+                items.map((item, idx) => <ItemRow key={item.id} item={item} index={idx + 1} knownNames={knownNames} showTimeline={showTimeline} showProofread={showProofread} onUpdated={load} isAdmin={isAdmin} />)
               )}
             </TableBody>
           </Table>
