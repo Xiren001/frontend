@@ -53,34 +53,6 @@ function emptyUserForm() {
   return { email: '', password: '', role: '' }
 }
 
-function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
-  return (
-    <a
-      href={href}
-      className="flex items-center px-3 py-1.5 rounded-md text-sm text-text-secondary hover:text-foreground hover:bg-surface-hover transition-colors"
-    >
-      {children}
-    </a>
-  )
-}
-
-function SectionRow({ id, title, description, children }: {
-  id: string
-  title: string
-  description: string
-  children: React.ReactNode
-}) {
-  return (
-    <section id={id} className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-6 lg:gap-10 py-10">
-      <div className="space-y-1">
-        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-        <p className="text-sm text-text-muted leading-relaxed">{description}</p>
-      </div>
-      <div>{children}</div>
-    </section>
-  )
-}
-
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings | null>(null)
   const [draft, setDraft]       = useState<Partial<Settings>>({})
@@ -88,6 +60,8 @@ export default function SettingsPage() {
   const [saving, setSaving]     = useState(false)
   const { role } = useRole()
   const isAdmin = role === 'admin'
+
+  const [tab, setTab] = useState<'pipeline' | 'roles' | 'notifications' | 'sops'>('pipeline')
 
   const [languages, setLanguages] = useState<string[]>([])
   const [users, setUsers]         = useState<AdminUser[]>([])
@@ -157,20 +131,13 @@ export default function SettingsPage() {
   }
 
   function openCreateUser(lang: string) {
-    setUserForm({
-      email: `${lang.toLowerCase()}@faszik.com`,
-      password: generatePassword(),
-      role: `proofreader_${lang.toLowerCase()}`,
-    })
+    setUserForm({ email: `${lang.toLowerCase()}@faszik.com`, password: generatePassword(), role: `proofreader_${lang.toLowerCase()}` })
     setUserError(null)
     setPwCopied(false)
     setUserModalOpen(true)
   }
 
-  function regeneratePassword() {
-    setUserForm(f => ({ ...f, password: generatePassword() }))
-    setPwCopied(false)
-  }
+  function regeneratePassword() { setUserForm(f => ({ ...f, password: generatePassword() })); setPwCopied(false) }
 
   function copyPassword() {
     navigator.clipboard.writeText(userForm.password)
@@ -200,7 +167,6 @@ export default function SettingsPage() {
 
   function roleLabelForLang(lang: string) { return `${lang} Proofreader` }
   function roleKey(lang: string) { return `proofreader_${lang.toLowerCase()}` }
-
   function notifEmails(lang: string): string[] { return notifEmailDraft[lang] ?? [] }
 
   function addNotifEmail(lang: string) {
@@ -245,78 +211,69 @@ export default function SettingsPage() {
       </div>
       {editing ? (
         <Input
-          type="number"
-          mono
-          className="w-24 text-right"
+          type="number" mono className="w-24 text-right"
           value={draft[f.key] as number ?? ''}
           onChange={e => setDraft(d => ({ ...d, [f.key]: Number(e.target.value) }))}
         />
       ) : (
-        <span className="text-sm font-mono font-medium text-foreground">
-          {settings[f.key] as number}
-        </span>
+        <span className="text-sm font-mono font-medium text-foreground">{settings[f.key] as number}</span>
       )}
     </div>
   )
 
+  type Tab = 'pipeline' | 'roles' | 'notifications' | 'sops'
+  const allTabs: { id: Tab; label: string; adminOnly?: boolean }[] = [
+    { id: 'pipeline',      label: 'Pipeline'      },
+    { id: 'roles',         label: 'Language Roles', adminOnly: true },
+    { id: 'notifications', label: 'Notifications',  adminOnly: true },
+    { id: 'sops',          label: 'SOPs'          },
+  ]
+  const visibleTabs = allTabs.filter(t => !t.adminOnly || isAdmin)
+
   return (
-    <div>
-      <PageHeader
-        title="Settings"
-        description="Manage pipeline targets, users, notifications, and resources."
-      />
+    <div className="flex flex-col flex-1 min-h-0">
+      <PageHeader title="Settings" description="Pipeline targets, users, notifications, and resources." />
 
-      <div className="mt-8 flex gap-8 xl:gap-14">
-
-        {/* ── Sidebar nav ── */}
-        <nav className="hidden lg:block w-44 shrink-0">
-          <div className="sticky top-6 space-y-4">
-            <div>
-              <p className="mb-1 px-3 text-[10px] font-semibold text-text-muted uppercase tracking-widest">General</p>
-              <NavLink href="#pipeline">Pipeline</NavLink>
-            </div>
-            {isAdmin && (
-              <>
-                <div>
-                  <p className="mb-1 px-3 text-[10px] font-semibold text-text-muted uppercase tracking-widest">Users</p>
-                  <NavLink href="#language-roles">Language Roles</NavLink>
-                </div>
-                <div>
-                  <p className="mb-1 px-3 text-[10px] font-semibold text-text-muted uppercase tracking-widest">Notifications</p>
-                  <NavLink href="#notifications">Proof Notifications</NavLink>
-                </div>
-              </>
+      {/* ── Tabs ── */}
+      <div className="flex items-center gap-1 border-b border-border-subtle mt-6 mb-6">
+        {visibleTabs.map(t => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={cn(
+              'px-4 py-2.5 text-sm font-medium transition-colors relative -mb-px border-b-2',
+              tab === t.id
+                ? 'text-foreground border-foreground'
+                : 'text-text-muted border-transparent hover:text-text-secondary',
             )}
-            <div>
-              <p className="mb-1 px-3 text-[10px] font-semibold text-text-muted uppercase tracking-widest">Resources</p>
-              <NavLink href="#sops">SOPs</NavLink>
-            </div>
-          </div>
-        </nav>
-
-        {/* ── Main content ── */}
-        <div className="flex-1 min-w-0 divide-y divide-border-subtle">
-
-          {/* ── Pipeline ── */}
-          <SectionRow
-            id="pipeline"
-            title="Pipeline Settings"
-            description="Targets and thresholds that drive KPI colours across the dashboard."
           >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Content ── */}
+      <div className="max-w-2xl">
+
+        {/* Pipeline */}
+        {tab === 'pipeline' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-text-muted">Targets and thresholds that drive KPI colours.</p>
+              {isAdmin && !editing && (
+                <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>Edit</Button>
+              )}
+            </div>
+
             <Card className="divide-y divide-border-subtle">
-              <div className="px-5 py-2.5 flex items-center justify-between">
+              <div className="px-5 py-2.5">
                 <p className="text-xs font-medium text-text-muted uppercase tracking-wider">Pipeline Targets</p>
-                {isAdmin && !editing && (
-                  <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>Edit</Button>
-                )}
               </div>
               {PIPELINE_FIELDS.map(fieldRow)}
-
               <div className="px-5 py-2.5">
                 <p className="text-xs font-medium text-text-muted uppercase tracking-wider">Report Targets</p>
               </div>
               {REPORT_TARGET_FIELDS.map(fieldRow)}
-
               <div className="px-5 py-2.5">
                 <p className="text-xs font-medium text-text-muted uppercase tracking-wider">Approval Thresholds</p>
               </div>
@@ -324,238 +281,169 @@ export default function SettingsPage() {
             </Card>
 
             {editing && (
-              <div className="mt-3 flex justify-end gap-2">
+              <div className="flex justify-end gap-2">
                 <Button variant="ghost" size="sm" onClick={cancelEdit} disabled={saving}>Cancel</Button>
-                <Button size="sm" onClick={handleSave} disabled={saving}>
-                  {saving ? 'Saving…' : 'Save'}
-                </Button>
+                <Button size="sm" onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>
               </div>
             )}
-            {!isAdmin && (
-              <p className="mt-3 text-xs text-text-muted">Admin access required to edit settings.</p>
-            )}
-          </SectionRow>
+            {!isAdmin && <p className="text-xs text-text-muted">Admin access required to edit settings.</p>}
+          </div>
+        )}
 
-          {/* ── Language Roles ── */}
-          {isAdmin && (
-            <SectionRow
-              id="language-roles"
-              title="Language Roles"
-              description="One proofreader role per language. Users in a language role see only that language's products."
-            >
-              <Card className="divide-y divide-border-subtle">
-                {languages.length === 0 ? (
-                  <p className="px-5 py-6 text-sm text-text-muted text-center">
-                    No languages found. Add products to the proofreading module first.
-                  </p>
-                ) : (
-                  <>
-                    <div className="grid grid-cols-3 px-5 py-2.5 gap-4">
-                      <p className="text-xs font-medium text-text-muted uppercase tracking-wider">Role</p>
-                      <p className="text-xs font-medium text-text-muted uppercase tracking-wider">Language</p>
-                      <p className="text-xs font-medium text-text-muted uppercase tracking-wider text-right">Users</p>
-                    </div>
-                    {languages.map(lang => {
-                      const key = roleKey(lang)
-                      const langUsers = users.filter(u => u.role === key)
-                      return (
-                        <div key={lang}>
-                          <div className="grid grid-cols-3 px-5 py-3.5 gap-4 items-center">
-                            <p className="text-sm text-foreground font-medium">{roleLabelForLang(lang)}</p>
-                            <Badge variant="accent">{lang}</Badge>
-                            <div className="flex items-center justify-end gap-2">
-                              <span className="text-sm font-mono text-text-muted">{langUsers.length}</span>
-                              <button
-                                onClick={() => openCreateUser(lang)}
-                                className="p-1.5 rounded-md text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
-                                title={`Add ${roleLabelForLang(lang)} user`}
-                              >
-                                <Plus className="h-4 w-4" />
-                              </button>
-                            </div>
-                          </div>
-                          {langUsers.length > 0 && (
-                            <div className="px-5 pb-3 space-y-1">
-                              {langUsers.map(u => (
-                                <div key={u.id} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-surface text-sm">
-                                  <span className="text-text-secondary truncate">{u.email}</span>
-                                  {deleteConfirm === u.id ? (
-                                    <div className="flex items-center gap-1.5 shrink-0">
-                                      <span className="text-xs text-text-muted">Delete?</span>
-                                      <button onClick={() => handleDeleteUser(u.id)} className="text-xs text-danger hover:text-danger/80 font-medium">Yes</button>
-                                      <button onClick={() => setDeleteConfirm(null)} className="text-xs text-text-muted hover:text-foreground">No</button>
-                                    </div>
-                                  ) : (
-                                    <button
-                                      onClick={() => setDeleteConfirm(u.id)}
-                                      className="p-1 rounded text-text-muted hover:text-danger hover:bg-danger/10 transition-colors shrink-0"
-                                    >
-                                      <Trash2 className="h-3.5 w-3.5" />
-                                    </button>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </>
-                )}
-              </Card>
-            </SectionRow>
-          )}
-
-          {/* ── Proof Notifications ── */}
-          {isAdmin && (
-            <SectionRow
-              id="notifications"
-              title="Proof Notifications"
-              description="Email alerts when products enter the proofreading queue. Sent automatically after the delay."
-            >
-              <div className="space-y-4">
-                {/* Delay row */}
-                <Card>
-                  <div className="px-5 py-3.5 flex items-center justify-between gap-4">
-                    <div>
-                      <p className="text-sm text-foreground">Send delay</p>
-                      <p className="text-xs text-text-muted font-mono">minutes after product is queued</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        mono
-                        className="w-20 text-right"
-                        value={notifDelay}
-                        min={0}
-                        onChange={e => setNotifDelay(Number(e.target.value))}
-                        onBlur={e => saveNotifDelay(Number(e.target.value))}
-                      />
-                      <span className="text-sm text-text-muted shrink-0">min</span>
-                    </div>
+        {/* Language Roles */}
+        {tab === 'roles' && isAdmin && (
+          <div className="space-y-4">
+            <p className="text-xs text-text-muted">One proofreader role per language. Users in a language role see only that language&apos;s products.</p>
+            <Card className="divide-y divide-border-subtle">
+              {languages.length === 0 ? (
+                <p className="px-5 py-6 text-sm text-text-muted text-center">No languages found. Add products to the proofreading module first.</p>
+              ) : (
+                <>
+                  <div className="grid grid-cols-3 px-5 py-2.5 gap-4">
+                    <p className="text-xs font-medium text-text-muted uppercase tracking-wider">Role</p>
+                    <p className="text-xs font-medium text-text-muted uppercase tracking-wider">Language</p>
+                    <p className="text-xs font-medium text-text-muted uppercase tracking-wider text-right">Users</p>
                   </div>
-                </Card>
-
-                {/* Per-language cards */}
-                {!notifConfig ? (
-                  <p className="text-sm text-text-muted font-mono">Loading…</p>
-                ) : notifConfig.languages.length === 0 ? (
-                  <Card>
-                    <p className="px-5 py-6 text-sm text-text-muted text-center">
-                      No languages in the proofreading queue yet.
-                    </p>
-                  </Card>
-                ) : (
-                  <Card className="divide-y divide-border-subtle">
-                    {notifConfig.languages.map(lang => {
-                      const pending   = notifConfig.pendingCount[lang] ?? 0
-                      const emails    = notifEmails(lang)
-                      const isSending = notifSending === lang
-                      const isSent    = notifSaved === lang
-                      const canSend   = pending > 0 && emails.length > 0 && !isSending
-
-                      return (
-                        <div key={lang} className="px-5 py-4 space-y-3">
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-2.5">
-                              <Badge variant="accent">{lang}</Badge>
-                              {pending > 0 ? (
-                                <span className="text-xs font-mono text-amber-500 font-medium">{pending} pending</span>
-                              ) : (
-                                <span className="text-xs text-text-muted font-mono">0 pending</span>
-                              )}
-                            </div>
-                            <Button
-                              size="sm"
-                              variant={canSend ? 'primary' : 'secondary'}
-                              disabled={!canSend}
-                              onClick={() => sendNotifEmails(lang)}
+                  {languages.map(lang => {
+                    const key = roleKey(lang)
+                    const langUsers = users.filter(u => u.role === key)
+                    return (
+                      <div key={lang}>
+                        <div className="grid grid-cols-3 px-5 py-3.5 gap-4 items-center">
+                          <p className="text-sm text-foreground font-medium">{roleLabelForLang(lang)}</p>
+                          <Badge variant="accent">{lang}</Badge>
+                          <div className="flex items-center justify-end gap-2">
+                            <span className="text-sm font-mono text-text-muted">{langUsers.length}</span>
+                            <button
+                              onClick={() => openCreateUser(lang)}
+                              className="p-1.5 rounded-md text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                              title={`Add ${roleLabelForLang(lang)} user`}
                             >
-                              {isSent ? (
-                                <><CheckIcon className="h-3.5 w-3.5 mr-1.5" />Sent</>
-                              ) : (
-                                <><Send className="h-3.5 w-3.5 mr-1.5" />{isSending ? 'Sending…' : 'Send now'}</>
-                              )}
-                            </Button>
+                              <Plus className="h-4 w-4" />
+                            </button>
                           </div>
-
-                          <div className="flex flex-wrap gap-1.5">
-                            {emails.map(email => (
-                              <span
-                                key={email}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-surface-elevated border border-border text-text-secondary"
-                              >
-                                {email}
-                                <button onClick={() => removeNotifEmail(lang, email)} className="text-text-muted hover:text-danger transition-colors ml-0.5">
-                                  <X className="h-3 w-3" />
-                                </button>
-                              </span>
+                        </div>
+                        {langUsers.length > 0 && (
+                          <div className="px-5 pb-3 space-y-1">
+                            {langUsers.map(u => (
+                              <div key={u.id} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-surface text-sm">
+                                <span className="text-text-secondary truncate">{u.email}</span>
+                                {deleteConfirm === u.id ? (
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <span className="text-xs text-text-muted">Delete?</span>
+                                    <button onClick={() => handleDeleteUser(u.id)} className="text-xs text-danger hover:text-danger/80 font-medium">Yes</button>
+                                    <button onClick={() => setDeleteConfirm(null)} className="text-xs text-text-muted hover:text-foreground">No</button>
+                                  </div>
+                                ) : (
+                                  <button onClick={() => setDeleteConfirm(u.id)} className="p-1 rounded text-text-muted hover:text-danger hover:bg-danger/10 transition-colors shrink-0">
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
+                              </div>
                             ))}
                           </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </>
+              )}
+            </Card>
+          </div>
+        )}
 
-                          <div className="flex items-center gap-2">
-                            <Input
-                              type="email"
-                              placeholder="Add email address…"
-                              value={notifEmailInput[lang] ?? ''}
-                              onChange={e => setNotifEmailInput(i => ({ ...i, [lang]: e.target.value }))}
-                              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addNotifEmail(lang) } }}
-                              className="text-sm"
-                            />
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              onClick={() => addNotifEmail(lang)}
-                              disabled={!(notifEmailInput[lang] ?? '').trim()}
-                            >
-                              <Plus className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </Card>
-                )}
+        {/* Notifications */}
+        {tab === 'notifications' && isAdmin && (
+          <div className="space-y-4">
+            <p className="text-xs text-text-muted">Email alerts when products enter the proofreading queue. Sent automatically after the delay.</p>
+
+            <Card>
+              <div className="px-5 py-3.5 flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm text-foreground">Send delay</p>
+                  <p className="text-xs text-text-muted font-mono">minutes after product is queued</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number" mono className="w-20 text-right"
+                    value={notifDelay} min={0}
+                    onChange={e => setNotifDelay(Number(e.target.value))}
+                    onBlur={e => saveNotifDelay(Number(e.target.value))}
+                  />
+                  <span className="text-sm text-text-muted shrink-0">min</span>
+                </div>
               </div>
-            </SectionRow>
-          )}
+            </Card>
 
-          {/* ── SOPs ── */}
-          <SectionRow
-            id="sops"
-            title="Standard Operating Procedures"
-            description="Download SOPs for each team. Open the file in any browser."
-          >
+            {!notifConfig ? (
+              <p className="text-sm text-text-muted font-mono">Loading…</p>
+            ) : notifConfig.languages.length === 0 ? (
+              <Card><p className="px-5 py-6 text-sm text-text-muted text-center">No languages in the proofreading queue yet.</p></Card>
+            ) : (
+              <Card className="divide-y divide-border-subtle">
+                {notifConfig.languages.map(lang => {
+                  const pending   = notifConfig.pendingCount[lang] ?? 0
+                  const emails    = notifEmails(lang)
+                  const isSending = notifSending === lang
+                  const isSent    = notifSaved === lang
+                  const canSend   = pending > 0 && emails.length > 0 && !isSending
+                  return (
+                    <div key={lang} className="px-5 py-4 space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5">
+                          <Badge variant="accent">{lang}</Badge>
+                          {pending > 0
+                            ? <span className="text-xs font-mono text-amber-500 font-medium">{pending} pending</span>
+                            : <span className="text-xs text-text-muted font-mono">0 pending</span>
+                          }
+                        </div>
+                        <Button size="sm" variant={canSend ? 'primary' : 'secondary'} disabled={!canSend} onClick={() => sendNotifEmails(lang)}>
+                          {isSent
+                            ? <><CheckIcon className="h-3.5 w-3.5 mr-1.5" />Sent</>
+                            : <><Send className="h-3.5 w-3.5 mr-1.5" />{isSending ? 'Sending…' : 'Send now'}</>
+                          }
+                        </Button>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {emails.map(email => (
+                          <span key={email} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-surface-elevated border border-border text-text-secondary">
+                            {email}
+                            <button onClick={() => removeNotifEmail(lang, email)} className="text-text-muted hover:text-danger transition-colors ml-0.5">
+                              <X className="h-3 w-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="email" placeholder="Add email address…"
+                          value={notifEmailInput[lang] ?? ''}
+                          onChange={e => setNotifEmailInput(i => ({ ...i, [lang]: e.target.value }))}
+                          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addNotifEmail(lang) } }}
+                          className="text-sm"
+                        />
+                        <Button size="sm" variant="secondary" onClick={() => addNotifEmail(lang)} disabled={!(notifEmailInput[lang] ?? '').trim()}>
+                          <Plus className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </Card>
+            )}
+          </div>
+        )}
+
+        {/* SOPs */}
+        {tab === 'sops' && (
+          <div className="space-y-4">
+            <p className="text-xs text-text-muted">Download SOPs for each team. Open the file in any browser.</p>
             <Card className="divide-y divide-border-subtle">
               {[
-                {
-                  href: '/sop-management.html',
-                  label: 'Management SOP',
-                  description: 'Proofreader payments, queue monitoring, and tracker overview',
-                  color: 'text-[#059669]',
-                  bg: 'bg-[#d1fae5]',
-                },
-                {
-                  href: '/sop-proofreader.html',
-                  label: 'Proofreader SOP',
-                  description: 'Log corrections and mark ready in the Proofreading module',
-                  color: 'text-[#5b4aff]',
-                  bg: 'bg-[#ede9ff]',
-                },
-                {
-                  href: '/sop-web.html',
-                  label: 'Web Team SOP',
-                  description: 'Add product links and apply website corrections in Proofreading',
-                  color: 'text-[#0ea5e9]',
-                  bg: 'bg-[#e0f2fe]',
-                },
-                {
-                  href: '/sop-ads.html',
-                  label: 'Ads Team SOP',
-                  description: 'Apply ad copy corrections in the Proofreading module',
-                  color: 'text-[#e85d04]',
-                  bg: 'bg-[#fef3e2]',
-                },
+                { href: '/sop-management.html', label: 'Management SOP',  description: 'Proofreader payments, queue monitoring, and tracker overview', color: 'text-[#059669]', bg: 'bg-[#d1fae5]' },
+                { href: '/sop-proofreader.html',label: 'Proofreader SOP', description: 'Log corrections and mark ready in the Proofreading module',   color: 'text-[#5b4aff]', bg: 'bg-[#ede9ff]' },
+                { href: '/sop-web.html',         label: 'Web Team SOP',   description: 'Add product links and apply website corrections in Proofreading',color: 'text-[#0ea5e9]', bg: 'bg-[#e0f2fe]' },
+                { href: '/sop-ads.html',         label: 'Ads Team SOP',   description: 'Apply ad copy corrections in the Proofreading module',          color: 'text-[#e85d04]', bg: 'bg-[#fef3e2]' },
               ].map(sop => (
                 <div key={sop.href} className="px-5 py-3.5 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3 min-w-0">
@@ -568,8 +456,7 @@ export default function SettingsPage() {
                     </div>
                   </div>
                   <a
-                    href={sop.href}
-                    download
+                    href={sop.href} download
                     className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-surface-elevated border border-border text-text-secondary hover:text-foreground hover:bg-surface-hover shadow-sm"
                   >
                     <Download className="h-3.5 w-3.5" />
@@ -578,9 +465,9 @@ export default function SettingsPage() {
                 </div>
               ))}
             </Card>
-          </SectionRow>
+          </div>
+        )}
 
-        </div>
       </div>
 
       {/* Create user modal */}
@@ -591,57 +478,31 @@ export default function SettingsPage() {
       >
         <div className="space-y-4">
           <FormField label="Email">
-            <Input
-              type="email"
-              value={userForm.email}
-              onChange={e => setUserForm(f => ({ ...f, email: e.target.value }))}
-            />
+            <Input type="email" value={userForm.email} onChange={e => setUserForm(f => ({ ...f, email: e.target.value }))} />
           </FormField>
           <FormField label="Password">
             <div className="flex items-center gap-1.5">
               <div className="relative flex-1 min-w-0">
-                <Input
-                  type="text"
-                  mono
-                  value={userForm.password}
-                  onChange={e => setUserForm(f => ({ ...f, password: e.target.value }))}
-                  className="pr-10"
-                />
+                <Input type="text" mono value={userForm.password} onChange={e => setUserForm(f => ({ ...f, password: e.target.value }))} className="pr-10" />
               </div>
-              <button
-                type="button"
-                onClick={regeneratePassword}
-                title="Generate new password"
-                className="shrink-0 p-2 rounded-md border border-border text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
-              >
+              <button type="button" onClick={regeneratePassword} title="Generate new password" className="shrink-0 p-2 rounded-md border border-border text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors">
                 <RefreshCw className="h-4 w-4" />
               </button>
               <button
-                type="button"
-                onClick={copyPassword}
-                title="Copy password"
-                className={cn(
-                  'shrink-0 p-2 rounded-md border transition-colors',
-                  pwCopied
-                    ? 'border-green-500/40 text-green-400 bg-green-500/10'
-                    : 'border-border text-text-muted hover:text-foreground hover:bg-surface-hover',
-                )}
+                type="button" onClick={copyPassword} title="Copy password"
+                className={cn('shrink-0 p-2 rounded-md border transition-colors', pwCopied ? 'border-green-500/40 text-green-400 bg-green-500/10' : 'border-border text-text-muted hover:text-foreground hover:bg-surface-hover')}
               >
                 {pwCopied ? <CheckIcon className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
               </button>
             </div>
           </FormField>
           <FormField label="Role">
-            <p className="text-sm font-mono text-text-secondary px-3 py-2 rounded-md bg-surface border border-border">
-              {userForm.role}
-            </p>
+            <p className="text-sm font-mono text-text-secondary px-3 py-2 rounded-md bg-surface border border-border">{userForm.role}</p>
           </FormField>
           {userError && <p className="text-sm text-danger">{userError}</p>}
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="ghost" size="sm" onClick={() => setUserModalOpen(false)} disabled={userSaving}>Cancel</Button>
-            <Button size="sm" onClick={handleCreateUser} disabled={userSaving}>
-              {userSaving ? 'Creating…' : 'Create user'}
-            </Button>
+            <Button size="sm" onClick={handleCreateUser} disabled={userSaving}>{userSaving ? 'Creating…' : 'Create user'}</Button>
           </div>
         </div>
       </Modal>
