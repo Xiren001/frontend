@@ -383,9 +383,9 @@ export default function WavesReportPage() {
           <Section title="Testing Pipeline" />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <MetricCard
-              label="Products Tested (EN+ES+DE)"
+              label="Products Tested"
               value={report.productsTestedFullSet}
-              sub="All 3 languages launched"
+              sub="Landing page status: Launched"
             />
             <MetricCard
               label="Avg Days: Spot → EN Launch"
