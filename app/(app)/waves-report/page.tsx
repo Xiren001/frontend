@@ -398,9 +398,9 @@ export default function WavesReportPage() {
               sub="Proofread phase duration"
             />
             <MetricCard
-              label="Avg Days: EN → DE+ES"
+              label="Avg Days: EN → Others Phase 1 (Wave 1)"
               value={report.avgEnToOthersLaunch !== null ? `${report.avgEnToOthersLaunch}d` : null}
-              sub="English done → DE and ES live"
+              sub="EN Phase 1 done → last non-EN Phase 1 done"
             />
           </div>
 
