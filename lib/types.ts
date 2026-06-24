@@ -195,11 +195,6 @@ export interface ReportTargets {
   total_translation_target_days: number
 }
 
-export interface PlannerNote {
-  id: string
-  date: string
-  notes: string
-}
 
 export interface BuildSummaryShort {
   product_name: string
@@ -269,15 +264,3 @@ export interface WeeklyReport {
   settings: ReportTargets | null
 }
 
-export interface MonthlyReport {
-  newBuilds: Omit<WeekMetrics, 'products'>
-  expandingProducts: Omit<WeekMetrics, 'products'>
-  inTesting: { count: number }
-  inExpanding: { wave1Count: number; wave2plusCount: number }
-  winning: WinningStats
-  stoppedCount: number
-  paymentStatus: PaymentStatus
-  translation: TranslationData
-  byWeek: WeekData[]
-  settings: ReportTargets | null
-}

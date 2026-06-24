@@ -8,9 +8,7 @@ import {
   ListChecks,
   AlertTriangle,
   CalendarDays,
-  BarChart3,
   TrendingUp,
-  Calendar,
   Scale,
   FileCheck,
   Settings,
@@ -18,7 +16,6 @@ import {
   Terminal,
   PanelLeftClose,
   PanelLeftOpen,
-  Trophy,
   Menu,
   X,
   ClipboardList,
@@ -39,11 +36,8 @@ const NAV = [
   { href: '/copy-review',             label: 'Proofreading',        icon: FileCheck },
   { href: '/proofreader-payments',   label: 'Proofreader Payments', icon: Wallet   },
   { href: '/mistake-log',            label: 'Mistake Log',          icon: AlertTriangle },
-  { href: '/winning-products',label: 'Winning Products', icon: Trophy },
   { href: '/waves-report',    label: 'Waves Report',     icon: TrendingUp   },
   { href: '/weekly-report',   label: 'Weekly Report',    icon: CalendarDays },
-  { href: '/monthly-report',  label: 'Monthly Report',   icon: BarChart3 },
-  { href: '/monthly-planner', label: 'Monthly Planner',  icon: Calendar },
   { href: '/decision-rights', label: 'Decision Rights',  icon: Scale },
   { href: '/team-tasks',      label: 'Team Tasks',       icon: ClipboardList },
   { href: '/settings',        label: 'Settings',         icon: Settings },
@@ -84,7 +78,7 @@ export function NavSidebar() {
       return item.href === '/waves' || item.href === '/proofread-queue' || item.href === '/copy-review'
     }
     if (role === 'management') {
-      const blocked = ['/settings', '/team-tasks', '/monthly-planner', '/winning-products']
+      const blocked = ['/settings', '/team-tasks']
       return !blocked.includes(item.href)
     }
     if (role === 'website') {
