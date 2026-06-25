@@ -87,14 +87,14 @@ export default function CopyReviewPage() {
   const { role, userLang } = useRole()
   const isAdmin = role === 'admin'
   const isProofreader = role === 'proofreader'
-  const canManageProducts    = role === 'admin' || role === 'management'
+  const canManageProducts    = role === 'admin'
   const canMarkReady         = role === 'admin' || role === 'management' || role === 'proofreader'
-  const canMarkDone          = role === 'admin' || role === 'management' || role === 'ads' || role === 'website'
-  const canUpdateLinks       = role === 'admin' || role === 'management' || role === 'website'
+  const canMarkDone          = role === 'admin' || role === 'ads' || role === 'website'
+  const canUpdateLinks       = role === 'admin' || role === 'website'
   const canModifyCorrections = role === 'admin' || role === 'management' || role === 'proofreader'
-  // ads + website can toggle correction done only once product is marked Ready; proofreader cannot resolve
+  // ads + website can toggle correction done only once product is marked Ready; proofreader/management cannot resolve
   const canToggleCorrectionDone = (product: ProofProduct | null) =>
-    role === 'admin' || role === 'management' ||
+    role === 'admin' ||
     (!!product?.ready_for_revision && (role === 'ads' || role === 'website'))
 
   const [products, setProducts] = useState<ProofProduct[]>([])
