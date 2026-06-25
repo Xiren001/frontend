@@ -1,4 +1,5 @@
 'use client'
+import React from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
@@ -28,21 +29,21 @@ import { createClient } from '@/lib/supabase'
 import { useRole } from '@/lib/role-context'
 import { useState, useEffect } from 'react'
 
-const NAV = [
-  { href: '/dashboard',       label: 'Dashboard',        icon: LayoutDashboard },
-  { href: '/waves',           label: 'Waves',             icon: Waves },
-  { href: '/jewelry-tracker', label: 'Jewelry Tracker',  icon: Gem },
-  { href: '/funnel-tracker',  label: 'Funnel Tracker',   icon: Filter },
-  { href: '/proofread-queue', label: 'Proofread Queue',  icon: ListChecks },
-  { href: '/copy-review',             label: 'Proofreading',        icon: FileCheck },
-  { href: '/proofreader-payments',   label: 'Proofreader Payments', icon: Wallet   },
-  { href: '/mistake-log',            label: 'Mistake Log',          icon: AlertTriangle },
-  { href: '/waves-report',    label: 'Waves Report',     icon: TrendingUp   },
-  { href: '/weekly-report',   label: 'Weekly Report',    icon: CalendarDays },
-  { href: '/monthly-planner', label: 'Monthly Planner',  icon: Calendar },
-  { href: '/decision-rights', label: 'Decision Rights',  icon: Scale },
-  { href: '/team-tasks',      label: 'Team Tasks',       icon: ClipboardList },
-  { href: '/settings',        label: 'Settings',         icon: Settings },
+const NAV: { href: string; label: string; icon: React.ElementType; deprecated?: boolean }[] = [
+  { href: '/dashboard',             label: 'Dashboard',           icon: LayoutDashboard },
+  { href: '/waves',                 label: 'Waves',               icon: Waves },
+  { href: '/funnel-tracker',        label: 'Funnel Tracker',      icon: Filter },
+  { href: '/proofread-queue',       label: 'Proofread Queue',     icon: ListChecks },
+  { href: '/copy-review',           label: 'Proofreading',        icon: FileCheck },
+  { href: '/proofreader-payments',  label: 'Proofreader Payments',icon: Wallet },
+  { href: '/mistake-log',           label: 'Mistake Log',         icon: AlertTriangle },
+  { href: '/waves-report',          label: 'Waves Report',        icon: TrendingUp },
+  { href: '/weekly-report',         label: 'Weekly Report',       icon: CalendarDays },
+  { href: '/monthly-planner',       label: 'Monthly Planner',     icon: Calendar },
+  { href: '/decision-rights',       label: 'Decision Rights',     icon: Scale },
+  { href: '/team-tasks',            label: 'Team Tasks',          icon: ClipboardList },
+  { href: '/settings',              label: 'Settings',            icon: Settings },
+  { href: '/jewelry-tracker',       label: 'Jewelry Tracker',     icon: Gem, deprecated: true },
 ]
 
 export function NavSidebar() {
@@ -180,28 +181,41 @@ export function NavSidebar() {
 
         {/* ── Nav ── */}
         <nav className="flex-1 overflow-y-auto py-4 px-2">
-          {visibleNav.map(item => {
+          {visibleNav.map((item, i) => {
             const active = pathname === item.href || pathname.startsWith(item.href + '/')
             const Icon = item.icon
+            const prevItem = visibleNav[i - 1]
+            const showDeprecatedDivider = item.deprecated && !prevItem?.deprecated
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                title={collapsed ? item.label : undefined}
-                onClick={() => setMobileOpen(false)}
-                className={cn(
-                  'flex items-center gap-2.5 px-3 rounded-lg py-2 text-sm mb-0.5 transition-colors',
-                  // Desktop collapsed: center icon only
-                  collapsed && 'lg:justify-center lg:px-2',
-                  active
-                    ? 'bg-accent-muted text-accent font-medium'
-                    : 'text-text-secondary hover:bg-surface-hover hover:text-foreground',
+              <React.Fragment key={item.href}>
+                {showDeprecatedDivider && (
+                  <div className={cn('my-2 border-t border-border-subtle', collapsed && 'lg:mx-1')} />
                 )}
-              >
-                <Icon className={cn('h-4 w-4 shrink-0', active ? 'text-accent' : 'text-text-muted')} />
-                {/* Mobile: always show label. Desktop: hide when collapsed */}
-                <span className={cn(collapsed && 'lg:hidden')}>{item.label}</span>
-              </Link>
+                <Link
+                  href={item.href}
+                  title={collapsed ? item.label : undefined}
+                  onClick={() => setMobileOpen(false)}
+                  className={cn(
+                    'flex items-center gap-2.5 px-3 rounded-lg py-2 text-sm mb-0.5 transition-colors',
+                    collapsed && 'lg:justify-center lg:px-2',
+                    item.deprecated
+                      ? active
+                        ? 'bg-surface text-text-muted font-medium'
+                        : 'text-text-muted/60 hover:bg-surface-hover hover:text-text-muted'
+                      : active
+                        ? 'bg-accent-muted text-accent font-medium'
+                        : 'text-text-secondary hover:bg-surface-hover hover:text-foreground',
+                  )}
+                >
+                  <Icon className={cn('h-4 w-4 shrink-0', item.deprecated ? 'text-text-muted/40' : active ? 'text-accent' : 'text-text-muted')} />
+                  <span className={cn('flex items-center gap-1.5 min-w-0', collapsed && 'lg:hidden')}>
+                    <span className={cn(item.deprecated && 'line-through')}>{item.label}</span>
+                    {item.deprecated && !collapsed && (
+                      <span className="text-[9px] font-medium uppercase tracking-wider text-text-muted/50 shrink-0">deprecated</span>
+                    )}
+                  </span>
+                </Link>
+              </React.Fragment>
             )
           })}
         </nav>
