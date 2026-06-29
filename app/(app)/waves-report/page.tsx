@@ -19,6 +19,10 @@ interface WavesWeeklyReport {
   avgLangsPerProduct: number | null
   mostLangsProduct: { name: string; count: number } | null
   activeWinners: { small: number; medium: number; big: number }
+  profitableLaunchPct: number | null
+  profitableLaunches: number
+  totalLaunches: number
+  salesDataUpdatedAt: string | null
 }
 
 const WAVE_LANG_LABELS: Record<number, { code: string; name: string }[]> = {
@@ -28,6 +32,13 @@ const WAVE_LANG_LABELS: Record<number, { code: string; name: string }[]> = {
   5: [{ code: 'DK', name: 'Danish' }, { code: 'CZ', name: 'Czech' }, { code: 'PL', name: 'Polish' }],
   6: [{ code: 'TR', name: 'Turkish' }, { code: 'LT', name: 'Lithuanian' }, { code: 'EE', name: 'Estonian' }],
   7: [{ code: 'SK', name: 'Slovak' }, { code: 'SI', name: 'Slovenian' }, { code: 'RO', name: 'Romanian' }],
+}
+
+function formatRelativeDate(isoStr: string): string {
+  const diffDays = Math.floor((Date.now() - new Date(isoStr).getTime()) / 86_400_000)
+  if (diffDays === 0) return 'today'
+  if (diffDays === 1) return 'yesterday'
+  return `${diffDays}d ago`
 }
 
 function getMondayOfWeek(date: Date): Date {
@@ -346,6 +357,8 @@ export default function WavesReportPage() {
   const [report, setReport] = useState<WavesWeeklyReport | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [uploadingSales, setUploadingSales] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
     setLoading(true)
@@ -355,7 +368,23 @@ export default function WavesReportPage() {
       .then(setReport)
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
-  }, [weekStart])
+  }, [weekStart, refreshKey])
+
+  async function handleSalesUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    setUploadingSales(true)
+    try {
+      const text = await file.text()
+      await api.postText<{ ok: boolean }>('/api/monday/language-sales/upload', text)
+      setRefreshKey(k => k + 1)
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Upload failed')
+    } finally {
+      setUploadingSales(false)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background px-4 py-6 md:px-8 md:py-8 max-w-6xl mx-auto">
@@ -455,6 +484,35 @@ export default function WavesReportPage() {
             <div className="pointer-events-none absolute bottom-full left-0 right-0 mb-2 px-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
               <div className="bg-foreground text-background text-xs rounded-lg px-3 py-2 leading-snug shadow-lg">
                 Products in Waves 2–7 grouped by number of active (launched/running) languages. Small: 1–7, Medium: 8–15, Big: 16+.
+              </div>
+            </div>
+          </div>
+          <div className="relative group bg-surface-elevated border border-border-subtle rounded-xl p-5">
+            <div className="flex items-start justify-between mb-3">
+              <p className="text-xs font-medium text-text-muted uppercase tracking-wider leading-tight">
+                % Language Launches Profitable
+              </p>
+              <label className={`cursor-pointer flex-shrink-0 ml-2 ${uploadingSales ? 'pointer-events-none opacity-50' : ''}`}>
+                <input type="file" accept=".csv" className="sr-only" onChange={handleSalesUpload} />
+                <span className="text-[10px] font-medium px-2 py-0.5 rounded border border-border-subtle bg-surface-page text-text-muted hover:text-foreground transition-colors whitespace-nowrap">
+                  {uploadingSales ? 'Uploading…' : 'Upload CSV'}
+                </span>
+              </label>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <p className="text-3xl font-semibold leading-none text-foreground">
+                {report.profitableLaunchPct !== null ? `${report.profitableLaunchPct}%` : '—'}
+              </p>
+            </div>
+            <p className="text-xs text-text-muted mt-2 leading-snug">
+              {report.totalLaunches > 0
+                ? `${report.profitableLaunches} of ${report.totalLaunches} markets profitable`
+                : 'No data — upload a Shopify CSV'}
+              {report.salesDataUpdatedAt && ` · ${formatRelativeDate(report.salesDataUpdatedAt)}`}
+            </p>
+            <div className="pointer-events-none absolute bottom-full left-0 right-0 mb-2 px-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+              <div className="bg-foreground text-background text-xs rounded-lg px-3 py-2 leading-snug shadow-lg">
+                Upload a Shopify "Net sales by billing country" CSV. Markets where Net sales &gt; Cost of goods sold count as profitable. Waves 2–7 languages only.
               </div>
             </div>
           </div>
