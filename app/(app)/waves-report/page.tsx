@@ -365,37 +365,54 @@ function SkeletonCard() {
   )
 }
 
-function TeamQueueCard({ queue }: { queue: { ad: Record<string, number>; web: Record<string, number> } }) {
-  const adTotal = Object.values(queue.ad).reduce((s, n) => s + n, 0)
-  const webTotal = Object.values(queue.web).reduce((s, n) => s + n, 0)
+function TeamQueueCard({ teamQueue }: {
+  teamQueue: {
+    wave1:   { ad: Record<string, number>; web: Record<string, number> }
+    waves27: { ad: Record<string, number>; web: Record<string, number> }
+  }
+}) {
   const sorted = (map: Record<string, number>) =>
     Object.entries(map).sort(([, a], [, b]) => b - a)
+  const groups = [
+    { label: 'Wave 1',    queue: teamQueue.wave1 },
+    { label: 'Waves 2–7', queue: teamQueue.waves27 },
+  ]
   return (
-    <div className="bg-surface-elevated border border-border-subtle rounded-xl p-5 sm:col-span-2">
-      <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-3 leading-tight">
+    <div className="bg-surface-elevated border border-border-subtle rounded-xl p-5 lg:col-span-4 sm:col-span-2">
+      <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-4 leading-tight">
         Team Queue
       </p>
-      <div className="grid grid-cols-2 gap-5">
-        {([
-          { label: 'Ad Team', total: adTotal, entries: sorted(queue.ad) },
-          { label: 'Web Team', total: webTotal, entries: sorted(queue.web) },
-        ] as const).map(({ label, total, entries }) => (
-          <div key={label}>
-            <p className="text-[10px] font-semibold text-text-muted uppercase tracking-widest mb-1">{label}</p>
-            <p className="text-2xl font-semibold text-foreground mb-2">{total}</p>
-            <div className="flex flex-col gap-1">
-              {entries.map(([status, count]) => (
-                <div key={status} className="flex items-center justify-between gap-2 min-w-0">
-                  <span className="text-[10px] text-text-muted truncate">{status}</span>
-                  <span className="text-[11px] font-semibold tabular-nums text-foreground shrink-0">{count}</span>
-                </div>
-              ))}
-              {entries.length === 0 && (
-                <span className="text-[10px] text-text-muted">All clear</span>
-              )}
+      <div className="flex flex-col gap-5">
+        {groups.map(({ label, queue }, i) => {
+          const adTotal  = Object.values(queue.ad).reduce((s, n) => s + n, 0)
+          const webTotal = Object.values(queue.web).reduce((s, n) => s + n, 0)
+          return (
+            <div key={label}>
+              {i > 0 && <div className="border-t border-border-subtle mb-4" />}
+              <p className="text-[11px] font-semibold text-text-muted uppercase tracking-widest mb-3">{label}</p>
+              <div className="grid grid-cols-2 gap-5">
+                {([
+                  { team: 'Ad Team',  total: adTotal,  entries: sorted(queue.ad) },
+                  { team: 'Web Team', total: webTotal, entries: sorted(queue.web) },
+                ] as const).map(({ team, total, entries }) => (
+                  <div key={team}>
+                    <p className="text-[10px] font-semibold text-text-muted uppercase tracking-widest mb-1">{team}</p>
+                    <p className="text-2xl font-semibold text-foreground mb-2">{total}</p>
+                    <div className="flex flex-col gap-1">
+                      {entries.map(([status, count]) => (
+                        <div key={status} className="flex items-center justify-between gap-2 min-w-0">
+                          <span className="text-[10px] text-text-muted truncate">{status}</span>
+                          <span className="text-[11px] font-semibold tabular-nums text-foreground shrink-0">{count}</span>
+                        </div>
+                      ))}
+                      {entries.length === 0 && <span className="text-[10px] text-text-muted">All clear</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )
@@ -521,7 +538,6 @@ export default function WavesReportPage() {
             sub="Days from English done to German and Spanish done"
             description="Average days from Phase 1 start (lp_building_at) to Phase 1 done (lp_ready_at) across all subitems in Wave 1 — English, Spanish, German, and others."
           />
-          <TeamQueueCard queue={report.teamQueue.wave1} />
             </div>
           </div>
           <div>
@@ -620,7 +636,7 @@ export default function WavesReportPage() {
               </div>
             </div>
           </div>
-          <TeamQueueCard queue={report.teamQueue.waves27} />
+          <TeamQueueCard teamQueue={report.teamQueue} />
           <div className="relative group bg-surface-elevated border border-border-subtle rounded-xl p-5 sm:col-span-2">
             <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-3 leading-tight pr-5">
               Arriving to New Wave — Phase 1 Avg
