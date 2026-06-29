@@ -358,7 +358,7 @@ export default function WavesReportPage() {
             label="Wave 1 → Wave 2"
             value={report.pctWave1ToWave2 !== null ? `${report.pctWave1ToWave2}%` : null}
             sub={`${report.wave1ToWave2Count} of ${report.wave1Total} Wave 1 products`}
-            description="% of Wave 1 products that also appear in Wave 2, matched by product name."
+            description="% of the Wave 1+2 cohort that has graduated to Wave 2. Since products transfer (not copy), Wave 2 count = products that came from Wave 1."
           />
         </div>
       ) : null}
