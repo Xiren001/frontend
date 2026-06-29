@@ -15,6 +15,16 @@ interface WavesWeeklyReport {
   avgDaysProofread: number | null
   avgDaysEnToOthers: number | null
   proofreadQueue: number
+  newWaveCampaignAvgDays: { wave: number; avg: number | null }[]
+}
+
+const WAVE_LANG_LABELS: Record<number, { code: string; name: string }[]> = {
+  2: [{ code: 'FR', name: 'French' }, { code: 'NL', name: 'Dutch' }, { code: 'IT', name: 'Italian' }],
+  3: [{ code: 'FI', name: 'Finnish' }, { code: 'SE', name: 'Swedish' }, { code: 'NO', name: 'Norwegian' }],
+  4: [{ code: 'IL', name: 'Hebrew' }, { code: 'BR', name: 'Portuguese' }, { code: 'JP', name: 'Japanese' }],
+  5: [{ code: 'DK', name: 'Danish' }, { code: 'CZ', name: 'Czech' }, { code: 'PL', name: 'Polish' }],
+  6: [{ code: 'TR', name: 'Turkish' }, { code: 'LT', name: 'Lithuanian' }, { code: 'EE', name: 'Estonian' }],
+  7: [{ code: 'SK', name: 'Slovak' }, { code: 'SI', name: 'Slovenian' }, { code: 'RO', name: 'Romanian' }],
 }
 
 function getMondayOfWeek(date: Date): Date {
@@ -368,6 +378,7 @@ export default function WavesReportPage() {
           <SkeletonCard />
           <SkeletonCard />
           <SkeletonCard />
+          <SkeletonCard />
         </div>
       ) : report ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-8">
@@ -408,6 +419,39 @@ export default function WavesReportPage() {
             sub="Days from English done to German and Spanish done"
             description="Average days from Phase 1 start (lp_building_at) to Phase 1 done (lp_ready_at) across all subitems in Wave 1 — English, Spanish, German, and others."
           />
+          <div className="relative group bg-surface-elevated border border-border-subtle rounded-xl p-5 sm:col-span-2">
+            <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-3 leading-tight pr-5">
+              Arriving to New Wave — Phase 1 Avg
+            </p>
+            <div className="flex flex-col gap-2.5">
+              {report.newWaveCampaignAvgDays.map(({ wave, avg }) => {
+                const langs = WAVE_LANG_LABELS[wave] ?? []
+                return (
+                  <div key={wave} className="flex items-center gap-3">
+                    <span className="text-[11px] font-semibold text-text-muted w-14 shrink-0">Wave {wave}</span>
+                    <div className="flex flex-wrap gap-1 flex-1">
+                      {langs.map(l => (
+                        <span key={l.code} className="text-[10px] font-mono bg-surface-page border border-border-subtle rounded px-1.5 py-0.5 text-foreground">
+                          {l.code}
+                        </span>
+                      ))}
+                    </div>
+                    <span className={`text-sm font-semibold tabular-nums shrink-0 ${avg === null ? 'text-text-muted' : 'text-foreground'}`}>
+                      {avg === null ? '—' : `${avg}d`}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="absolute top-4 right-4 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity">
+              <Info className="h-3.5 w-3.5" />
+            </div>
+            <div className="pointer-events-none absolute bottom-full left-0 right-0 mb-2 px-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+              <div className="bg-foreground text-background text-xs rounded-lg px-3 py-2 leading-snug shadow-lg">
+                Average Phase 1 days (lp_building_at → lp_ready_at) for the 3 new language campaigns introduced in each wave.
+              </div>
+            </div>
+          </div>
         </div>
       ) : null}
     </div>
