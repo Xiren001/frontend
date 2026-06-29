@@ -397,7 +397,7 @@ export default function WavesReportPage() {
           <MetricCard
             label="Days: English Done → Others Done"
             value={report.avgDaysEnToOthers !== null ? `${report.avgDaysEnToOthers}d` : null}
-            sub="Avg Phase 1 duration for non-EN subitems in Wave 1"
+            sub="Days from English done to German and Spanish done"
             description="Average days from Phase 1 start (lp_building_at) to Phase 1 done (lp_ready_at) across all subitems in Wave 1 — English, Spanish, German, and others."
           />
         </div>
