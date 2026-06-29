@@ -270,12 +270,14 @@ function DateFilter({
 function MetricCard({
   label,
   value,
+  valueNote,
   sub,
   dimmed,
   description,
 }: {
   label: string
   value: string | number | null
+  valueNote?: string | number
   sub?: string
   dimmed?: boolean
   description?: string
@@ -285,9 +287,14 @@ function MetricCard({
       <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-3 leading-tight pr-5">
         {label}
       </p>
-      <p className={`text-3xl font-semibold leading-none ${dimmed ? 'text-text-muted' : 'text-foreground'}`}>
-        {value === null ? '—' : value}
-      </p>
+      <div className="flex items-baseline gap-2">
+        <p className={`text-3xl font-semibold leading-none ${dimmed ? 'text-text-muted' : 'text-foreground'}`}>
+          {value === null ? '—' : value}
+        </p>
+        {valueNote !== undefined && (
+          <span className="text-sm text-text-muted">{valueNote}</span>
+        )}
+      </div>
       {sub && <p className="text-xs text-text-muted mt-2 leading-snug">{sub}</p>}
 
       {description && (
@@ -357,6 +364,7 @@ export default function WavesReportPage() {
           <MetricCard
             label="Wave 1 → Wave 2"
             value={report.pctWave1ToWave2 !== null ? `${report.pctWave1ToWave2}%` : null}
+            valueNote={`/ ${report.wave1Total}`}
             sub={`${report.wave1ToWave2Count} of ${report.wave1Total} Wave 1 products`}
             description="% of Wave 1 products that have moved to Wave 2. Denominator is the original Wave 1 total (current Wave 1 + Wave 2)."
           />
