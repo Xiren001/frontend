@@ -13,6 +13,7 @@ interface WavesWeeklyReport {
   productsTested: number
   avgDaysSpotToEnTest: number | null
   avgDaysProofread: number | null
+  avgDaysEnToOthers: number | null
 }
 
 function getMondayOfWeek(date: Date): Date {
@@ -364,6 +365,7 @@ export default function WavesReportPage() {
           <SkeletonCard />
           <SkeletonCard />
           <SkeletonCard />
+          <SkeletonCard />
         </div>
       ) : report ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-8">
@@ -391,6 +393,12 @@ export default function WavesReportPage() {
             value={report.avgDaysProofread !== null ? `${report.avgDaysProofread}d` : null}
             sub="Non-English subitems in Wave 1"
             description="Average days from Proofread start (lp_proofread_at) to Ready to Launch (lp_ready_to_launch_at) — excludes EN/English subitems."
+          />
+          <MetricCard
+            label="Days: English Done → Others Done"
+            value={report.avgDaysEnToOthers !== null ? `${report.avgDaysEnToOthers}d` : null}
+            sub="Avg Phase 1 duration for non-EN subitems in Wave 1"
+            description="Average days from Phase 1 start (lp_building_at) to Phase 1 done (lp_ready_at) for German, Spanish, and all other non-English subitems in Wave 1."
           />
         </div>
       ) : null}
