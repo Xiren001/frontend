@@ -10,6 +10,7 @@ interface WavesWeeklyReport {
   wave1Total: number
   wave1ToWave2Count: number
   pctWave1ToWave2: number | null
+  productsTested: number
 }
 
 function getMondayOfWeek(date: Date): Date {
@@ -358,6 +359,7 @@ export default function WavesReportPage() {
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-8">
           <SkeletonCard />
+          <SkeletonCard />
         </div>
       ) : report ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-8">
@@ -367,6 +369,12 @@ export default function WavesReportPage() {
             valueNote={`/ ${report.wave1Total}`}
             sub={`${report.wave1ToWave2Count} of ${report.wave1Total} Wave 1 products`}
             description="% of Wave 1 products that have moved to Wave 2. Denominator is the original Wave 1 total (current Wave 1 + Wave 2)."
+          />
+          <MetricCard
+            label="Products Tested"
+            value={report.productsTested}
+            sub="Wave 1 items with landing page status: Launched"
+            description="Count of Wave 1 products where EN, ES, and DE are all launched together — each product counts as 1."
           />
         </div>
       ) : null}
