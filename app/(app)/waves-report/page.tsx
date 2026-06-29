@@ -18,6 +18,7 @@ interface WavesWeeklyReport {
   newWaveCampaignAvgDays: { wave: number; avg: number | null }[]
   avgLangsPerProduct: number | null
   mostLangsProduct: { name: string; count: number } | null
+  activeWinners: { small: number; medium: number; big: number }
 }
 
 const WAVE_LANG_LABELS: Record<number, { code: string; name: string }[]> = {
@@ -434,6 +435,29 @@ export default function WavesReportPage() {
             sub={report.mostLangsProduct?.name}
             description="The single product in Waves 2–7 live in the most languages — whichever campaign has the highest subitem count wins."
           />
+          <div className="relative group bg-surface-elevated border border-border-subtle rounded-xl p-5">
+            <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-3 leading-tight pr-5">
+              Active Winners
+            </p>
+            <div className="flex flex-col gap-2">
+              {([
+                { key: 'small',  label: 'Small',  range: '1–7 langs',   value: report.activeWinners.small },
+                { key: 'medium', label: 'Medium', range: '8–15 langs',  value: report.activeWinners.medium },
+                { key: 'big',    label: 'Big',    range: '16+ langs',   value: report.activeWinners.big },
+              ] as const).map(({ key, label, range, value }) => (
+                <div key={key} className="flex items-center gap-2">
+                  <span className="text-[11px] font-semibold text-text-muted w-14 shrink-0">{label}</span>
+                  <span className="text-[10px] text-text-muted flex-1">{range}</span>
+                  <span className="text-sm font-semibold tabular-nums text-foreground">{value}</span>
+                </div>
+              ))}
+            </div>
+            <div className="pointer-events-none absolute bottom-full left-0 right-0 mb-2 px-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+              <div className="bg-foreground text-background text-xs rounded-lg px-3 py-2 leading-snug shadow-lg">
+                Products in Waves 2–7 grouped by number of active (launched/running) languages. Small: 1–7, Medium: 8–15, Big: 16+.
+              </div>
+            </div>
+          </div>
           <div className="relative group bg-surface-elevated border border-border-subtle rounded-xl p-5 sm:col-span-2">
             <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-3 leading-tight pr-5">
               Arriving to New Wave — Phase 1 Avg
