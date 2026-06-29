@@ -15,6 +15,7 @@ interface WavesWeeklyReport {
   avgDaysProofread: number | null
   avgDaysEnToOthers: number | null
   proofreadQueue: number
+  avgDaysPhase1Wave2to7: number | null
 }
 
 function getMondayOfWeek(date: Date): Date {
@@ -368,6 +369,7 @@ export default function WavesReportPage() {
           <SkeletonCard />
           <SkeletonCard />
           <SkeletonCard />
+          <SkeletonCard />
         </div>
       ) : report ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-8">
@@ -401,6 +403,12 @@ export default function WavesReportPage() {
             value={report.proofreadQueue}
             sub="Subitems waiting for proofread"
             description="Wave 1 non-English subitems with 'proofread' in website or ads status, whose product name exists in the Proofreading page (done = false). Each subitem counts once."
+          />
+          <MetricCard
+            label="Phase 1 Days (Waves 2–7)"
+            value={report.avgDaysPhase1Wave2to7 !== null ? `${report.avgDaysPhase1Wave2to7}d` : null}
+            sub="Avg building days across all Waves 2–7 subitems"
+            description="Average days from Phase 1 start (lp_building_at) to Phase 1 done (lp_ready_at) across all subitems in Waves 2–7."
           />
           <MetricCard
             label="Days: English Done → Others Done"
