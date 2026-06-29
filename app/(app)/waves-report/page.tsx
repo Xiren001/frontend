@@ -442,6 +442,21 @@ export default function WavesReportPage() {
                   </div>
                 )
               })}
+              {(() => {
+                const validAvgs = report.newWaveCampaignAvgDays.map(r => r.avg).filter((v): v is number => v !== null)
+                const overall = validAvgs.length > 0
+                  ? Math.round((validAvgs.reduce((a, b) => a + b, 0) / validAvgs.length) * 10) / 10
+                  : null
+                return (
+                  <div className="flex items-center gap-3 pt-2 mt-0.5 border-t border-border-subtle">
+                    <span className="text-[11px] font-semibold text-text-muted w-14 shrink-0">Overall</span>
+                    <span className="flex-1 text-[10px] text-text-muted">avg across waves 2–7</span>
+                    <span className={`text-sm font-semibold tabular-nums shrink-0 ${overall === null ? 'text-text-muted' : 'text-foreground'}`}>
+                      {overall === null ? '—' : `${overall}d`}
+                    </span>
+                  </div>
+                )
+              })()}
             </div>
             <div className="absolute top-4 right-4 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity">
               <Info className="h-3.5 w-3.5" />
