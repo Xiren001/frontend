@@ -23,6 +23,9 @@ interface WavesWeeklyReport {
   profitableLaunches: number
   totalLaunches: number
   salesDataUpdatedAt: string | null
+  avgRevenuePerWinner: number | null
+  activeWinnerCount: number
+  productSalesUpdatedAt: string | null
 }
 
 const WAVE_LANG_LABELS: Record<number, { code: string; name: string }[]> = {
@@ -32,6 +35,12 @@ const WAVE_LANG_LABELS: Record<number, { code: string; name: string }[]> = {
   5: [{ code: 'DK', name: 'Danish' }, { code: 'CZ', name: 'Czech' }, { code: 'PL', name: 'Polish' }],
   6: [{ code: 'TR', name: 'Turkish' }, { code: 'LT', name: 'Lithuanian' }, { code: 'EE', name: 'Estonian' }],
   7: [{ code: 'SK', name: 'Slovak' }, { code: 'SI', name: 'Slovenian' }, { code: 'RO', name: 'Romanian' }],
+}
+
+function formatCurrency(n: number): string {
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}K`
+  return `$${n.toLocaleString()}`
 }
 
 function formatRelativeDate(isoStr: string): string {
@@ -358,6 +367,7 @@ export default function WavesReportPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [uploadingSales, setUploadingSales] = useState(false)
+  const [uploadingProducts, setUploadingProducts] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
@@ -369,6 +379,22 @@ export default function WavesReportPage() {
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
   }, [weekStart, refreshKey])
+
+  async function handleProductSalesUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    setUploadingProducts(true)
+    try {
+      const text = await file.text()
+      await api.postText<{ ok: boolean }>('/api/monday/product-sales/upload', text)
+      setRefreshKey(k => k + 1)
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Upload failed')
+    } finally {
+      setUploadingProducts(false)
+    }
+  }
 
   async function handleSalesUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -513,6 +539,35 @@ export default function WavesReportPage() {
             <div className="pointer-events-none absolute bottom-full left-0 right-0 mb-2 px-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
               <div className="bg-foreground text-background text-xs rounded-lg px-3 py-2 leading-snug shadow-lg">
                 Upload a Shopify "Net sales by billing country" CSV. Markets where Net sales &gt; Cost of goods sold count as profitable. Waves 2–7 languages only.
+              </div>
+            </div>
+          </div>
+          <div className="relative group bg-surface-elevated border border-border-subtle rounded-xl p-5">
+            <div className="flex items-start justify-between mb-3">
+              <p className="text-xs font-medium text-text-muted uppercase tracking-wider leading-tight">
+                Avg Revenue per Active Winner
+              </p>
+              <label className={`cursor-pointer flex-shrink-0 ml-2 ${uploadingProducts ? 'pointer-events-none opacity-50' : ''}`}>
+                <input type="file" accept=".csv" className="sr-only" onChange={handleProductSalesUpload} />
+                <span className="text-[10px] font-medium px-2 py-0.5 rounded border border-border-subtle bg-surface-page text-text-muted hover:text-foreground transition-colors whitespace-nowrap">
+                  {uploadingProducts ? 'Uploading…' : 'Upload CSV'}
+                </span>
+              </label>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <p className="text-3xl font-semibold leading-none text-foreground">
+                {report.avgRevenuePerWinner !== null ? formatCurrency(report.avgRevenuePerWinner) : '—'}
+              </p>
+            </div>
+            <p className="text-xs text-text-muted mt-2 leading-snug">
+              {report.activeWinnerCount > 0
+                ? `${report.activeWinnerCount} products`
+                : 'No data — upload a Shopify CSV'}
+              {report.productSalesUpdatedAt && ` · ${formatRelativeDate(report.productSalesUpdatedAt)}`}
+            </p>
+            <div className="pointer-events-none absolute bottom-full left-0 right-0 mb-2 px-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+              <div className="bg-foreground text-background text-xs rounded-lg px-3 py-2 leading-snug shadow-lg">
+                Upload a Shopify "Net sales by product title" CSV. Total revenue ÷ number of products = average per winner.
               </div>
             </div>
           </div>
