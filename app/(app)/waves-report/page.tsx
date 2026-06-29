@@ -19,6 +19,7 @@ interface WavesWeeklyReport {
   avgLangsPerProduct: number | null
   mostLangsProduct: { name: string; count: number } | null
   activeWinners: { small: number; medium: number; big: number }
+  proofreadQueueWaves27: number
   profitableLaunchPct: number | null
   profitableLaunches: number
   totalLaunches: number
@@ -543,6 +544,12 @@ export default function WavesReportPage() {
           <div>
             <p className="text-xs font-semibold text-text-muted uppercase tracking-widest mb-3">Waves 2–7</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <MetricCard
+            label="Proofread Queue (Waves 2–7)"
+            value={report.proofreadQueueWaves27}
+            sub="Subitems waiting for proofread"
+            description="Wave 2–7 subitems with 'proofread' in website or ads status, whose product name exists in the Proofreading page (done = false)."
+          />
           <MetricCard
             label="Avg Languages per Active Product"
             value={report.avgLangsPerProduct !== null ? `${report.avgLangsPerProduct}` : null}
