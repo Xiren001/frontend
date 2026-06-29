@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { api } from '@/lib/api'
-import { CalendarDays, ChevronLeft, ChevronRight, Info } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Download, Info } from 'lucide-react'
 
 interface WavesWeeklyReport {
   weekStart: string
@@ -31,6 +31,7 @@ interface WavesWeeklyReport {
     wave1:   { ad: Record<string, number>; web: Record<string, number> }
     waves27: { ad: Record<string, number>; web: Record<string, number> }
   }
+  isSnapshot: boolean
 }
 
 const WAVE_LANG_LABELS: Record<number, { code: string; name: string }[]> = {
@@ -427,6 +428,7 @@ export default function WavesReportPage() {
   const [uploadingSales, setUploadingSales] = useState(false)
   const [uploadingProducts, setUploadingProducts] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [exportingPdf, setExportingPdf] = useState(false)
 
   useEffect(() => {
     setLoading(true)
@@ -454,6 +456,23 @@ export default function WavesReportPage() {
     }
   }
 
+  async function handleExportPdf() {
+    setExportingPdf(true)
+    try {
+      const blob = await api.getBlob(`/api/monday/wave-report-snapshot/${weekStart}/pdf`)
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href     = url
+      a.download = `waves-report-${weekStart}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Export failed')
+    } finally {
+      setExportingPdf(false)
+    }
+  }
+
   async function handleSalesUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -474,10 +493,27 @@ export default function WavesReportPage() {
     <div>
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-2">
         <div>
-          <h1 className="text-xl font-semibold text-foreground">Waves Weekly Report</h1>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl font-semibold text-foreground">Waves Weekly Report</h1>
+            {report && report.isSnapshot && (
+              <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                Snapshot
+              </span>
+            )}
+          </div>
           <p className="text-sm text-text-muted mt-0.5">Performance metrics across all waves</p>
         </div>
-        <DateFilter weekStart={weekStart} report={report} onChange={setWeekStart} />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExportPdf}
+            disabled={exportingPdf || loading}
+            className="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border-subtle bg-surface-elevated text-sm font-medium text-foreground hover:bg-surface-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <Download className="h-3.5 w-3.5 text-text-muted" />
+            {exportingPdf ? 'Exporting…' : 'Export PDF'}
+          </button>
+          <DateFilter weekStart={weekStart} report={report} onChange={setWeekStart} />
+        </div>
       </div>
 
       {error && (

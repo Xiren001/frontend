@@ -36,4 +36,15 @@ export const api = {
   delete: (path: string) => request<void>(path, { method: 'DELETE' }),
   postText: <T>(path: string, body: string) =>
     request<T>(path, { method: 'POST', body, headers: { 'Content-Type': 'text/plain' } }),
+  getBlob: async (path: string): Promise<Blob> => {
+    const token = await getToken()
+    const res = await fetch(`${API}${path}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }))
+      throw new Error((err as any).error ?? res.statusText)
+    }
+    return res.blob()
+  },
 }

@@ -61,7 +61,7 @@ export default function SettingsPage() {
   const { role } = useRole()
   const isAdmin = role === 'admin'
 
-  const [tab, setTab] = useState<'pipeline' | 'roles' | 'notifications' | 'sops'>('pipeline')
+  const [tab, setTab] = useState<'pipeline' | 'roles' | 'notifications' | 'waves' | 'sops'>('pipeline')
 
   const [languages, setLanguages] = useState<string[]>([])
   const [users, setUsers]         = useState<AdminUser[]>([])
@@ -78,6 +78,12 @@ export default function SettingsPage() {
   const [notifDelay, setNotifDelay] = useState<number>(1)
   const [notifSending, setNotifSending] = useState<string | null>(null)
   const [notifSaved, setNotifSaved] = useState<string | null>(null)
+
+  const [cronSchedule, setCronSchedule] = useState<{ day: number; hour: number; minute: number; timezone: string } | null>(null)
+  const [cronDraft, setCronDraft]       = useState<{ day: number; hour: number; minute: number; timezone: string } | null>(null)
+  const [cronSaving, setCronSaving]     = useState(false)
+  const [cronSaved,  setCronSaved]      = useState(false)
+  const [snapshotTriggering, setSnapshotTriggering] = useState(false)
 
   function applySettings(s: Settings) { setSettings(s); setDraft(s) }
   function loadSettings() {
@@ -100,6 +106,10 @@ export default function SettingsPage() {
       setNotifEmailDraft(cfg.emailMap)
       setNotifDelay(cfg.delayMinutes)
     }).catch(console.error)
+
+    api.get<{ day: number; hour: number; minute: number; timezone: string }>('/api/monday/wave-report-cron')
+      .then(s => { setCronSchedule(s); setCronDraft(s) })
+      .catch(console.error)
   }, [isAdmin])
 
   function cancelEdit() {
@@ -221,11 +231,40 @@ export default function SettingsPage() {
     </div>
   )
 
-  type Tab = 'pipeline' | 'roles' | 'notifications' | 'sops'
+  const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+  const TIMEZONES = [
+    'Asia/Manila', 'UTC', 'Europe/Amsterdam', 'America/New_York',
+    'America/Los_Angeles', 'America/Chicago', 'Europe/London',
+    'Asia/Tokyo', 'Asia/Singapore', 'Australia/Sydney',
+  ]
+
+  async function saveCronSchedule() {
+    if (!cronDraft) return
+    setCronSaving(true)
+    try {
+      await api.put('/api/monday/wave-report-cron', cronDraft)
+      setCronSchedule({ ...cronDraft })
+      setCronSaved(true)
+      setTimeout(() => setCronSaved(false), 2500)
+    } finally { setCronSaving(false) }
+  }
+
+  async function triggerSnapshotNow() {
+    setSnapshotTriggering(true)
+    try {
+      await api.post('/api/monday/wave-report-snapshot', {})
+      alert('Snapshot saved for the current week.')
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Failed to trigger snapshot')
+    } finally { setSnapshotTriggering(false) }
+  }
+
+  type Tab = 'pipeline' | 'roles' | 'notifications' | 'waves' | 'sops'
   const allTabs: { id: Tab; label: string; adminOnly?: boolean }[] = [
     { id: 'pipeline',      label: 'Pipeline'      },
     { id: 'roles',         label: 'Language Roles', adminOnly: true },
     { id: 'notifications', label: 'Notifications',  adminOnly: true },
+    { id: 'waves',         label: 'Waves Report',   adminOnly: true },
     { id: 'sops',          label: 'SOPs'          },
   ]
   const visibleTabs = allTabs.filter(t => !t.adminOnly || isAdmin)
@@ -436,6 +475,110 @@ export default function SettingsPage() {
                   )
                 })}
               </Card>
+            )}
+          </div>
+        )}
+
+        {/* Waves Report */}
+        {tab === 'waves' && isAdmin && (
+          <div className="space-y-4">
+            <p className="text-xs text-text-muted">Configure the automatic weekly snapshot schedule for the Waves Report.</p>
+
+            {!cronDraft ? (
+              <p className="text-sm text-text-muted font-mono">Loading…</p>
+            ) : (
+              <>
+                <Card className="divide-y divide-border-subtle">
+                  <div className="px-5 py-2.5">
+                    <p className="text-xs font-medium text-text-muted uppercase tracking-wider">Snapshot Schedule</p>
+                  </div>
+
+                  {/* Day of week */}
+                  <div className="px-5 py-3.5 flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-sm text-foreground">Day of week</p>
+                      <p className="text-xs text-text-muted font-mono">when the snapshot runs</p>
+                    </div>
+                    <select
+                      value={cronDraft.day}
+                      onChange={e => setCronDraft(d => d ? { ...d, day: Number(e.target.value) } : d)}
+                      className="h-9 rounded-lg border border-border-subtle bg-surface-elevated px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-foreground/30"
+                    >
+                      {DAY_NAMES.map((name, i) => (
+                        <option key={i} value={i}>{name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Time */}
+                  <div className="px-5 py-3.5 flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-sm text-foreground">Time</p>
+                      <p className="text-xs text-text-muted font-mono">hour : minute (24h)</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number" mono className="w-16 text-center"
+                        min={0} max={23}
+                        value={cronDraft.hour}
+                        onChange={e => setCronDraft(d => d ? { ...d, hour: Math.min(23, Math.max(0, Number(e.target.value))) } : d)}
+                      />
+                      <span className="text-text-muted font-mono">:</span>
+                      <Input
+                        type="number" mono className="w-16 text-center"
+                        min={0} max={59}
+                        value={cronDraft.minute}
+                        onChange={e => setCronDraft(d => d ? { ...d, minute: Math.min(59, Math.max(0, Number(e.target.value))) } : d)}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Timezone */}
+                  <div className="px-5 py-3.5 flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-sm text-foreground">Timezone</p>
+                      <p className="text-xs text-text-muted font-mono">IANA timezone</p>
+                    </div>
+                    <select
+                      value={cronDraft.timezone}
+                      onChange={e => setCronDraft(d => d ? { ...d, timezone: e.target.value } : d)}
+                      className="h-9 rounded-lg border border-border-subtle bg-surface-elevated px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-foreground/30"
+                    >
+                      {TIMEZONES.map(tz => (
+                        <option key={tz} value={tz}>{tz}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Current value summary */}
+                  {cronSchedule && (
+                    <div className="px-5 py-3 bg-surface-page">
+                      <p className="text-xs text-text-muted">
+                        Currently set to: <span className="font-mono text-foreground">
+                          {DAY_NAMES[cronSchedule.day]} at {String(cronSchedule.hour).padStart(2, '0')}:{String(cronSchedule.minute).padStart(2, '0')} ({cronSchedule.timezone})
+                        </span>
+                      </p>
+                    </div>
+                  )}
+                </Card>
+
+                <div className="flex items-center justify-between gap-4">
+                  <Button
+                    variant="secondary" size="sm"
+                    onClick={triggerSnapshotNow}
+                    disabled={snapshotTriggering}
+                  >
+                    {snapshotTriggering ? 'Saving…' : 'Save snapshot now'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={saveCronSchedule}
+                    disabled={cronSaving}
+                  >
+                    {cronSaved ? 'Saved ✓' : cronSaving ? 'Saving…' : 'Save schedule'}
+                  </Button>
+                </div>
+              </>
             )}
           </div>
         )}
