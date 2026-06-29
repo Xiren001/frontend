@@ -400,7 +400,7 @@ export default function WavesReportPage() {
             label="Proofread Queue (Wave 1)"
             value={report.proofreadQueue}
             sub="Subitems waiting for proofread"
-            description="Count of Wave 1 subitems where website status OR ads status contains 'proofread'. Each subitem counts once even if both statuses match."
+            description="Wave 1 non-English subitems with 'proofread' in website or ads status, whose product name exists in the Proofreading page (done = false). Each subitem counts once."
           />
           <MetricCard
             label="Days: English Done → Others Done"
