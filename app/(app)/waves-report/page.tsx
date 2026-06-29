@@ -17,6 +17,7 @@ interface WavesWeeklyReport {
   proofreadQueue: number
   newWaveCampaignAvgDays: { wave: number; avg: number | null }[]
   avgLangsPerProduct: number | null
+  mostLangsProduct: { name: string; count: number } | null
 }
 
 const WAVE_LANG_LABELS: Record<number, { code: string; name: string }[]> = {
@@ -426,6 +427,12 @@ export default function WavesReportPage() {
             value={report.avgLangsPerProduct !== null ? `${report.avgLangsPerProduct}` : null}
             sub="Total language versions ÷ total active products (Waves 2–7)"
             description="For each active product in Waves 2–7, count its language subitems. Sum all versions across all products, then divide by total active products."
+          />
+          <MetricCard
+            label="Most Languages Live"
+            value={report.mostLangsProduct !== null ? `${report.mostLangsProduct.count}` : null}
+            sub={report.mostLangsProduct?.name}
+            description="The single product in Waves 2–7 live in the most languages — whichever campaign has the highest subitem count wins."
           />
           <div className="relative group bg-surface-elevated border border-border-subtle rounded-xl p-5 sm:col-span-2">
             <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-3 leading-tight pr-5">
