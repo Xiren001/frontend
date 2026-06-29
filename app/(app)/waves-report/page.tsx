@@ -373,7 +373,7 @@ export default function WavesReportPage() {
           <MetricCard
             label="Products Tested"
             value={report.productsTested}
-            sub="Wave 1 items with landing page status: Launched"
+            sub="Amount of products tested (English, Spanish, German together = 1)"
             description="Count of Wave 1 products where EN, ES, and DE are all launched together — each product counts as 1."
           />
         </div>
