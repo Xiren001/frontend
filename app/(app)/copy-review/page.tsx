@@ -1194,17 +1194,6 @@ export default function CopyReviewPage() {
             />
           </FormField>
 
-          <FormField label="Status">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={correctionForm.done ?? false}
-                onChange={e => setCorrectionForm(f => ({ ...f, done: e.target.checked }))}
-                className="rounded border-border"
-              />
-              <span className="text-sm text-text-secondary">Mark as resolved</span>
-            </label>
-          </FormField>
         </div>
       </Modal>
 
