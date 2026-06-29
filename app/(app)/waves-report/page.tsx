@@ -378,7 +378,7 @@ function TeamQueueCard({ teamQueue }: {
     { label: 'Waves 2–7', queue: teamQueue.waves27 },
   ]
   return (
-    <div className="bg-surface-elevated border border-border-subtle rounded-xl p-5 lg:col-span-4 sm:col-span-2">
+    <div className="bg-surface-elevated border border-border-subtle rounded-xl p-5">
       <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-4 leading-tight">
         Team Queue
       </p>
@@ -636,7 +636,6 @@ export default function WavesReportPage() {
               </div>
             </div>
           </div>
-          <TeamQueueCard teamQueue={report.teamQueue} />
           <div className="relative group bg-surface-elevated border border-border-subtle rounded-xl p-5 sm:col-span-2">
             <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-3 leading-tight pr-5">
               Arriving to New Wave — Phase 1 Avg
@@ -686,6 +685,10 @@ export default function WavesReportPage() {
             </div>
             </div>
             </div>
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-text-muted uppercase tracking-widest mb-3">Team Queue</p>
+            <TeamQueueCard teamQueue={report.teamQueue} />
           </div>
         </div>
       ) : null}
