@@ -440,7 +440,10 @@ export default function WavesReportPage() {
           <SkeletonCard />
         </div>
       ) : report ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-8">
+        <div className="mt-8 flex flex-col gap-8">
+          <div>
+            <p className="text-xs font-semibold text-text-muted uppercase tracking-widest mb-3">Wave 1</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard
             label="Wave 1 → Wave 2"
             value={report.pctWave1ToWave2 !== null ? `${report.pctWave1ToWave2}%` : null}
@@ -478,6 +481,11 @@ export default function WavesReportPage() {
             sub="Days from English done to German and Spanish done"
             description="Average days from Phase 1 start (lp_building_at) to Phase 1 done (lp_ready_at) across all subitems in Wave 1 — English, Spanish, German, and others."
           />
+            </div>
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-text-muted uppercase tracking-widest mb-3">Waves 2–7</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard
             label="Avg Languages per Active Product"
             value={report.avgLangsPerProduct !== null ? `${report.avgLangsPerProduct}` : null}
@@ -617,6 +625,8 @@ export default function WavesReportPage() {
               <div className="bg-foreground text-background text-xs rounded-lg px-3 py-2 leading-snug shadow-lg">
                 Average Phase 1 days (lp_building_at → lp_ready_at) for the 3 new language campaigns introduced in each wave.
               </div>
+            </div>
+            </div>
             </div>
           </div>
         </div>
