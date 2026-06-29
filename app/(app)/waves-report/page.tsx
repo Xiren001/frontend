@@ -14,6 +14,7 @@ interface WavesWeeklyReport {
   avgDaysSpotToEnTest: number | null
   avgDaysProofread: number | null
   avgDaysEnToOthers: number | null
+  proofreadQueue: number
 }
 
 function getMondayOfWeek(date: Date): Date {
@@ -366,6 +367,7 @@ export default function WavesReportPage() {
           <SkeletonCard />
           <SkeletonCard />
           <SkeletonCard />
+          <SkeletonCard />
         </div>
       ) : report ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-8">
@@ -393,6 +395,12 @@ export default function WavesReportPage() {
             value={report.avgDaysProofread !== null ? `${report.avgDaysProofread}d` : null}
             sub="Non-English subitems in Wave 1"
             description="Average days from Proofread start (lp_proofread_at) to Ready to Launch (lp_ready_to_launch_at) — excludes EN/English subitems."
+          />
+          <MetricCard
+            label="Proofread Queue (Wave 1)"
+            value={report.proofreadQueue}
+            sub="Subitems waiting for proofread"
+            description="Count of Wave 1 subitems where website status OR ads status contains 'proofread'. Each subitem counts once even if both statuses match."
           />
           <MetricCard
             label="Days: English Done → Others Done"
