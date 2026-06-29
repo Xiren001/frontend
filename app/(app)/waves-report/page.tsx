@@ -11,6 +11,7 @@ interface WavesWeeklyReport {
   wave1ToWave2Count: number
   pctWave1ToWave2: number | null
   productsTested: number
+  avgDaysSpotToEnTest: number | null
 }
 
 function getMondayOfWeek(date: Date): Date {
@@ -360,6 +361,7 @@ export default function WavesReportPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-8">
           <SkeletonCard />
           <SkeletonCard />
+          <SkeletonCard />
         </div>
       ) : report ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-8">
@@ -375,6 +377,12 @@ export default function WavesReportPage() {
             value={report.productsTested}
             sub="Amount of products tested (English, Spanish, German together = 1)"
             description="Count of Wave 1 products where EN, ES, and DE are all launched together — each product counts as 1."
+          />
+          <MetricCard
+            label="Days: Spot → English Test Done"
+            value={report.avgDaysSpotToEnTest !== null ? `${report.avgDaysSpotToEnTest}d` : null}
+            sub="Avg Phase 1 duration for EN subitems in Wave 1"
+            description="Average days from Phase 1 start (lp_building_at) to Phase 1 done (lp_ready_at) across all English subitems in Wave 1."
           />
         </div>
       ) : null}
