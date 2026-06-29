@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { api } from '@/lib/api'
-import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Info } from 'lucide-react'
 
 interface WavesWeeklyReport {
   weekStart: string
@@ -272,21 +272,36 @@ function MetricCard({
   value,
   sub,
   dimmed,
+  description,
 }: {
   label: string
   value: string | number | null
   sub?: string
   dimmed?: boolean
+  description?: string
 }) {
   return (
-    <div className="bg-surface-elevated border border-border-subtle rounded-xl p-5">
-      <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-3 leading-tight">
+    <div className="relative group bg-surface-elevated border border-border-subtle rounded-xl p-5">
+      <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-3 leading-tight pr-5">
         {label}
       </p>
       <p className={`text-3xl font-semibold leading-none ${dimmed ? 'text-text-muted' : 'text-foreground'}`}>
         {value === null ? '—' : value}
       </p>
       {sub && <p className="text-xs text-text-muted mt-2 leading-snug">{sub}</p>}
+
+      {description && (
+        <>
+          <div className="absolute top-4 right-4 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity">
+            <Info className="h-3.5 w-3.5" />
+          </div>
+          <div className="pointer-events-none absolute bottom-full left-0 right-0 mb-2 px-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+            <div className="bg-foreground text-background text-xs rounded-lg px-3 py-2 leading-snug shadow-lg">
+              {description}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -343,6 +358,7 @@ export default function WavesReportPage() {
             label="Wave 1 → Wave 2"
             value={report.pctWave1ToWave2 !== null ? `${report.pctWave1ToWave2}%` : null}
             sub={`${report.wave1ToWave2Count} of ${report.wave1Total} Wave 1 products`}
+            description="% of Wave 1 products that also appear in Wave 2, matched by product name."
           />
         </div>
       ) : null}
