@@ -3,7 +3,6 @@ import React from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
-  LayoutDashboard,
   Gem,
   Filter,
   ListChecks,
@@ -30,14 +29,13 @@ import { useRole } from '@/lib/role-context'
 import { useState, useEffect } from 'react'
 
 const NAV: { href: string; label: string; icon: React.ElementType; deprecated?: boolean }[] = [
-  { href: '/dashboard',             label: 'Dashboard',           icon: LayoutDashboard },
   { href: '/waves',                 label: 'Waves',               icon: Waves },
+  { href: '/waves-report',          label: 'Wave Dashboard',      icon: TrendingUp },
   { href: '/funnel-tracker',        label: 'Funnel Tracker',      icon: Filter },
   { href: '/proofread-queue',       label: 'Proofread Queue',     icon: ListChecks },
   { href: '/copy-review',           label: 'Proofreading',        icon: FileCheck },
   { href: '/proofreader-payments',  label: 'Proofreader Payments',icon: Wallet },
   { href: '/mistake-log',           label: 'Mistake Log',         icon: AlertTriangle },
-  { href: '/waves-report',          label: 'Waves Report',        icon: TrendingUp },
   { href: '/weekly-report',         label: 'Weekly Report',       icon: CalendarDays },
   { href: '/monthly-planner',       label: 'Monthly Planner',     icon: Calendar },
   { href: '/decision-rights',       label: 'Decision Rights',     icon: Scale },

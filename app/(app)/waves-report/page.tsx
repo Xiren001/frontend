@@ -494,7 +494,7 @@ export default function WavesReportPage() {
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-2">
         <div>
           <div className="flex items-center gap-2.5">
-            <h1 className="text-xl font-semibold text-foreground">Waves Weekly Report</h1>
+            <h1 className="text-xl font-semibold text-foreground">Wave Dashboard</h1>
             {report && report.isSnapshot && (
               <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20">
                 Snapshot
