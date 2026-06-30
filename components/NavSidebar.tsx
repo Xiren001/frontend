@@ -7,7 +7,6 @@ import {
   Filter,
   ListChecks,
   AlertTriangle,
-  CalendarDays,
   TrendingUp,
   Calendar,
   Scale,
@@ -29,14 +28,13 @@ import { useRole } from '@/lib/role-context'
 import { useState, useEffect } from 'react'
 
 const NAV: { href: string; label: string; icon: React.ElementType; deprecated?: boolean }[] = [
-  { href: '/waves',                 label: 'Waves',               icon: Waves },
   { href: '/waves-report',          label: 'Wave Dashboard',      icon: TrendingUp },
+  { href: '/waves',                 label: 'Waves',               icon: Waves },
   { href: '/funnel-tracker',        label: 'Funnel Tracker',      icon: Filter },
   { href: '/proofread-queue',       label: 'Proofread Queue',     icon: ListChecks },
   { href: '/copy-review',           label: 'Proofreading',        icon: FileCheck },
   { href: '/proofreader-payments',  label: 'Proofreader Payments',icon: Wallet },
   { href: '/mistake-log',           label: 'Mistake Log',         icon: AlertTriangle },
-  { href: '/weekly-report',         label: 'Weekly Report',       icon: CalendarDays },
   { href: '/monthly-planner',       label: 'Monthly Planner',     icon: Calendar },
   { href: '/decision-rights',       label: 'Decision Rights',     icon: Scale },
   { href: '/team-tasks',            label: 'Team Tasks',          icon: ClipboardList },
