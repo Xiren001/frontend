@@ -26,10 +26,24 @@ interface ProofProduct {
   month_year: string | null
   created_at: string
   updated_at: string
+  website_done_at: string | null
+  ads_done_at: string | null
   correction_count: number
 }
 
 type ViewMode = 'active' | 'done'
+
+function daysInProofread(b: ProofProduct): number {
+  const start = new Date(b.created_at).getTime()
+  const end = b.done
+    ? Math.max(
+        b.ads_done_at     ? new Date(b.ads_done_at).getTime()     : 0,
+        b.website_done_at ? new Date(b.website_done_at).getTime() : 0,
+        new Date(b.updated_at).getTime(),
+      )
+    : Date.now()
+  return Math.max(0, Math.round((end - start) / 86_400_000))
+}
 
 export default function ProofreadQueuePage() {
   const { role } = useRole()
@@ -192,9 +206,9 @@ export default function ProofreadQueuePage() {
                     {!b.ready_for_revision && !b.done && (
                       <span className="text-xs text-text-muted">In progress</span>
                     )}
-                    {b.correction_count > 0 && (
-                      <span className="text-xs font-mono text-text-muted ml-auto">{b.correction_count} corrections</span>
-                    )}
+                    <span className="text-xs font-mono text-text-muted ml-auto">
+                      {daysInProofread(b)}d
+                    </span>
                   </div>
                 </div>
               ))}
@@ -211,13 +225,14 @@ export default function ProofreadQueuePage() {
                 <TableHeader>Lang</TableHeader>
                 <TableHeader>Status</TableHeader>
                 <TableHeader>Corrections</TableHeader>
+                <TableHeader className="text-right">Days</TableHeader>
                 <TableHeader>Added</TableHeader>
               </TableRow>
             </TableHead>
             <TableBody>
               {visible.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-text-muted py-12">
+                  <TableCell colSpan={6} className="text-center text-text-muted py-12">
                     {emptyMsg}
                   </TableCell>
                 </TableRow>
@@ -251,6 +266,7 @@ export default function ProofreadQueuePage() {
                     </div>
                   </TableCell>
                   <TableCell mono>{b.correction_count > 0 ? b.correction_count : <span className="text-text-muted">—</span>}</TableCell>
+                  <TableCell mono className="text-right">{daysInProofread(b)}d</TableCell>
                   <TableCell mono className="whitespace-nowrap text-text-secondary">{formatDate(b.created_at)}</TableCell>
                 </TableRow>
               ))}
