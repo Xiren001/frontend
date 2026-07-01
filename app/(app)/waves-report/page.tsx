@@ -31,6 +31,7 @@ interface WavesWeeklyReport {
     wave1:   { ad: Record<string, number>; web: Record<string, number> }
     waves27: { ad: Record<string, number>; web: Record<string, number> }
   }
+  newLanguagesLaunchedThisWeek: number
   isSnapshot: boolean
 }
 
@@ -597,6 +598,12 @@ export default function WavesReportPage() {
             value={report.mostLangsProduct !== null ? `${report.mostLangsProduct.count}` : null}
             sub={report.mostLangsProduct?.name}
             description="The single product in Waves 2–7 live in the most languages — whichever campaign has the highest subitem count wins."
+          />
+          <MetricCard
+            label="New Languages Launched This Week"
+            value={report.newLanguagesLaunchedThisWeek}
+            sub="Across all products, all waves"
+            description="Counts subitems whose ad status AND website status are both now 'launched' or 'running' but weren't both at the last weekly snapshot. Resets to 0 each time the wave report cron runs."
           />
           <div className="relative group bg-surface-elevated border border-border-subtle rounded-xl p-5">
             <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-3 leading-tight pr-5">

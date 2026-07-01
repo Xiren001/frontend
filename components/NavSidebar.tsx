@@ -74,7 +74,7 @@ export function NavSidebar() {
       return item.href === '/proofread-queue' || item.href === '/copy-review'
     }
     if (role === 'ads') {
-      return item.href === '/waves' || item.href === '/proofread-queue' || item.href === '/copy-review'
+      return item.href === '/proofread-queue' || item.href === '/copy-review'
     }
     if (role === 'management') {
       const blocked = ['/settings', '/team-tasks']
