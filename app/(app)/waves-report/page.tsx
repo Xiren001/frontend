@@ -682,7 +682,7 @@ export default function WavesReportPage() {
             </p>
             <div className="pointer-events-none absolute bottom-full left-0 right-0 mb-2 px-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
               <div className="bg-foreground text-background text-xs rounded-lg px-3 py-2 leading-snug shadow-lg">
-                Upload a Shopify "Net sales by product title" CSV. Total revenue ÷ number of products = average per winner.
+                Upload a Shopify "Net sales by product title" CSV. Only counts Waves 2–7 products with a language whose ad + website status are both running or launched. Revenue for those ÷ their count = average per winner.
               </div>
             </div>
           </div>
