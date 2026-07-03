@@ -1,4 +1,4 @@
-export type BuildType = 'jewelry' | 'funnel'
+export type BuildType = 'jewelry'
 export type BuildOutcome = 'stopped' | 'testing' | 'expanding' | null
 export type BuildPhase = 'pending' | 'building' | 'proofread' | 'testing' | 'decided'
 export type UserRole = 'admin' | 'management' | 'proofreader' | 'ads' | 'website' | 'viewer'
@@ -49,7 +49,7 @@ export interface Mistake {
 
 export interface QAItem {
   key: string
-  section: 'shopify' | 'jewelry' | 'funnel' | 'localization'
+  section: 'shopify' | 'jewelry' | 'localization'
   label: string
   build_id: string
   done: boolean
@@ -140,7 +140,6 @@ export interface KPI {
   proofreadFlagged: number
   mistakesCount: number
   translationFlags: number
-  funnelRedirectIssues: number
   targets: Settings
   phaseBreakdown: { building: number; proofread: number; testing: number; decided: number }
 }
@@ -161,7 +160,6 @@ export interface WeekStats {
   mistakes: number
   avgBuildDays: number | null
   avgBuildDaysJewelry?: number | null
-  avgBuildDaysFunnel?: number | null
   avgTotalDays: number | null
   testedCount?: number
   testedWon?: number
@@ -179,7 +177,6 @@ export interface CycleAvg {
 
 export interface CycleAvgs {
   jewelry: CycleAvg
-  funnel:  CycleAvg
 }
 
 export interface ReportTargets {

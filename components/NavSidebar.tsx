@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   Gem,
-  Filter,
   ListChecks,
   AlertTriangle,
   TrendingUp,
@@ -30,7 +29,6 @@ import { useState, useEffect } from 'react'
 const NAV: { href: string; label: string; icon: React.ElementType; deprecated?: boolean }[] = [
   { href: '/waves-report',          label: 'Wave Dashboard',      icon: TrendingUp },
   { href: '/waves',                 label: 'Waves',               icon: Waves },
-  { href: '/funnel-tracker',        label: 'Funnel Tracker',      icon: Filter },
   { href: '/proofread-queue',       label: 'Proofread Queue',     icon: ListChecks },
   { href: '/copy-review',           label: 'Proofreading',        icon: FileCheck },
   { href: '/proofreader-payments',  label: 'Proofreader Payments',icon: Wallet },

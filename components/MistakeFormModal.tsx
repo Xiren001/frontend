@@ -9,13 +9,10 @@ const CATEGORIES = [
   'Translation / proofreading',
   'Pricing / currency / tax (per market)',
   'Payment method missing or broken (Shopify checkout)',
-  'Funnelish → Shopify checkout redirect (wrong/empty cart · lost variant)',
   'Variant / SKU / inventory mapping (size · metal · length)',
   'Product imagery / sizing chart',
   'Shopify page issue (jewelry)',
-  'Funnelish page issue (advertorial / sales)',
   'Speed / performance',
-  'Page / funnel break (CTA → checkout)',
   'Product',
 ]
 
