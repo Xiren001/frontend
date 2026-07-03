@@ -5,10 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   Gem,
   ListChecks,
-  AlertTriangle,
   TrendingUp,
-  Calendar,
-  Scale,
   FileCheck,
   Settings,
   LogOut,
@@ -17,7 +14,6 @@ import {
   PanelLeftOpen,
   Menu,
   X,
-  ClipboardList,
   Wallet,
   Waves,
 } from 'lucide-react'
@@ -32,10 +28,6 @@ const NAV: { href: string; label: string; icon: React.ElementType; deprecated?: 
   { href: '/proofread-queue',       label: 'Proofread Queue',     icon: ListChecks },
   { href: '/copy-review',           label: 'Proofreading',        icon: FileCheck },
   { href: '/proofreader-payments',  label: 'Proofreader Payments',icon: Wallet },
-  { href: '/mistake-log',           label: 'Mistake Log',         icon: AlertTriangle },
-  { href: '/monthly-planner',       label: 'Monthly Planner',     icon: Calendar },
-  { href: '/decision-rights',       label: 'Decision Rights',     icon: Scale },
-  { href: '/team-tasks',            label: 'Team Tasks',          icon: ClipboardList },
   { href: '/settings',              label: 'Settings',            icon: Settings },
   { href: '/jewelry-tracker',       label: 'Jewelry Tracker',     icon: Gem, deprecated: true },
 ]
@@ -75,8 +67,7 @@ export function NavSidebar() {
       return item.href === '/proofread-queue' || item.href === '/copy-review'
     }
     if (role === 'management') {
-      const blocked = ['/settings', '/team-tasks']
-      return !blocked.includes(item.href)
+      return item.href !== '/settings'
     }
     if (role === 'website') {
       return item.href !== '/settings' && item.href !== '/proofreader-payments'

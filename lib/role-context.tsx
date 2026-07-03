@@ -61,7 +61,7 @@ export function canAccessPath(role: UserRole | null, path: string): boolean {
 
   // Management: most pages except settings and non-relevant tools
   if (role === 'management') {
-    const blocked = ['/settings', '/team-tasks', '/monthly-planner', '/winning-products', '/product-ranking']
+    const blocked = ['/settings', '/winning-products', '/product-ranking']
     return !blocked.includes(base)
   }
   // Website: all pages except settings and proofreader-payments

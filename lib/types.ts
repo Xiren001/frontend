@@ -33,20 +33,6 @@ export interface Build {
   updated_at: string
 }
 
-export interface Mistake {
-  id: string
-  date: string | null
-  product_name: string | null
-  category: string | null
-  caught_where: string | null
-  description: string | null
-  root_cause: string | null
-  sop_updated: boolean
-  notes: string | null
-  month_year: string | null
-  created_at: string
-}
-
 export interface QAItem {
   key: string
   section: 'shopify' | 'jewelry' | 'localization'
@@ -138,8 +124,6 @@ export interface KPI {
   totalCycleAvg: number | null
   proofreadQueueDepth: number
   proofreadFlagged: number
-  mistakesCount: number
-  translationFlags: number
   targets: Settings
   phaseBreakdown: { building: number; proofread: number; testing: number; decided: number }
 }
@@ -157,7 +141,6 @@ export interface WeekStats {
   completed: number
   winners: number
   killed: number
-  mistakes: number
   avgBuildDays: number | null
   avgBuildDaysJewelry?: number | null
   avgTotalDays: number | null
@@ -192,12 +175,6 @@ export interface ReportTargets {
   total_translation_target_days: number
 }
 
-
-export interface PlannerNote {
-  id: string
-  date: string
-  notes: string
-}
 
 export interface BuildSummaryShort {
   product_name: string

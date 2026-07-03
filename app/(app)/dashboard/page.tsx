@@ -16,7 +16,7 @@ export default function DashboardPage() {
     api.get<KPI>(`/api/kpi?month=${month}`).then(setKpi).catch(console.error)
   }
 
-  useRealtimeRefresh(['builds', 'mistakes'], loadKpi)
+  useRealtimeRefresh('builds', loadKpi)
   useEffect(() => { loadKpi() }, [month])
 
   function kpiStatus(actual: number | null, target: number, lowerIsBetter = true): 'ok' | 'warn' | 'bad' | 'neutral' {
@@ -68,8 +68,6 @@ export default function DashboardPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <KPICard label="Proofread Queue" value={kpi.proofreadQueueDepth} status={kpi.proofreadQueueDepth === 0 ? 'ok' : 'neutral'} />
               <KPICard label="Flagged Red" value={kpi.proofreadFlagged} status={kpi.proofreadFlagged === 0 ? 'ok' : 'bad'} />
-              <KPICard label="Mistakes This Month" value={kpi.mistakesCount} status={kpi.mistakesCount === 0 ? 'ok' : kpi.mistakesCount < 3 ? 'warn' : 'bad'} />
-              <KPICard label="Translation Flags" value={kpi.translationFlags} status={kpi.translationFlags === 0 ? 'ok' : 'bad'} />
             </div>
           </section>
 
