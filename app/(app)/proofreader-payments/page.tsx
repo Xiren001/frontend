@@ -6,16 +6,13 @@ import { useRole } from '@/lib/role-context'
 import { useRealtimeRefresh } from '@/lib/use-realtime-refresh'
 import { formatDate, currentMonth, cn } from '@/lib/utils'
 import { PageHeader } from '@/components/ui/page-header'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Tabs } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { DollarSign, Check, RotateCcw, Search, X, Clock, CheckCircle2 } from 'lucide-react'
 
 type ProductStatus = 'done' | 'in_proofread' | 'ready' | 'needs_links' | 'active'
 type PayView = 'all' | 'unpaid' | 'paid'
-type WeekTab = 'all' | 'direct' | number
 
 interface PaymentItem {
   id: string
@@ -59,8 +56,6 @@ export default function ProofreaderPaymentsPage() {
   const [items, setItems]           = useState<PaymentItem[]>([])
   const [month, setMonth]           = useState(currentMonth())
   const [payView, setPayView]       = useState<PayView>('all')
-  const [weekTab, setWeekTab]       = useState<WeekTab>('all')
-  const [directWeek, setDirectWeek] = useState<number | 'all'>('all')
   const [langTab, setLangTab]       = useState<string>('all')
   const [search, setSearch]         = useState('')
   const [togglingKey, setTogglingKey] = useState<string | null>(null)
@@ -76,8 +71,7 @@ export default function ProofreaderPaymentsPage() {
   useRealtimeRefresh('builds', load)
 
   useEffect(() => { load() }, [load])
-  useEffect(() => { setWeekTab('all'); setDirectWeek('all'); setLangTab('all'); setSearch('') }, [month, payView])
-  useEffect(() => { setDirectWeek('all') }, [weekTab])
+  useEffect(() => { setLangTab('all'); setSearch('') }, [month, payView])
 
   async function togglePaid(item: PaymentItem) {
     if (!canPay) return
@@ -106,22 +100,8 @@ export default function ProofreaderPaymentsPage() {
     return true
   })
 
-  const weekNumbers = Array.from(new Set(
-    viewFiltered.filter(i => i.source === 'build' && i.week_number != null).map(i => i.week_number!)
-  )).sort((a, b) => a - b)
-
-  const hasDirectItems = viewFiltered.some(i => i.source === 'proof_product')
-
-  const directItems    = viewFiltered.filter(i => i.source === 'proof_product')
-  const directWeekNums = Array.from(new Set(directItems.map(i => i.week_number).filter((n): n is number => n != null))).sort((a, b) => a - b)
-
-  const weekFiltered: PaymentItem[] =
-    weekTab === 'all'    ? viewFiltered :
-    weekTab === 'direct' ? (directWeek === 'all' ? directItems : directItems.filter(i => i.week_number === directWeek)) :
-    viewFiltered.filter(i => i.week_number === (weekTab as number))
-
-  const uniqueLangs = Array.from(new Set(weekFiltered.map(i => i.language).filter(Boolean))).sort() as string[]
-  const langFiltered = langTab === 'all' ? weekFiltered : weekFiltered.filter(i => i.language === langTab)
+  const uniqueLangs = Array.from(new Set(viewFiltered.map(i => i.language).filter(Boolean))).sort() as string[]
+  const langFiltered = langTab === 'all' ? viewFiltered : viewFiltered.filter(i => i.language === langTab)
 
   const q = search.trim().toLowerCase()
   const visible = q
@@ -137,57 +117,18 @@ export default function ProofreaderPaymentsPage() {
   const unpaidCount = items.filter(i => !i.paid && (i.status === 'done' || i.status === 'ready')).length
   const paidCount   = items.filter(i => i.paid).length
 
-  const weekTabItems = [
-    { id: 'all' as WeekTab,    label: 'All',    count: viewFiltered.length },
-    ...weekNumbers.map(w => ({ id: w as WeekTab, label: `Week ${w}`, count: viewFiltered.filter(i => i.week_number === w).length })),
-    ...(hasDirectItems ? [{ id: 'direct' as WeekTab, label: 'Direct', count: directItems.length }] : []),
-  ]
-
   const langPills = [
-    { id: 'all', label: 'All', count: weekFiltered.length },
-    ...uniqueLangs.map(l => ({ id: l, label: l, count: weekFiltered.filter(i => i.language === l).length })),
+    { id: 'all', label: 'All', count: viewFiltered.length },
+    ...uniqueLangs.map(l => ({ id: l, label: l, count: viewFiltered.filter(i => i.language === l).length })),
   ]
 
-  // ── Row grouping (same as proofread queue) ────────────────────────────────
-  type RowGroup = { key: string; label: string; items: PaymentItem[] }
-
-  const rowGroups: RowGroup[] = (() => {
-    if (weekTab !== 'all') return [{ key: 'flat', label: '', items: visible }]
-    const groups: RowGroup[] = []
-    for (const item of visible) {
-      let key: string, label: string
-      if (item.source === 'proof_product') {
-        key   = `direct-${item.language ?? 'unknown'}`
-        label = `Added directly — ${item.language ?? '—'}`
-      } else {
-        key   = item.week_number != null ? `w${item.week_number}` : 'no-week'
-        label = item.week_number != null ? `Week ${item.week_number}` : 'Unknown week'
-      }
-      let group = groups.find(g => g.key === key)
-      if (!group) { group = { key, label, items: [] }; groups.push(group) }
-      group.items.push(item)
-    }
-    return groups.sort((a, b) => {
-      if (a.key.startsWith('direct') && !b.key.startsWith('direct')) return 1
-      if (!a.key.startsWith('direct') && b.key.startsWith('direct')) return -1
-      return a.key.localeCompare(b.key)
-    })
-  })()
-
-  const showGroupHeaders = false
-  const colSpan = canPay ? 8 : 7
+  const colSpan = canPay ? 7 : 6
 
   const emptyMsg = search
     ? `No results for "${search}"`
     : payView === 'unpaid'
       ? 'No unpaid done products — all caught up!'
       : 'No products found.'
-
-  function SourceBadge({ item }: { item: PaymentItem }) {
-    return item.source === 'proof_product'
-      ? <Badge variant="muted">Direct</Badge>
-      : <Badge variant="default">Tracker</Badge>
-  }
 
   function StatusBadge({ status }: { status: ProductStatus }) {
     return (
@@ -251,31 +192,6 @@ export default function ProofreaderPaymentsPage() {
           ))}
         </div>
 
-        {/* Week tabs */}
-        {weekTabItems.length > 1 && (
-          <Tabs tabs={weekTabItems} active={weekTab} onChange={v => setWeekTab(v as WeekTab)} />
-        )}
-
-        {/* Direct week sub-filter */}
-        {weekTab === 'direct' && directWeekNums.length > 0 && (
-          <div className="flex items-center gap-1.5 flex-wrap pt-2">
-            {[{ id: 'all' as const, label: 'All weeks' }, ...directWeekNums.map(w => ({ id: w as number | 'all', label: `Week ${w}` }))].map(opt => (
-              <button
-                key={String(opt.id)}
-                onClick={() => setDirectWeek(opt.id)}
-                className={cn(
-                  'px-2.5 py-1 rounded-full text-xs font-medium transition-colors border',
-                  directWeek === opt.id
-                    ? 'bg-accent-muted text-accent-bright border-accent-border/50'
-                    : 'text-text-secondary hover:bg-surface-hover border-border-subtle',
-                )}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        )}
-
         {/* Lang pills + search */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-2 py-3 mb-4 border-b border-border-subtle">
           <div className="flex items-center gap-1.5 flex-1 flex-wrap">
@@ -318,98 +234,84 @@ export default function ProofreaderPaymentsPage() {
         <div className="md:hidden space-y-3 pb-6">
           {visible.length === 0 ? (
             <p className="text-center text-text-muted py-12 text-sm">{emptyMsg}</p>
-          ) : rowGroups.map(group => (
-            <div key={group.key}>
-              {showGroupHeaders && group.items.length > 0 && (
-                <div className="flex items-center gap-2 px-1 pt-5 pb-2 first:pt-1">
-                  <span className="text-xs font-semibold text-text-muted uppercase tracking-widest">{group.label}</span>
-                  <div className="flex-1 h-px bg-border-subtle" />
-                  <span className="text-xs font-mono text-text-muted">{group.items.length}</span>
+          ) : visible.map(item => {
+            const itemKey = item.proof_product_id ?? item.id
+            return (
+              <div
+                key={item.id}
+                className={cn(
+                  'rounded-xl border bg-surface-elevated p-4',
+                  item.paid ? 'border-border-subtle opacity-70' : 'border-border-subtle',
+                )}
+              >
+                {/* Name */}
+                <div className="flex items-start justify-between gap-2 mb-3">
+                  <p className={cn('text-[15px] font-medium text-foreground leading-snug flex-1', item.paid && 'line-through')}>
+                    {item.product_name}
+                  </p>
+                  {item.paid && (
+                    <span className="flex items-center gap-1 text-xs text-emerald-600 shrink-0">
+                      <Check className="h-3.5 w-3.5" /> Paid
+                    </span>
+                  )}
                 </div>
-              )}
-              <div className="space-y-3">
-                {group.items.map(item => {
-                  const itemKey = item.proof_product_id ?? item.id
-                  return (
-                    <div
-                      key={item.id}
-                      className={cn(
-                        'rounded-xl border bg-surface-elevated p-4',
-                        item.paid ? 'border-border-subtle opacity-70' : 'border-border-subtle',
-                      )}
+
+                {/* Badges */}
+                <div className="flex items-center gap-1.5 flex-wrap mb-4">
+                  {item.language && (
+                    <span className="text-xs font-mono bg-surface border border-border-subtle px-1.5 py-0.5 rounded text-text-secondary">
+                      {item.language}
+                    </span>
+                  )}
+                  <StatusBadge status={item.status} />
+                </div>
+
+                {/* Date grid */}
+                <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm mb-3">
+                  <div>
+                    <p className="text-xs text-text-muted mb-0.5">Into Proofread</p>
+                    <p className="font-mono text-text-secondary text-sm">
+                      {item.into_proofread ? formatDate(item.into_proofread) : '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-text-muted mb-0.5">{item.paid ? 'Paid date' : 'Proof end'}</p>
+                    <p className="font-mono text-text-secondary text-sm">
+                      {item.paid && item.paid_at
+                        ? formatDate(item.paid_at)
+                        : item.proof_end ? formatDate(item.proof_end) : '—'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Proofreader + action */}
+                <div className="flex items-center justify-between gap-2 pt-3 border-t border-border-subtle">
+                  <span className="text-sm text-text-muted truncate">{item.proofreader ?? '—'}</span>
+                  {item.paid ? (
+                    canPay && (
+                      <button
+                        onClick={() => togglePaid(item)}
+                        disabled={togglingKey === itemKey}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border text-xs text-text-secondary hover:text-foreground hover:border-border-strong transition-colors disabled:opacity-40"
+                        title="Undo payment"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" /> Undo
+                      </button>
+                    )
+                  ) : canPay && (item.status === 'done' || item.status === 'ready') ? (
+                    <Button
+                      size="sm"
+                      disabled={togglingKey === itemKey}
+                      onClick={() => togglePaid(item)}
+                      className="h-7 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shrink-0"
                     >
-                      {/* Name */}
-                      <div className="flex items-start justify-between gap-2 mb-3">
-                        <p className={cn('text-[15px] font-medium text-foreground leading-snug flex-1', item.paid && 'line-through')}>
-                          {item.product_name}
-                        </p>
-                        {item.paid && (
-                          <span className="flex items-center gap-1 text-xs text-emerald-600 shrink-0">
-                            <Check className="h-3.5 w-3.5" /> Paid
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Badges */}
-                      <div className="flex items-center gap-1.5 flex-wrap mb-4">
-                        <SourceBadge item={item} />
-                        {item.language && (
-                          <span className="text-xs font-mono bg-surface border border-border-subtle px-1.5 py-0.5 rounded text-text-secondary">
-                            {item.language}
-                          </span>
-                        )}
-                        <StatusBadge status={item.status} />
-                      </div>
-
-                      {/* Date grid */}
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm mb-3">
-                        <div>
-                          <p className="text-xs text-text-muted mb-0.5">Into Proofread</p>
-                          <p className="font-mono text-text-secondary text-sm">
-                            {item.into_proofread ? formatDate(item.into_proofread) : '—'}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-text-muted mb-0.5">{item.paid ? 'Paid date' : 'Proof end'}</p>
-                          <p className="font-mono text-text-secondary text-sm">
-                            {item.paid && item.paid_at
-                              ? formatDate(item.paid_at)
-                              : item.proof_end ? formatDate(item.proof_end) : '—'}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Proofreader + action */}
-                      <div className="flex items-center justify-between gap-2 pt-3 border-t border-border-subtle">
-                        <span className="text-sm text-text-muted truncate">{item.proofreader ?? '—'}</span>
-                        {item.paid ? (
-                          canPay && (
-                            <button
-                              onClick={() => togglePaid(item)}
-                              disabled={togglingKey === itemKey}
-                              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border text-xs text-text-secondary hover:text-foreground hover:border-border-strong transition-colors disabled:opacity-40"
-                              title="Undo payment"
-                            >
-                              <RotateCcw className="h-3.5 w-3.5" /> Undo
-                            </button>
-                          )
-                        ) : canPay && (item.status === 'done' || item.status === 'ready') ? (
-                          <Button
-                            size="sm"
-                            disabled={togglingKey === itemKey}
-                            onClick={() => togglePaid(item)}
-                            className="h-7 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shrink-0"
-                          >
-                            <DollarSign className="h-3 w-3 mr-1" /> Mark Paid
-                          </Button>
-                        ) : null}
-                      </div>
-                    </div>
-                  )
-                })}
+                      <DollarSign className="h-3 w-3 mr-1" /> Mark Paid
+                    </Button>
+                  ) : null}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
 
         {/* ── Desktop: table ── */}
@@ -418,7 +320,6 @@ export default function ProofreaderPaymentsPage() {
             <TableHead>
               <TableRow>
                 <TableHeader>Product</TableHeader>
-                <TableHeader>Source</TableHeader>
                 <TableHeader>Lang</TableHeader>
                 <TableHeader>Status</TableHeader>
                 <TableHeader>Into Proofread</TableHeader>
@@ -435,82 +336,65 @@ export default function ProofreaderPaymentsPage() {
                   </TableCell>
                 </TableRow>
               )}
-              {rowGroups.map(group => (
-                <>
-                  {showGroupHeaders && group.items.length > 0 && (
-                    <TableRow key={group.key + '-hdr'} className="bg-surface-elevated/60 border-t-2 border-border-subtle">
-                      <TableCell colSpan={colSpan} className="py-2.5 px-4">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold text-foreground">{group.label}</span>
-                          <span className="ml-auto text-xs font-mono text-text-muted">
-                            {group.items.length} {group.items.length === 1 ? 'item' : 'items'}
-                          </span>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                  {group.items.map(item => {
-                    const itemKey = item.proof_product_id ?? item.id
-                    return (
-                      <TableRow
-                        key={item.id}
-                        className={item.paid ? 'opacity-60' : undefined}
-                      >
-                        <TableCell className={cn('font-medium text-foreground', item.paid && 'line-through')}>
-                          {item.product_name}
-                        </TableCell>
-                        <TableCell><SourceBadge item={item} /></TableCell>
-                        <TableCell mono>{item.language ?? '—'}</TableCell>
-                        <TableCell><StatusBadge status={item.status} /></TableCell>
-                        <TableCell mono className="whitespace-nowrap">
-                          {item.into_proofread
-                            ? formatDate(item.into_proofread)
-                            : <span className="text-text-muted">—</span>}
-                        </TableCell>
-                        <TableCell mono className="whitespace-nowrap">
-                          {item.proof_end
-                            ? formatDate(item.proof_end)
-                            : <span className="text-text-muted">—</span>}
-                        </TableCell>
-                        <TableCell>
-                          {item.proofreader ?? <span className="text-text-muted">—</span>}
-                        </TableCell>
-                        {canPay && (
-                          <TableCell className="text-right whitespace-nowrap">
-                            {item.paid ? (
-                              <div className="flex items-center justify-end gap-2">
-                                <span className="flex items-center gap-1 text-xs text-emerald-600">
-                                  <Check className="h-3.5 w-3.5" />
-                                  {item.paid_at ? formatDate(item.paid_at) : 'Paid'}
-                                </span>
-                                <button
-                                  onClick={() => togglePaid(item)}
-                                  disabled={togglingKey === itemKey}
-                                  className="flex items-center gap-1 px-2 py-1 rounded border border-border text-xs text-text-secondary hover:text-foreground hover:border-border-strong transition-colors disabled:opacity-40"
-                                  title="Undo payment"
-                                >
-                                  <RotateCcw className="h-3.5 w-3.5" /> Undo
-                                </button>
-                              </div>
-                            ) : item.status === 'done' || item.status === 'ready' ? (
-                              <Button
-                                size="sm"
-                                disabled={togglingKey === itemKey}
-                                onClick={() => togglePaid(item)}
-                                className="h-7 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-                              >
-                                <DollarSign className="h-3 w-3 mr-1" /> Mark Paid
-                              </Button>
-                            ) : (
-                              <span className="text-xs text-text-muted">—</span>
-                            )}
-                          </TableCell>
+              {visible.map(item => {
+                const itemKey = item.proof_product_id ?? item.id
+                return (
+                  <TableRow
+                    key={item.id}
+                    className={item.paid ? 'opacity-60' : undefined}
+                  >
+                    <TableCell className={cn('font-medium text-foreground', item.paid && 'line-through')}>
+                      {item.product_name}
+                    </TableCell>
+                    <TableCell mono>{item.language ?? '—'}</TableCell>
+                    <TableCell><StatusBadge status={item.status} /></TableCell>
+                    <TableCell mono className="whitespace-nowrap">
+                      {item.into_proofread
+                        ? formatDate(item.into_proofread)
+                        : <span className="text-text-muted">—</span>}
+                    </TableCell>
+                    <TableCell mono className="whitespace-nowrap">
+                      {item.proof_end
+                        ? formatDate(item.proof_end)
+                        : <span className="text-text-muted">—</span>}
+                    </TableCell>
+                    <TableCell>
+                      {item.proofreader ?? <span className="text-text-muted">—</span>}
+                    </TableCell>
+                    {canPay && (
+                      <TableCell className="text-right whitespace-nowrap">
+                        {item.paid ? (
+                          <div className="flex items-center justify-end gap-2">
+                            <span className="flex items-center gap-1 text-xs text-emerald-600">
+                              <Check className="h-3.5 w-3.5" />
+                              {item.paid_at ? formatDate(item.paid_at) : 'Paid'}
+                            </span>
+                            <button
+                              onClick={() => togglePaid(item)}
+                              disabled={togglingKey === itemKey}
+                              className="flex items-center gap-1 px-2 py-1 rounded border border-border text-xs text-text-secondary hover:text-foreground hover:border-border-strong transition-colors disabled:opacity-40"
+                              title="Undo payment"
+                            >
+                              <RotateCcw className="h-3.5 w-3.5" /> Undo
+                            </button>
+                          </div>
+                        ) : item.status === 'done' || item.status === 'ready' ? (
+                          <Button
+                            size="sm"
+                            disabled={togglingKey === itemKey}
+                            onClick={() => togglePaid(item)}
+                            className="h-7 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                          >
+                            <DollarSign className="h-3 w-3 mr-1" /> Mark Paid
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-text-muted">—</span>
                         )}
-                      </TableRow>
-                    )
-                  })}
-                </>
-              ))}
+                      </TableCell>
+                    )}
+                  </TableRow>
+                )
+              })}
             </TableBody>
           </Table>
         </div>
