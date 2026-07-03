@@ -4,9 +4,10 @@ import { useEffect, useState, useCallback } from 'react'
 import { api } from '@/lib/api'
 import { useRole } from '@/lib/role-context'
 import { useRealtimeRefresh } from '@/lib/use-realtime-refresh'
-import { formatDate, cn } from '@/lib/utils'
+import { formatDate, currentMonth, cn } from '@/lib/utils'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { DollarSign, Check, RotateCcw, Search, X, Clock, CheckCircle2 } from 'lucide-react'
 
@@ -53,6 +54,7 @@ const STATUS_CLS: Record<ProductStatus, string> = {
 export default function ProofreaderPaymentsPage() {
   const { role } = useRole()
   const [items, setItems]           = useState<PaymentItem[]>([])
+  const [month, setMonth]           = useState(currentMonth())
   const [payView, setPayView]       = useState<PayView>('all')
   const [langTab, setLangTab]       = useState<string>('all')
   const [search, setSearch]         = useState('')
@@ -61,15 +63,15 @@ export default function ProofreaderPaymentsPage() {
   const canPay = role === 'admin' || role === 'management'
 
   const load = useCallback(() => {
-    api.get<PaymentItem[]>('/api/builds/payment-overview')
+    api.get<PaymentItem[]>(`/api/builds/payment-overview?month=${month}`)
       .then(setItems).catch(console.error)
-  }, [])
+  }, [month])
 
   useRealtimeRefresh('proof_products', load)
   useRealtimeRefresh('builds', load)
 
   useEffect(() => { load() }, [load])
-  useEffect(() => { setLangTab('all'); setSearch('') }, [payView])
+  useEffect(() => { setLangTab('all'); setSearch('') }, [month, payView])
 
   async function togglePaid(item: PaymentItem) {
     if (!canPay) return
@@ -142,6 +144,15 @@ export default function ProofreaderPaymentsPage() {
         <PageHeader
           title="Proofreader Payments"
           description="Track payment status for all proofread products"
+          actions={
+            <Input
+              type="month"
+              value={month}
+              onChange={e => setMonth(e.target.value)}
+              className="w-auto"
+              mono
+            />
+          }
         />
 
         {/* Pay view toggle */}
