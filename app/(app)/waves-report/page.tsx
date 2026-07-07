@@ -82,6 +82,21 @@ function addWeeks(dateStr: string, n: number): string {
   return toDateStr(getMondayOfWeek(d))
 }
 
+function monthStartOf(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), 1)
+}
+
+function addMonths(monthStartStr: string, n: number): string {
+  const d = new Date(monthStartStr + 'T00:00:00')
+  d.setMonth(d.getMonth() + n)
+  return toDateStr(monthStartOf(d))
+}
+
+function formatMonthRange(monthStartISO: string): string {
+  const d = new Date(monthStartISO)
+  return d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+}
+
 const PRESETS = [
   { label: 'This week', offset: 0 },
   { label: 'Last week', offset: -1 },
@@ -92,7 +107,16 @@ const PRESETS = [
   { label: '8 weeks ago', offset: -8 },
 ]
 
+const MONTH_PRESETS = [
+  { label: 'This month', offset: 0 },
+  { label: 'Last month', offset: -1 },
+  { label: '2 months ago', offset: -2 },
+  { label: '3 months ago', offset: -3 },
+  { label: '6 months ago', offset: -6 },
+]
+
 const DAYS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 function WeekPicker({
   selected,
@@ -206,23 +230,88 @@ function WeekPicker({
   )
 }
 
+function MonthPicker({
+  selected,
+  onSelect,
+}: {
+  selected: string
+  onSelect: (monthStart: string) => void
+}) {
+  const today = new Date()
+  const [viewYear, setViewYear] = useState(() => new Date(selected + 'T00:00:00').getFullYear())
+
+  const todayMonthStart = toDateStr(monthStartOf(today))
+
+  return (
+    <div className="w-[220px]">
+      <div className="flex items-center justify-between mb-3">
+        <button
+          onClick={() => setViewYear(y => y - 1)}
+          className="flex items-center justify-center w-7 h-7 rounded-lg text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <span className="text-sm font-medium text-foreground">{viewYear}</span>
+        <button
+          onClick={() => setViewYear(y => y + 1)}
+          className="flex items-center justify-center w-7 h-7 rounded-lg text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-3 gap-1.5">
+        {MONTH_NAMES.map((name, i) => {
+          const ms = `${viewYear}-${String(i + 1).padStart(2, '0')}-01`
+          const isSelected = ms === selected
+          const isFuture = ms > todayMonthStart
+
+          return (
+            <button
+              key={name}
+              disabled={isFuture}
+              onClick={() => onSelect(ms)}
+              className={[
+                'text-center text-sm py-1.5 rounded-lg transition-colors',
+                isFuture
+                  ? 'opacity-30 cursor-not-allowed text-foreground'
+                  : isSelected
+                    ? 'bg-foreground text-background'
+                    : 'text-foreground hover:bg-surface-hover',
+              ].join(' ')}
+            >
+              {name}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function DateFilter({
-  weekStart,
+  period,
+  selected,
   report,
   onChange,
 }: {
-  weekStart: string
+  period: 'week' | 'month'
+  selected: string
   report: WavesWeeklyReport | null
-  onChange: (ws: string) => void
+  onChange: (start: string) => void
 }) {
   const [open, setOpen] = useState(false)
-  const [pending, setPending] = useState(weekStart)
+  const [pending, setPending] = useState(selected)
   const ref = useRef<HTMLDivElement>(null)
 
-  const todayMonday = toDateStr(getMondayOfWeek(new Date()))
-  const activePreset = PRESETS.find(p => addWeeks(todayMonday, p.offset) === weekStart)
+  const todayStart = period === 'month'
+    ? toDateStr(monthStartOf(new Date()))
+    : toDateStr(getMondayOfWeek(new Date()))
+  const presets = period === 'month' ? MONTH_PRESETS : PRESETS
+  const addFn = period === 'month' ? addMonths : addWeeks
+  const activePreset = presets.find(p => addFn(todayStart, p.offset) === selected)
 
-  useEffect(() => { setPending(weekStart) }, [weekStart])
+  useEffect(() => { setPending(selected) }, [selected])
 
   useEffect(() => {
     if (!open) return
@@ -239,18 +328,18 @@ function DateFilter({
   }
 
   function cancel() {
-    setPending(weekStart)
+    setPending(selected)
     setOpen(false)
   }
 
   const displayLabel = report
-    ? formatWeekRange(report.weekStart, report.weekEnd)
-    : weekStart
+    ? (period === 'month' ? formatMonthRange(report.weekStart) : formatWeekRange(report.weekStart, report.weekEnd))
+    : selected
 
   return (
     <div ref={ref} className="relative">
       <button
-        onClick={() => { setPending(weekStart); setOpen(o => !o) }}
+        onClick={() => { setPending(selected); setOpen(o => !o) }}
         className={[
           'flex items-center gap-2 h-9 pl-3 pr-3 rounded-lg border text-sm font-medium transition-colors',
           open
@@ -270,13 +359,13 @@ function DateFilter({
           <div className="flex flex-col sm:flex-row gap-0">
             <div className="sm:w-44 sm:border-r border-border-subtle sm:pr-4 mb-3 sm:mb-0 sm:mr-5">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-2 px-1">Quick select</p>
-              {PRESETS.map(p => {
-                const ws = addWeeks(todayMonday, p.offset)
-                const isActive = pending === ws
+              {presets.map(p => {
+                const s = addFn(todayStart, p.offset)
+                const isActive = pending === s
                 return (
                   <button
                     key={p.offset}
-                    onClick={() => setPending(ws)}
+                    onClick={() => setPending(s)}
                     className={[
                       'w-full text-left text-sm px-2 py-1.5 rounded-lg transition-colors',
                       isActive
@@ -289,7 +378,9 @@ function DateFilter({
                 )
               })}
             </div>
-            <WeekPicker selected={pending} onSelect={setPending} />
+            {period === 'month'
+              ? <MonthPicker selected={pending} onSelect={setPending} />
+              : <WeekPicker selected={pending} onSelect={setPending} />}
           </div>
 
           <div className="flex items-center justify-end gap-2 mt-4 pt-3 border-t border-border-subtle">
@@ -422,7 +513,9 @@ function TeamQueueCard({ teamQueue }: {
 }
 
 export default function WavesReportPage() {
+  const [period, setPeriod] = useState<'week' | 'month'>('week')
   const [weekStart, setWeekStart] = useState(() => toDateStr(getMondayOfWeek(new Date())))
+  const [monthStart, setMonthStart] = useState(() => toDateStr(monthStartOf(new Date())))
   const [report, setReport] = useState<WavesWeeklyReport | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -431,15 +524,20 @@ export default function WavesReportPage() {
   const [refreshKey, setRefreshKey] = useState(0)
   const [exportingPdf, setExportingPdf] = useState(false)
 
+  const selected = period === 'month' ? monthStart : weekStart
+
   useEffect(() => {
     setLoading(true)
     setError(null)
+    const url = period === 'month'
+      ? `/api/monday/waves-monthly-report?monthStart=${monthStart}`
+      : `/api/monday/waves-weekly-report?weekStart=${weekStart}`
     api
-      .get<WavesWeeklyReport>(`/api/monday/waves-weekly-report?weekStart=${weekStart}`)
+      .get<WavesWeeklyReport>(url)
       .then(setReport)
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
-  }, [weekStart, refreshKey])
+  }, [period, weekStart, monthStart, refreshKey])
 
   async function handleProductSalesUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -460,11 +558,14 @@ export default function WavesReportPage() {
   async function handleExportPdf() {
     setExportingPdf(true)
     try {
-      const blob = await api.getBlob(`/api/monday/wave-report-snapshot/${weekStart}/pdf`)
+      const endpoint = period === 'month'
+        ? `/api/monday/wave-report-monthly-snapshot/${monthStart}/pdf`
+        : `/api/monday/wave-report-snapshot/${weekStart}/pdf`
+      const blob = await api.getBlob(endpoint)
       const url  = URL.createObjectURL(blob)
       const a    = document.createElement('a')
       a.href     = url
-      a.download = `waves-report-${weekStart}.pdf`
+      a.download = `waves-report-${selected}.pdf`
       a.click()
       URL.revokeObjectURL(url)
     } catch (err: unknown) {
@@ -505,6 +606,22 @@ export default function WavesReportPage() {
           <p className="text-sm text-text-muted mt-0.5">Performance metrics across all waves</p>
         </div>
         <div className="flex items-center gap-2">
+          <div className="flex items-center h-9 rounded-lg border border-border-subtle bg-surface-elevated p-0.5">
+            {(['week', 'month'] as const).map(p => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                className={[
+                  'h-full px-3 rounded-md text-sm font-medium capitalize transition-colors',
+                  period === p
+                    ? 'bg-foreground text-background'
+                    : 'text-text-muted hover:text-foreground',
+                ].join(' ')}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
           <button
             onClick={handleExportPdf}
             disabled={exportingPdf || loading}
@@ -513,7 +630,12 @@ export default function WavesReportPage() {
             <Download className="h-3.5 w-3.5 text-text-muted" />
             {exportingPdf ? 'Exporting…' : 'Export PDF'}
           </button>
-          <DateFilter weekStart={weekStart} report={report} onChange={setWeekStart} />
+          <DateFilter
+            period={period}
+            selected={selected}
+            report={report}
+            onChange={period === 'month' ? setMonthStart : setWeekStart}
+          />
         </div>
       </div>
 
@@ -600,10 +722,10 @@ export default function WavesReportPage() {
             description="The single product in Waves 2–7 live in the most languages — whichever campaign has the highest subitem count wins."
           />
           <MetricCard
-            label="New Languages Launched This Week"
+            label={`New Languages Launched This ${period === 'month' ? 'Month' : 'Week'}`}
             value={report.newLanguagesLaunchedThisWeek}
             sub="Across all products, all waves"
-            description="Counts subitems whose ad status AND website status are both now 'launched' or 'running' but weren't both at the last weekly snapshot. Resets to 0 each time the wave report cron runs."
+            description={`Counts subitems whose ad status AND website status are both now 'launched' or 'running' but weren't both at the last ${period}ly snapshot. Resets to 0 each time the ${period}ly wave report cron runs.`}
           />
           <div className="relative group bg-surface-elevated border border-border-subtle rounded-xl p-5">
             <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-3 leading-tight pr-5">

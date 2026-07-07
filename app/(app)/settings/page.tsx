@@ -85,6 +85,12 @@ export default function SettingsPage() {
   const [cronSaved,  setCronSaved]      = useState(false)
   const [snapshotTriggering, setSnapshotTriggering] = useState(false)
 
+  const [monthlyCronSchedule, setMonthlyCronSchedule] = useState<{ dayOfMonth: number; hour: number; minute: number; timezone: string } | null>(null)
+  const [monthlyCronDraft, setMonthlyCronDraft]       = useState<{ dayOfMonth: number; hour: number; minute: number; timezone: string } | null>(null)
+  const [monthlyCronSaving, setMonthlyCronSaving]     = useState(false)
+  const [monthlyCronSaved,  setMonthlyCronSaved]      = useState(false)
+  const [monthlySnapshotTriggering, setMonthlySnapshotTriggering] = useState(false)
+
   function applySettings(s: Settings) { setSettings(s); setDraft(s) }
   function loadSettings() {
     api.get<Settings>('/api/settings').then(applySettings).catch(console.error)
@@ -109,6 +115,10 @@ export default function SettingsPage() {
 
     api.get<{ day: number; hour: number; minute: number; timezone: string }>('/api/monday/wave-report-cron')
       .then(s => { setCronSchedule(s); setCronDraft(s) })
+      .catch(console.error)
+
+    api.get<{ dayOfMonth: number; hour: number; minute: number; timezone: string }>('/api/monday/wave-report-monthly-cron')
+      .then(s => { setMonthlyCronSchedule(s); setMonthlyCronDraft(s) })
       .catch(console.error)
   }, [isAdmin])
 
@@ -257,6 +267,27 @@ export default function SettingsPage() {
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : 'Failed to trigger snapshot')
     } finally { setSnapshotTriggering(false) }
+  }
+
+  async function saveMonthlyCronSchedule() {
+    if (!monthlyCronDraft) return
+    setMonthlyCronSaving(true)
+    try {
+      await api.put('/api/monday/wave-report-monthly-cron', monthlyCronDraft)
+      setMonthlyCronSchedule({ ...monthlyCronDraft })
+      setMonthlyCronSaved(true)
+      setTimeout(() => setMonthlyCronSaved(false), 2500)
+    } finally { setMonthlyCronSaving(false) }
+  }
+
+  async function triggerMonthlySnapshotNow() {
+    setMonthlySnapshotTriggering(true)
+    try {
+      await api.post('/api/monday/wave-report-monthly-snapshot', {})
+      alert('Snapshot saved for the current month.')
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Failed to trigger snapshot')
+    } finally { setMonthlySnapshotTriggering(false) }
   }
 
   type Tab = 'pipeline' | 'roles' | 'notifications' | 'waves' | 'sops'
@@ -576,6 +607,107 @@ export default function SettingsPage() {
                     disabled={cronSaving}
                   >
                     {cronSaved ? 'Saved ✓' : cronSaving ? 'Saving…' : 'Save schedule'}
+                  </Button>
+                </div>
+              </>
+            )}
+
+            <div className="pt-2">
+              <p className="text-xs text-text-muted">Configure the automatic monthly snapshot schedule for the Waves Report.</p>
+            </div>
+
+            {!monthlyCronDraft ? (
+              <p className="text-sm text-text-muted font-mono">Loading…</p>
+            ) : (
+              <>
+                <Card className="divide-y divide-border-subtle">
+                  <div className="px-5 py-2.5">
+                    <p className="text-xs font-medium text-text-muted uppercase tracking-wider">Monthly Snapshot Schedule</p>
+                  </div>
+
+                  {/* Day of month */}
+                  <div className="px-5 py-3.5 flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-sm text-foreground">Day of month</p>
+                      <p className="text-xs text-text-muted font-mono">when the snapshot runs (1–28)</p>
+                    </div>
+                    <select
+                      value={monthlyCronDraft.dayOfMonth}
+                      onChange={e => setMonthlyCronDraft(d => d ? { ...d, dayOfMonth: Number(e.target.value) } : d)}
+                      className="h-9 rounded-lg border border-border-subtle bg-surface-elevated px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-foreground/30"
+                    >
+                      {Array.from({ length: 28 }, (_, i) => i + 1).map(d => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Time */}
+                  <div className="px-5 py-3.5 flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-sm text-foreground">Time</p>
+                      <p className="text-xs text-text-muted font-mono">hour : minute (24h)</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number" mono className="w-16 text-center"
+                        min={0} max={23}
+                        value={monthlyCronDraft.hour}
+                        onChange={e => setMonthlyCronDraft(d => d ? { ...d, hour: Math.min(23, Math.max(0, Number(e.target.value))) } : d)}
+                      />
+                      <span className="text-text-muted font-mono">:</span>
+                      <Input
+                        type="number" mono className="w-16 text-center"
+                        min={0} max={59}
+                        value={monthlyCronDraft.minute}
+                        onChange={e => setMonthlyCronDraft(d => d ? { ...d, minute: Math.min(59, Math.max(0, Number(e.target.value))) } : d)}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Timezone */}
+                  <div className="px-5 py-3.5 flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-sm text-foreground">Timezone</p>
+                      <p className="text-xs text-text-muted font-mono">IANA timezone</p>
+                    </div>
+                    <select
+                      value={monthlyCronDraft.timezone}
+                      onChange={e => setMonthlyCronDraft(d => d ? { ...d, timezone: e.target.value } : d)}
+                      className="h-9 rounded-lg border border-border-subtle bg-surface-elevated px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-foreground/30"
+                    >
+                      {TIMEZONES.map(tz => (
+                        <option key={tz} value={tz}>{tz}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Current value summary */}
+                  {monthlyCronSchedule && (
+                    <div className="px-5 py-3 bg-surface-page">
+                      <p className="text-xs text-text-muted">
+                        Currently set to: <span className="font-mono text-foreground">
+                          Day {monthlyCronSchedule.dayOfMonth} at {String(monthlyCronSchedule.hour).padStart(2, '0')}:{String(monthlyCronSchedule.minute).padStart(2, '0')} ({monthlyCronSchedule.timezone})
+                        </span>
+                      </p>
+                    </div>
+                  )}
+                </Card>
+
+                <div className="flex items-center justify-between gap-4">
+                  <Button
+                    variant="secondary" size="sm"
+                    onClick={triggerMonthlySnapshotNow}
+                    disabled={monthlySnapshotTriggering}
+                  >
+                    {monthlySnapshotTriggering ? 'Saving…' : 'Save snapshot now'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={saveMonthlyCronSchedule}
+                    disabled={monthlyCronSaving}
+                  >
+                    {monthlyCronSaved ? 'Saved ✓' : monthlyCronSaving ? 'Saving…' : 'Save schedule'}
                   </Button>
                 </div>
               </>
