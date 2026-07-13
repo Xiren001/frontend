@@ -963,13 +963,19 @@ export function WavesPage() {
   const mainWaves      = waves.filter(w => w.wave_number !== 0).sort((a, b) => a.wave_number - b.wave_number)
   const rawStoppedWave = waves.find(w => w.wave_number === 0)
 
-  // Auto-surface items from other waves that have a subitem stopped on both ads and web,
+  // Auto-surface just the subitem(s) stopped on both ads and web from waves 1-7,
   // in addition to items actually moved into the Stopped wave.
-  const autoStoppedItems = mainWaves.flatMap(w => w.monday_items.filter(i =>
-    i.monday_subitems.some(s =>
-      (s.ad_status ?? '').toLowerCase() === 'stopped' && (s.website_status ?? '').toLowerCase() === 'stopped'
+  const autoStoppedItems = mainWaves
+    .filter(w => w.wave_number >= 1 && w.wave_number <= 7)
+    .flatMap(w => w.monday_items
+      .map(i => ({
+        ...i,
+        monday_subitems: i.monday_subitems.filter(s =>
+          (s.ad_status ?? '').toLowerCase() === 'stopped' && (s.website_status ?? '').toLowerCase() === 'stopped'
+        ),
+      }))
+      .filter(i => i.monday_subitems.length > 0)
     )
-  ))
   const stoppedWave = rawStoppedWave
     ? {
         ...rawStoppedWave,
