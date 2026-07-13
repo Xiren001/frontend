@@ -960,10 +960,28 @@ export function WavesPage() {
     else { setSortKey(key); setSortDir('asc') }
   }
 
-  const mainWaves   = waves.filter(w => w.wave_number !== 0).sort((a, b) => a.wave_number - b.wave_number)
-  const stoppedWave = waves.find(w => w.wave_number === 0)
+  const mainWaves      = waves.filter(w => w.wave_number !== 0).sort((a, b) => a.wave_number - b.wave_number)
+  const rawStoppedWave = waves.find(w => w.wave_number === 0)
+
+  // Auto-surface items from other waves that have a subitem stopped on both ads and web,
+  // in addition to items actually moved into the Stopped wave.
+  const autoStoppedItems = mainWaves.flatMap(w => w.monday_items.filter(i =>
+    i.monday_subitems.some(s =>
+      (s.ad_status ?? '').toLowerCase() === 'stopped' && (s.website_status ?? '').toLowerCase() === 'stopped'
+    )
+  ))
+  const stoppedWave = rawStoppedWave
+    ? {
+        ...rawStoppedWave,
+        monday_items: [
+          ...rawStoppedWave.monday_items,
+          ...autoStoppedItems.filter(i => !rawStoppedWave.monday_items.some(existing => existing.id === i.id)),
+        ],
+      }
+    : undefined
+
   const allWaves    = [...mainWaves, ...(stoppedWave ? [stoppedWave] : [])]
-  const current      = waves.find(w => w.id === activeWave)
+  const current      = activeWave === stoppedWave?.id ? stoppedWave : waves.find(w => w.id === activeWave)
   const showTimeline = current?.wave_number === 1
   const showProofread = (current?.wave_number ?? 0) >= 2
   const showPhase1 = (current?.wave_number ?? 0) >= 2 && (current?.wave_number ?? 0) <= 7
