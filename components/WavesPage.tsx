@@ -992,7 +992,8 @@ export function WavesPage() {
   const showProofread = (current?.wave_number ?? 0) >= 2
   const showPhase1 = (current?.wave_number ?? 0) >= 2 && (current?.wave_number ?? 0) <= 7
 
-  const groups = current
+  const isStoppedTab = current?.wave_number === 0
+  const groups = current && !isStoppedTab
     ? Array.from(new Set(current.monday_items.map(i => i.group_name ?? 'General')))
     : []
   const currentGroup = groups.includes(activeGroup) ? activeGroup : (groups[0] ?? '')
@@ -1004,7 +1005,7 @@ export function WavesPage() {
     (current?.monday_items ?? []).map(i => i.landing_page_status).filter((s): s is string => Boolean(s))
   )).sort()
 
-  let items = (current?.monday_items ?? []).filter(i => (i.group_name ?? 'General') === currentGroup)
+  let items = (current?.monday_items ?? []).filter(i => isStoppedTab || (i.group_name ?? 'General') === currentGroup)
   if (search.trim()) {
     const q = search.toLowerCase()
     items = items.filter(i => i.name.toLowerCase().includes(q))
@@ -1022,7 +1023,7 @@ export function WavesPage() {
   })
 
   const hasFilters  = search || filterCreatives || filterLanding
-  const groupCount  = (current?.monday_items ?? []).filter(i => (i.group_name ?? 'General') === currentGroup).length
+  const groupCount  = (current?.monday_items ?? []).filter(i => isStoppedTab || (i.group_name ?? 'General') === currentGroup).length
 
   const waveTabs = allWaves.map(w => ({
     id: w.id,
