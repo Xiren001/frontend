@@ -84,7 +84,7 @@ function severityBorder(severity: string | null) {
 }
 
 export default function CopyReviewPage() {
-  const { role, userLang } = useRole()
+  const { role, userLangs } = useRole()
   const isAdmin = role === 'admin'
   const isProofreader = role === 'proofreader'
   const canManageProducts    = role === 'admin'
@@ -98,7 +98,7 @@ export default function CopyReviewPage() {
     (!!product?.ready_for_revision && (role === 'ads' || role === 'website'))
 
   const [products, setProducts] = useState<ProofProduct[]>([])
-  const [langFilter, setLangFilter] = useState<string>(userLang ?? 'all')
+  const [langFilter, setLangFilter] = useState<string>(userLangs?.length === 1 ? userLangs[0] : 'all')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [corrections, setCorrections] = useState<Record<string, ProofCorrection[]>>({})
 
@@ -415,8 +415,8 @@ export default function CopyReviewPage() {
         />
       </div>
 
-      {/* Language tabs — hidden for lang-locked proofreaders (they see only their language) */}
-      {!userLang && (
+      {/* Language tabs — hidden for proofreaders locked to a single language */}
+      {(!userLangs || userLangs.length > 1) && (
         <div className="shrink-0 sticky top-0 z-20 bg-background overflow-x-auto md:static md:z-auto md:overflow-visible mb-0">
           <Tabs
             tabs={langTabs}

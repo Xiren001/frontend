@@ -39,6 +39,7 @@ interface AdminUser {
   id: string
   email: string
   role: string
+  extra_languages: string[]
   created_at: string
 }
 
@@ -187,6 +188,22 @@ export default function SettingsPage() {
 
   function roleLabelForLang(lang: string) { return `${lang} Proofreader` }
   function roleKey(lang: string) { return `proofreader_${lang.toLowerCase()}` }
+
+  async function handleSetExtraLanguages(userId: string, extra_languages: string[]) {
+    setUsers(u => u.map(x => x.id === userId ? { ...x, extra_languages } : x))
+    try {
+      await api.patch(`/api/admin/users/users/${userId}/languages`, { extra_languages })
+    } catch { /* ignore */ }
+  }
+
+  function addExtraLanguage(user: AdminUser, lang: string) {
+    if (user.extra_languages.includes(lang)) return
+    handleSetExtraLanguages(user.id, [...user.extra_languages, lang])
+  }
+
+  function removeExtraLanguage(user: AdminUser, lang: string) {
+    handleSetExtraLanguages(user.id, user.extra_languages.filter(l => l !== lang))
+  }
   function notifEmails(lang: string): string[] { return notifEmailDraft[lang] ?? [] }
 
   function addNotifEmail(lang: string) {
@@ -369,7 +386,7 @@ export default function SettingsPage() {
         {/* Language Roles */}
         {tab === 'roles' && isAdmin && (
           <div className="space-y-4">
-            <p className="text-xs text-text-muted">One proofreader role per language. Users in a language role see only that language&apos;s products.</p>
+            <p className="text-xs text-text-muted">Each proofreader has one primary language, but can be granted additional languages below so they see all of them under one login.</p>
             <Card className="divide-y divide-border-subtle">
               {languages.length === 0 ? (
                 <p className="px-5 py-6 text-sm text-text-muted text-center">No languages found. Add products to the proofreading module first.</p>
@@ -401,22 +418,48 @@ export default function SettingsPage() {
                         </div>
                         {langUsers.length > 0 && (
                           <div className="px-5 pb-3 space-y-1">
-                            {langUsers.map(u => (
-                              <div key={u.id} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-surface text-sm">
-                                <span className="text-text-secondary truncate">{u.email}</span>
-                                {deleteConfirm === u.id ? (
-                                  <div className="flex items-center gap-1.5 shrink-0">
-                                    <span className="text-xs text-text-muted">Delete?</span>
-                                    <button onClick={() => handleDeleteUser(u.id)} className="text-xs text-danger hover:text-danger/80 font-medium">Yes</button>
-                                    <button onClick={() => setDeleteConfirm(null)} className="text-xs text-text-muted hover:text-foreground">No</button>
+                            {langUsers.map(u => {
+                              const addableLangs = languages.filter(l => l !== lang && !u.extra_languages.includes(l))
+                              return (
+                                <div key={u.id} className="px-3 py-2 rounded-lg bg-surface text-sm space-y-1.5">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-text-secondary truncate">{u.email}</span>
+                                    {deleteConfirm === u.id ? (
+                                      <div className="flex items-center gap-1.5 shrink-0">
+                                        <span className="text-xs text-text-muted">Delete?</span>
+                                        <button onClick={() => handleDeleteUser(u.id)} className="text-xs text-danger hover:text-danger/80 font-medium">Yes</button>
+                                        <button onClick={() => setDeleteConfirm(null)} className="text-xs text-text-muted hover:text-foreground">No</button>
+                                      </div>
+                                    ) : (
+                                      <button onClick={() => setDeleteConfirm(u.id)} className="p-1 rounded text-text-muted hover:text-danger hover:bg-danger/10 transition-colors shrink-0">
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </button>
+                                    )}
                                   </div>
-                                ) : (
-                                  <button onClick={() => setDeleteConfirm(u.id)} className="p-1 rounded text-text-muted hover:text-danger hover:bg-danger/10 transition-colors shrink-0">
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </button>
-                                )}
-                              </div>
-                            ))}
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    {u.extra_languages.map(extra => (
+                                      <span key={extra} className="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-md bg-surface-hover text-xs text-text-secondary">
+                                        {extra}
+                                        <button onClick={() => removeExtraLanguage(u, extra)} className="text-text-muted hover:text-danger transition-colors" title={`Remove ${extra} access`}>
+                                          <X className="h-3 w-3" />
+                                        </button>
+                                      </span>
+                                    ))}
+                                    {addableLangs.length > 0 && (
+                                      <select
+                                        value=""
+                                        onChange={e => { if (e.target.value) addExtraLanguage(u, e.target.value) }}
+                                        className="text-xs bg-transparent border border-border-subtle rounded-md px-1.5 py-0.5 text-text-muted hover:text-foreground transition-colors"
+                                        title="Grant access to another language"
+                                      >
+                                        <option value="">+ Add language</option>
+                                        {addableLangs.map(l => <option key={l} value={l}>{l}</option>)}
+                                      </select>
+                                    )}
+                                  </div>
+                                </div>
+                              )
+                            })}
                           </div>
                         )}
                       </div>

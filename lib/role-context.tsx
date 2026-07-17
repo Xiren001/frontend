@@ -5,26 +5,26 @@ import type { UserRole } from './types'
 
 interface RoleState {
   role: UserRole | null
-  userLang: string | null  // set for language-specific proofreader roles e.g. "ES"
+  userLangs: string[] | null  // set for language-specific proofreader roles, e.g. ["ES"] or ["ES", "FR"]
   loading: boolean
 }
 
-const Ctx = createContext<RoleState>({ role: null, userLang: null, loading: true })
+const Ctx = createContext<RoleState>({ role: null, userLangs: null, loading: true })
 
-function parseRawRole(raw: string): { role: UserRole; userLang: string | null } {
+function parseRawRole(raw: string): { role: UserRole; userLangs: string[] | null } {
   const m = raw.match(/^proofreader_([a-z]+)$/i)
-  if (m) return { role: 'proofreader', userLang: m[1].toUpperCase() }
-  return { role: raw as UserRole, userLang: null }
+  if (m) return { role: 'proofreader', userLangs: [m[1].toUpperCase()] }
+  return { role: raw as UserRole, userLangs: null }
 }
 
 export function RoleProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<RoleState>({ role: null, userLang: null, loading: true })
+  const [state, setState] = useState<RoleState>({ role: null, userLangs: null, loading: true })
 
   useEffect(() => {
-    api.get<{ userRole: string; userLang?: string | null }>('/api/me')
+    api.get<{ userRole: string; userLangs?: string[] | null }>('/api/me')
       .then(d => {
-        const { role, userLang } = parseRawRole(d.userRole)
-        setState({ role, userLang: d.userLang ?? userLang, loading: false })
+        const { role, userLangs } = parseRawRole(d.userRole)
+        setState({ role, userLangs: d.userLangs ?? userLangs, loading: false })
       })
       .catch(async () => {
         // /api/me failed — fall back to querying Supabase directly on the client
@@ -32,13 +32,13 @@ export function RoleProvider({ children }: { children: ReactNode }) {
           const { createClient } = await import('./supabase')
           const supabase = createClient()
           const { data: { session } } = await supabase.auth.getSession()
-          if (!session) { setState({ role: null, userLang: null, loading: false }); return }
+          if (!session) { setState({ role: null, userLangs: null, loading: false }); return }
           const { data } = await supabase.from('profiles').select('role').eq('id', session.user.id).single()
           const raw = (data?.role ?? 'website') as string
-          const { role, userLang } = parseRawRole(raw)
-          setState({ role, userLang, loading: false })
+          const { role, userLangs } = parseRawRole(raw)
+          setState({ role, userLangs, loading: false })
         } catch {
-          setState({ role: 'website', userLang: null, loading: false })
+          setState({ role: 'website', userLangs: null, loading: false })
         }
       })
   }, [])
