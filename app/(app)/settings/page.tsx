@@ -92,6 +92,11 @@ export default function SettingsPage() {
   const [monthlyCronSaved,  setMonthlyCronSaved]      = useState(false)
   const [monthlySnapshotTriggering, setMonthlySnapshotTriggering] = useState(false)
 
+  const [snapshots, setSnapshots] = useState<{ week_start: string; week_end: string; created_at: string }[]>([])
+  const [monthlySnapshots, setMonthlySnapshots] = useState<{ month_start: string; month_end: string; created_at: string }[]>([])
+  const [snapshotDeleteConfirm, setSnapshotDeleteConfirm] = useState<string | null>(null)
+  const [monthlySnapshotDeleteConfirm, setMonthlySnapshotDeleteConfirm] = useState<string | null>(null)
+
   function applySettings(s: Settings) { setSettings(s); setDraft(s) }
   function loadSettings() {
     api.get<Settings>('/api/settings').then(applySettings).catch(console.error)
@@ -121,7 +126,35 @@ export default function SettingsPage() {
     api.get<{ dayOfMonth: number; hour: number; minute: number; timezone: string }>('/api/monday/wave-report-monthly-cron')
       .then(s => { setMonthlyCronSchedule(s); setMonthlyCronDraft(s) })
       .catch(console.error)
+
+    loadSnapshots()
+    loadMonthlySnapshots()
   }, [isAdmin])
+
+  function loadSnapshots() {
+    api.get<{ week_start: string; week_end: string; created_at: string }[]>('/api/monday/wave-report-snapshots')
+      .then(setSnapshots).catch(console.error)
+  }
+  function loadMonthlySnapshots() {
+    api.get<{ month_start: string; month_end: string; created_at: string }[]>('/api/monday/wave-report-monthly-snapshots')
+      .then(setMonthlySnapshots).catch(console.error)
+  }
+
+  async function handleDeleteSnapshot(weekStart: string) {
+    try {
+      await api.delete(`/api/monday/wave-report-snapshot/${weekStart}`)
+      setSnapshots(s => s.filter(x => x.week_start !== weekStart))
+    } catch { /* ignore */ }
+    setSnapshotDeleteConfirm(null)
+  }
+
+  async function handleDeleteMonthlySnapshot(monthStart: string) {
+    try {
+      await api.delete(`/api/monday/wave-report-monthly-snapshot/${monthStart}`)
+      setMonthlySnapshots(s => s.filter(x => x.month_start !== monthStart))
+    } catch { /* ignore */ }
+    setMonthlySnapshotDeleteConfirm(null)
+  }
 
   function cancelEdit() {
     if (settings) setDraft({ ...settings })
@@ -281,6 +314,7 @@ export default function SettingsPage() {
     try {
       await api.post('/api/monday/wave-report-snapshot', {})
       alert('Snapshot saved for the current week.')
+      loadSnapshots()
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : 'Failed to trigger snapshot')
     } finally { setSnapshotTriggering(false) }
@@ -302,6 +336,7 @@ export default function SettingsPage() {
     try {
       await api.post('/api/monday/wave-report-monthly-snapshot', {})
       alert('Snapshot saved for the current month.')
+      loadMonthlySnapshots()
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : 'Failed to trigger snapshot')
     } finally { setMonthlySnapshotTriggering(false) }
@@ -652,6 +687,30 @@ export default function SettingsPage() {
                     {cronSaved ? 'Saved ✓' : cronSaving ? 'Saving…' : 'Save schedule'}
                   </Button>
                 </div>
+
+                {snapshots.length > 0 && (
+                  <Card className="divide-y divide-border-subtle">
+                    <div className="px-5 py-2.5">
+                      <p className="text-xs font-medium text-text-muted uppercase tracking-wider">Saved Weekly Snapshots</p>
+                    </div>
+                    {snapshots.map(s => (
+                      <div key={s.week_start} className="px-5 py-2.5 flex items-center justify-between gap-4">
+                        <span className="text-sm font-mono text-foreground">{s.week_start} – {s.week_end}</span>
+                        {snapshotDeleteConfirm === s.week_start ? (
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="text-xs text-text-muted">Delete?</span>
+                            <button onClick={() => handleDeleteSnapshot(s.week_start)} className="text-xs text-danger hover:text-danger/80 font-medium">Yes</button>
+                            <button onClick={() => setSnapshotDeleteConfirm(null)} className="text-xs text-text-muted hover:text-foreground">No</button>
+                          </div>
+                        ) : (
+                          <button onClick={() => setSnapshotDeleteConfirm(s.week_start)} className="p-1 rounded text-text-muted hover:text-danger hover:bg-danger/10 transition-colors shrink-0">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </Card>
+                )}
               </>
             )}
 
@@ -753,6 +812,30 @@ export default function SettingsPage() {
                     {monthlyCronSaved ? 'Saved ✓' : monthlyCronSaving ? 'Saving…' : 'Save schedule'}
                   </Button>
                 </div>
+
+                {monthlySnapshots.length > 0 && (
+                  <Card className="divide-y divide-border-subtle">
+                    <div className="px-5 py-2.5">
+                      <p className="text-xs font-medium text-text-muted uppercase tracking-wider">Saved Monthly Snapshots</p>
+                    </div>
+                    {monthlySnapshots.map(s => (
+                      <div key={s.month_start} className="px-5 py-2.5 flex items-center justify-between gap-4">
+                        <span className="text-sm font-mono text-foreground">{s.month_start} – {s.month_end}</span>
+                        {monthlySnapshotDeleteConfirm === s.month_start ? (
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="text-xs text-text-muted">Delete?</span>
+                            <button onClick={() => handleDeleteMonthlySnapshot(s.month_start)} className="text-xs text-danger hover:text-danger/80 font-medium">Yes</button>
+                            <button onClick={() => setMonthlySnapshotDeleteConfirm(null)} className="text-xs text-text-muted hover:text-foreground">No</button>
+                          </div>
+                        ) : (
+                          <button onClick={() => setMonthlySnapshotDeleteConfirm(s.month_start)} className="p-1 rounded text-text-muted hover:text-danger hover:bg-danger/10 transition-colors shrink-0">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </Card>
+                )}
               </>
             )}
           </div>
