@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '@/lib/api'
 import { CalendarDays, ChevronLeft, ChevronRight, Download, Info } from 'lucide-react'
+import { Modal } from '@/components/ui/modal'
 
 interface WavesWeeklyReport {
   weekStart: string
@@ -32,6 +33,7 @@ interface WavesWeeklyReport {
     waves27: { ad: Record<string, number>; web: Record<string, number> }
   }
   newLanguagesLaunchedThisWeek: number
+  newLanguagesLaunchedList: { product: string; language: string }[]
   isSnapshot: boolean
 }
 
@@ -410,6 +412,7 @@ function MetricCard({
   sub,
   dimmed,
   description,
+  onClick,
 }: {
   label: string
   value: string | number | null
@@ -417,9 +420,17 @@ function MetricCard({
   sub?: string
   dimmed?: boolean
   description?: string
+  onClick?: () => void
 }) {
+  const Wrapper = onClick ? 'button' : 'div'
   return (
-    <div className="relative group bg-surface-elevated border border-border-subtle rounded-xl p-5">
+    <Wrapper
+      onClick={onClick}
+      className={[
+        'relative group bg-surface-elevated border border-border-subtle rounded-xl p-5 text-left w-full',
+        onClick ? 'cursor-pointer hover:border-foreground/30 hover:bg-surface-hover transition-colors' : '',
+      ].join(' ')}
+    >
       <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-3 leading-tight pr-5">
         {label}
       </p>
@@ -445,7 +456,7 @@ function MetricCard({
           </div>
         </>
       )}
-    </div>
+    </Wrapper>
   )
 }
 
@@ -456,6 +467,56 @@ function SkeletonCard() {
       <div className="h-8 w-16 bg-surface-hover rounded" />
       <div className="h-3 w-36 bg-surface-hover rounded mt-2" />
     </div>
+  )
+}
+
+function NewLanguagesModal({
+  open,
+  onClose,
+  period,
+  list,
+}: {
+  open: boolean
+  onClose: () => void
+  period: 'week' | 'month'
+  list: { product: string; language: string }[]
+}) {
+  const grouped = list.reduce<Record<string, string[]>>((acc, { product, language }) => {
+    (acc[product] ??= []).push(language)
+    return acc
+  }, {})
+  const products = Object.keys(grouped).sort((a, b) => a.localeCompare(b))
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={`New Languages Launched This ${period === 'month' ? 'Month' : 'Week'}`}
+      description="Across all products, all waves"
+      size="md"
+    >
+      {products.length === 0 ? (
+        <p className="text-sm text-text-muted">No new languages launched.</p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {products.map(product => (
+            <div key={product} className="flex items-start justify-between gap-3">
+              <span className="text-sm font-medium text-foreground">{product}</span>
+              <div className="flex flex-wrap gap-1 justify-end">
+                {grouped[product].sort().map((lang, i) => (
+                  <span
+                    key={`${lang}-${i}`}
+                    className="text-[10px] font-mono bg-surface-page border border-border-subtle rounded px-1.5 py-0.5 text-foreground whitespace-nowrap"
+                  >
+                    {lang}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Modal>
   )
 }
 
@@ -523,6 +584,7 @@ export default function WavesReportPage() {
   const [uploadingProducts, setUploadingProducts] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
   const [exportingPdf, setExportingPdf] = useState(false)
+  const [showNewLangsModal, setShowNewLangsModal] = useState(false)
 
   const selected = period === 'month' ? monthStart : weekStart
 
@@ -724,8 +786,9 @@ export default function WavesReportPage() {
           <MetricCard
             label={`New Languages Launched This ${period === 'month' ? 'Month' : 'Week'}`}
             value={report.newLanguagesLaunchedThisWeek}
-            sub="Across all products, all waves"
+            sub="Across all products, all waves — click to view list"
             description={`Counts subitems whose ad status AND website status are both now 'launched' or 'running' but weren't both at the last ${period}ly snapshot. Resets to 0 each time the ${period}ly wave report cron runs.`}
+            onClick={() => setShowNewLangsModal(true)}
           />
           <div className="relative group bg-surface-elevated border border-border-subtle rounded-xl p-5">
             <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-3 leading-tight pr-5">
@@ -864,6 +927,13 @@ export default function WavesReportPage() {
           </div>
         </div>
       ) : null}
+
+      <NewLanguagesModal
+        open={showNewLangsModal}
+        onClose={() => setShowNewLangsModal(false)}
+        period={period}
+        list={report?.newLanguagesLaunchedList ?? []}
+      />
     </div>
   )
 }
