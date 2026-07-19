@@ -100,6 +100,43 @@ export interface MondayWave {
   created_at: string
 }
 
+export interface BioedgeSubitem {
+  id: string
+  item_id: string
+  monday_subitem_id: string | null
+  name: string | null
+  language: string | null
+  targeted_country: string | null
+  ad_status: string | null
+  funnel_status: string | null
+  ads_drive_link: string | null
+  completed_funnel_url: string | null
+  url_path: string | null
+  bundle_names: string | null
+  currency: string | null
+  selling_prices: string | null
+  catalog: string | null
+  buy_now_permalink: string | null
+  fb_page: string | null
+  ad_account: string | null
+  we_tracked: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface BioedgeItem {
+  id: string
+  monday_item_id: string | null
+  name: string
+  group_name: string | null
+  ad_status: string | null
+  funnel_status: string | null
+  batch: string | null
+  bioedge_subitems: BioedgeSubitem[]
+  created_at: string
+  updated_at: string
+}
+
 export interface Settings {
   id: number
   build_target_days: number

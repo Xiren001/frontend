@@ -26,6 +26,7 @@ import { useState, useEffect } from 'react'
 const NAV: { href: string; label: string; icon: React.ElementType; deprecated?: boolean }[] = [
   { href: '/waves-report',          label: 'Wave Dashboard',      icon: TrendingUp },
   { href: '/waves',                 label: 'Waves',               icon: Waves },
+  { href: '/bioedge',               label: 'BioEdge',             icon: Leaf },
   { href: '/proofread-queue',       label: 'Proofread Queue',     icon: ListChecks },
   { href: '/copy-review',           label: 'Proofreading',        icon: FileCheck },
   { href: '/bioedge-proofread-queue', label: 'BioEdge Queue',       icon: Leaf },
