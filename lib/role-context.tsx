@@ -54,9 +54,9 @@ export function canAccessPath(role: UserRole | null, path: string): boolean {
 
   const base = '/' + path.split('/').filter(Boolean)[0]
 
-  // Proofreader (incl. lang proofreaders) and Ads: only proofread-queue and copy-review
+  // Proofreader (incl. lang proofreaders) and Ads: only proofread-queue, copy-review, and their BioEdge equivalents
   if (role === 'proofreader' || role === 'ads') {
-    return base === '/proofread-queue' || base === '/copy-review'
+    return ['/proofread-queue', '/copy-review', '/bioedge-proofread-queue', '/bioedge-copy-review'].includes(base)
   }
 
   // Management: most pages except settings and non-relevant tools

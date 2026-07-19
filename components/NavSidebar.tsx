@@ -16,6 +16,7 @@ import {
   X,
   Wallet,
   Waves,
+  Leaf,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase'
@@ -27,6 +28,8 @@ const NAV: { href: string; label: string; icon: React.ElementType; deprecated?: 
   { href: '/waves',                 label: 'Waves',               icon: Waves },
   { href: '/proofread-queue',       label: 'Proofread Queue',     icon: ListChecks },
   { href: '/copy-review',           label: 'Proofreading',        icon: FileCheck },
+  { href: '/bioedge-proofread-queue', label: 'BioEdge Queue',       icon: Leaf },
+  { href: '/bioedge-copy-review',     label: 'BioEdge Proofreading',icon: Leaf },
   { href: '/proofreader-payments',  label: 'Proofreader Payments',icon: Wallet },
   { href: '/settings',              label: 'Settings',            icon: Settings },
   { href: '/jewelry-tracker',       label: 'Jewelry Tracker',     icon: Gem, deprecated: true },
@@ -61,10 +64,10 @@ export function NavSidebar() {
   const visibleNav = NAV.filter(item => {
     if (role === 'admin') return true
     if (role === 'proofreader') {
-      return item.href === '/proofread-queue' || item.href === '/copy-review'
+      return ['/proofread-queue', '/copy-review', '/bioedge-proofread-queue', '/bioedge-copy-review'].includes(item.href)
     }
     if (role === 'ads') {
-      return item.href === '/proofread-queue' || item.href === '/copy-review'
+      return ['/proofread-queue', '/copy-review', '/bioedge-proofread-queue', '/bioedge-copy-review'].includes(item.href)
     }
     if (role === 'management') {
       return item.href !== '/settings'
