@@ -23,15 +23,15 @@ import { createClient } from '@/lib/supabase'
 import { useRole } from '@/lib/role-context'
 import { useState, useEffect } from 'react'
 
-const NAV: { href: string; label: string; icon: React.ElementType; deprecated?: boolean }[] = [
+const NAV: { href: string; label: string; icon: React.ElementType; deprecated?: boolean; section?: string }[] = [
   { href: '/waves-report',          label: 'Wave Dashboard',      icon: TrendingUp },
   { href: '/waves',                 label: 'Waves',               icon: Waves },
-  { href: '/bioedge',               label: 'BioEdge',             icon: Leaf },
   { href: '/proofread-queue',       label: 'Proofread Queue',     icon: ListChecks },
   { href: '/copy-review',           label: 'Proofreading',        icon: FileCheck },
-  { href: '/bioedge-proofread-queue', label: 'BioEdge Queue',       icon: Leaf },
-  { href: '/bioedge-copy-review',     label: 'BioEdge Proofreading',icon: Leaf },
   { href: '/proofreader-payments',  label: 'Proofreader Payments',icon: Wallet },
+  { href: '/bioedge',                 label: 'BioEdge',             icon: Leaf, section: 'BioEdge' },
+  { href: '/bioedge-proofread-queue', label: 'BioEdge Queue',       icon: Leaf, section: 'BioEdge' },
+  { href: '/bioedge-copy-review',     label: 'BioEdge Proofreading',icon: Leaf, section: 'BioEdge' },
   { href: '/settings',              label: 'Settings',            icon: Settings },
   { href: '/jewelry-tracker',       label: 'Jewelry Tracker',     icon: Gem, deprecated: true },
 ]
@@ -175,8 +175,17 @@ export function NavSidebar() {
             const Icon = item.icon
             const prevItem = visibleNav[i - 1]
             const showDeprecatedDivider = item.deprecated && !prevItem?.deprecated
+            const showSectionDivider = item.section && item.section !== prevItem?.section
             return (
               <React.Fragment key={item.href}>
+                {showSectionDivider && (
+                  <div className={cn('mt-2 mb-1', collapsed && 'lg:mx-1')}>
+                    <div className="border-t border-border-subtle mb-1.5" />
+                    {!collapsed && (
+                      <p className="px-3 text-[10px] font-semibold uppercase tracking-wider text-text-muted/60">{item.section}</p>
+                    )}
+                  </div>
+                )}
                 {showDeprecatedDivider && (
                   <div className={cn('my-2 border-t border-border-subtle', collapsed && 'lg:mx-1')} />
                 )}
