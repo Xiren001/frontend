@@ -111,6 +111,7 @@ export interface BioedgeSubitem {
   funnel_status: string | null
   ads_drive_link: string | null
   completed_funnel_url: string | null
+  monday_url: string | null
   url_path: string | null
   bundle_names: string | null
   currency: string | null

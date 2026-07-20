@@ -87,7 +87,13 @@ function SubitemRow({ sub, visible }: { sub: BioedgeSubitem; visible: boolean })
               Funnel <ExternalLink size={10} />
             </a>
           )}
-          {!sub.ads_drive_link && !sub.completed_funnel_url && <span className="text-xs text-text-muted">—</span>}
+          {sub.monday_url && (
+            <a href={sub.monday_url} target="_blank" rel="noopener noreferrer"
+               className="text-xs text-accent hover:underline flex items-center gap-0.5 whitespace-nowrap">
+              Monday <ExternalLink size={10} />
+            </a>
+          )}
+          {!sub.ads_drive_link && !sub.completed_funnel_url && !sub.monday_url && <span className="text-xs text-text-muted">—</span>}
         </div>
       </TableCell>
     </TableRow>
@@ -186,7 +192,7 @@ function ItemCard({ item }: { item: BioedgeItem }) {
                 {sub.ad_status     && <StatusBadge label={sub.ad_status} />}
                 {sub.funnel_status && <StatusBadge label={sub.funnel_status} />}
               </div>
-              {(sub.ads_drive_link || sub.completed_funnel_url) && (
+              {(sub.ads_drive_link || sub.completed_funnel_url || sub.monday_url) && (
                 <div className="flex items-center gap-2 mt-1">
                   {sub.ads_drive_link && (
                     <a href={sub.ads_drive_link} target="_blank" rel="noopener noreferrer" className="text-xs text-accent hover:underline flex items-center gap-0.5">
@@ -196,6 +202,11 @@ function ItemCard({ item }: { item: BioedgeItem }) {
                   {sub.completed_funnel_url && (
                     <a href={sub.completed_funnel_url} target="_blank" rel="noopener noreferrer" className="text-xs text-accent hover:underline flex items-center gap-0.5">
                       Funnel <ExternalLink size={10} />
+                    </a>
+                  )}
+                  {sub.monday_url && (
+                    <a href={sub.monday_url} target="_blank" rel="noopener noreferrer" className="text-xs text-accent hover:underline flex items-center gap-0.5">
+                      Monday <ExternalLink size={10} />
                     </a>
                   )}
                 </div>
