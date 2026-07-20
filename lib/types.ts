@@ -55,6 +55,7 @@ export interface MondaySubitem {
   shopify_pdp_link: string | null
   page_link: string | null
   drive_link: string | null
+  monday_url: string | null
   meta: boolean
   tiktok: boolean
   youtube: boolean

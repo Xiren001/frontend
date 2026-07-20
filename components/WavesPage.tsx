@@ -470,6 +470,12 @@ function SubitemRow({ sub, visible, knownNames, showTimeline, showProofread, sho
               Page <ExternalLink size={10} />
             </a>
           )}
+          {sub.monday_url && (
+            <a href={sub.monday_url} target="_blank" rel="noopener noreferrer"
+               className="text-xs text-accent hover:underline flex items-center gap-0.5 whitespace-nowrap">
+              Monday <ExternalLink size={10} />
+            </a>
+          )}
         </div>
       </TableCell>
     </TableRow>
@@ -799,7 +805,7 @@ function ItemCard({ item, showTimeline, showProofread, onUpdated, isAdmin }: {
                     )}
                   </div>
                 )}
-                {(sub.drive_link || sub.page_link) && (
+                {(sub.drive_link || sub.page_link || sub.monday_url) && (
                   <div className="flex items-center gap-2 mt-1">
                     {sub.drive_link && (
                       <a href={sub.drive_link} target="_blank" rel="noopener noreferrer"
@@ -811,6 +817,12 @@ function ItemCard({ item, showTimeline, showProofread, onUpdated, isAdmin }: {
                       <a href={sub.page_link} target="_blank" rel="noopener noreferrer"
                          className="text-xs text-accent hover:underline flex items-center gap-0.5">
                         Page <ExternalLink size={10} />
+                      </a>
+                    )}
+                    {sub.monday_url && (
+                      <a href={sub.monday_url} target="_blank" rel="noopener noreferrer"
+                         className="text-xs text-accent hover:underline flex items-center gap-0.5">
+                        Monday <ExternalLink size={10} />
                       </a>
                     )}
                   </div>
