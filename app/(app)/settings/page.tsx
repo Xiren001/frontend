@@ -62,7 +62,7 @@ export default function SettingsPage() {
   const { role } = useRole()
   const isAdmin = role === 'admin'
 
-  const [tab, setTab] = useState<'pipeline' | 'roles' | 'notifications' | 'waves' | 'sops'>('pipeline')
+  const [tab, setTab] = useState<'pipeline' | 'roles' | 'notifications' | 'bioedge-roles' | 'bioedge-notifications' | 'waves' | 'sops'>('pipeline')
 
   const [languages, setLanguages] = useState<string[]>([])
   const [users, setUsers]         = useState<AdminUser[]>([])
@@ -79,6 +79,22 @@ export default function SettingsPage() {
   const [notifDelay, setNotifDelay] = useState<number>(1)
   const [notifSending, setNotifSending] = useState<string | null>(null)
   const [notifSaved, setNotifSaved] = useState<string | null>(null)
+
+  // BioEdge — fully separate roles + notifications, mirroring the Waves state above
+  const [bioedgeLanguages, setBioedgeLanguages] = useState<string[]>([])
+  const [bioedgeUserModalOpen, setBioedgeUserModalOpen] = useState(false)
+  const [bioedgeUserForm, setBioedgeUserForm]   = useState(emptyUserForm())
+  const [bioedgeUserSaving, setBioedgeUserSaving] = useState(false)
+  const [bioedgeUserError, setBioedgeUserError] = useState<string | null>(null)
+  const [bioedgeDeleteConfirm, setBioedgeDeleteConfirm] = useState<string | null>(null)
+  const [bioedgePwCopied, setBioedgePwCopied] = useState(false)
+
+  const [bioedgeNotifConfig, setBioedgeNotifConfig] = useState<NotifConfig | null>(null)
+  const [bioedgeNotifEmailDraft, setBioedgeNotifEmailDraft] = useState<Record<string, string[]>>({})
+  const [bioedgeNotifEmailInput, setBioedgeNotifEmailInput] = useState<Record<string, string>>({})
+  const [bioedgeNotifDelay, setBioedgeNotifDelay] = useState<number>(1)
+  const [bioedgeNotifSending, setBioedgeNotifSending] = useState<string | null>(null)
+  const [bioedgeNotifSaved, setBioedgeNotifSaved] = useState<string | null>(null)
 
   const [cronSchedule, setCronSchedule] = useState<{ day: number; hour: number; minute: number; timezone: string } | null>(null)
   const [cronDraft, setCronDraft]       = useState<{ day: number; hour: number; minute: number; timezone: string } | null>(null)
@@ -109,7 +125,11 @@ export default function SettingsPage() {
     if (!isAdmin) return
     api.get<string[]>('/api/admin/users/languages').then(setLanguages).catch(console.error)
     api.get<AdminUser[]>('/api/admin/users/users').then(setUsers).catch(console.error)
+    api.get<string[]>('/api/admin/users/bioedge-languages').then(setBioedgeLanguages).catch(console.error)
   }, [isAdmin])
+
+  // BioEdge users share the same auth-user list as Waves (one GET /users call) — just filtered by role prefix
+  const bioedgeUsers = users.filter(u => u.role.startsWith('bioedge_'))
 
   useEffect(() => {
     if (!isAdmin) return
@@ -117,6 +137,12 @@ export default function SettingsPage() {
       setNotifConfig(cfg)
       setNotifEmailDraft(cfg.emailMap)
       setNotifDelay(cfg.delayMinutes)
+    }).catch(console.error)
+
+    api.get<NotifConfig>('/api/bioedge-notifications/config').then(cfg => {
+      setBioedgeNotifConfig(cfg)
+      setBioedgeNotifEmailDraft(cfg.emailMap)
+      setBioedgeNotifDelay(cfg.delayMinutes)
     }).catch(console.error)
 
     api.get<{ day: number; hour: number; minute: number; timezone: string }>('/api/monday/wave-report-cron')
@@ -237,6 +263,69 @@ export default function SettingsPage() {
   function removeExtraLanguage(user: AdminUser, lang: string) {
     handleSetExtraLanguages(user.id, user.extra_languages.filter(l => l !== lang))
   }
+
+  // ── BioEdge roles — same flows as above, distinct role prefix + email pattern so accounts never collide ──
+  function openCreateBioedgeUser(lang: string) {
+    setBioedgeUserForm({ email: `bioedge-${lang.toLowerCase()}@faszik.com`, password: generatePassword(), role: `bioedge_proofreader_${lang.toLowerCase()}` })
+    setBioedgeUserError(null)
+    setBioedgePwCopied(false)
+    setBioedgeUserModalOpen(true)
+  }
+
+  function openCreateBioedgeStaffUser(role: 'bioedge_management' | 'bioedge_ads' | 'bioedge_website') {
+    setBioedgeUserForm({ email: `${role.replace('bioedge_', 'bioedge-')}@faszik.com`, password: generatePassword(), role })
+    setBioedgeUserError(null)
+    setBioedgePwCopied(false)
+    setBioedgeUserModalOpen(true)
+  }
+
+  function regenerateBioedgePassword() { setBioedgeUserForm(f => ({ ...f, password: generatePassword() })); setBioedgePwCopied(false) }
+
+  function copyBioedgePassword() {
+    navigator.clipboard.writeText(bioedgeUserForm.password)
+    setBioedgePwCopied(true)
+    setTimeout(() => setBioedgePwCopied(false), 2000)
+  }
+
+  async function handleCreateBioedgeUser() {
+    setBioedgeUserSaving(true)
+    setBioedgeUserError(null)
+    try {
+      const created = await api.post<AdminUser>('/api/admin/users/users', bioedgeUserForm)
+      setUsers(u => [...u, created])
+      setBioedgeUserModalOpen(false)
+    } catch (e: unknown) {
+      setBioedgeUserError(e instanceof Error ? e.message : 'Failed to create user')
+    } finally { setBioedgeUserSaving(false) }
+  }
+
+  async function handleDeleteBioedgeUser(id: string) {
+    try {
+      await api.delete(`/api/admin/users/users/${id}`)
+      setUsers(u => u.filter(x => x.id !== id))
+    } catch { /* ignore */ }
+    setBioedgeDeleteConfirm(null)
+  }
+
+  function bioedgeRoleLabelForLang(lang: string) { return `${lang} Proofreader` }
+  function bioedgeRoleKey(lang: string) { return `bioedge_proofreader_${lang.toLowerCase()}` }
+
+  async function handleSetBioedgeExtraLanguages(userId: string, extra_languages: string[]) {
+    setUsers(u => u.map(x => x.id === userId ? { ...x, extra_languages } : x))
+    try {
+      await api.patch(`/api/admin/users/users/${userId}/languages`, { extra_languages })
+    } catch { /* ignore */ }
+  }
+
+  function addBioedgeExtraLanguage(user: AdminUser, lang: string) {
+    if (user.extra_languages.includes(lang)) return
+    handleSetBioedgeExtraLanguages(user.id, [...user.extra_languages, lang])
+  }
+
+  function removeBioedgeExtraLanguage(user: AdminUser, lang: string) {
+    handleSetBioedgeExtraLanguages(user.id, user.extra_languages.filter(l => l !== lang))
+  }
+
   function notifEmails(lang: string): string[] { return notifEmailDraft[lang] ?? [] }
 
   function addNotifEmail(lang: string) {
@@ -269,6 +358,40 @@ export default function SettingsPage() {
       setNotifEmailDraft(cfg.emailMap)
       setTimeout(() => setNotifSaved(null), 2500)
     } finally { setNotifSending(null) }
+  }
+
+  function bioedgeNotifEmails(lang: string): string[] { return bioedgeNotifEmailDraft[lang] ?? [] }
+
+  function addBioedgeNotifEmail(lang: string) {
+    const val = (bioedgeNotifEmailInput[lang] ?? '').trim()
+    if (!val || bioedgeNotifEmails(lang).includes(val)) return
+    const updated = [...bioedgeNotifEmails(lang), val]
+    setBioedgeNotifEmailDraft(d => ({ ...d, [lang]: updated }))
+    setBioedgeNotifEmailInput(i => ({ ...i, [lang]: '' }))
+    api.put('/api/bioedge-notifications/emails', { language: lang, emails: updated }).catch(console.error)
+  }
+
+  function removeBioedgeNotifEmail(lang: string, email: string) {
+    const updated = bioedgeNotifEmails(lang).filter(e => e !== email)
+    setBioedgeNotifEmailDraft(d => ({ ...d, [lang]: updated }))
+    api.put('/api/bioedge-notifications/emails', { language: lang, emails: updated }).catch(console.error)
+  }
+
+  async function saveBioedgeNotifDelay(val: number) {
+    setBioedgeNotifDelay(val)
+    await api.put('/api/bioedge-notifications/delay', { delayMinutes: val }).catch(console.error)
+  }
+
+  async function sendBioedgeNotifEmails(lang: string) {
+    setBioedgeNotifSending(lang)
+    try {
+      await api.post('/api/bioedge-notifications/send', { language: lang })
+      setBioedgeNotifSaved(lang)
+      const cfg = await api.get<NotifConfig>('/api/bioedge-notifications/config')
+      setBioedgeNotifConfig(cfg)
+      setBioedgeNotifEmailDraft(cfg.emailMap)
+      setTimeout(() => setBioedgeNotifSaved(null), 2500)
+    } finally { setBioedgeNotifSending(null) }
   }
 
   if (!settings) return <p className="text-sm text-text-muted font-mono">Loading…</p>
@@ -342,13 +465,15 @@ export default function SettingsPage() {
     } finally { setMonthlySnapshotTriggering(false) }
   }
 
-  type Tab = 'pipeline' | 'roles' | 'notifications' | 'waves' | 'sops'
+  type Tab = 'pipeline' | 'roles' | 'notifications' | 'bioedge-roles' | 'bioedge-notifications' | 'waves' | 'sops'
   const allTabs: { id: Tab; label: string; adminOnly?: boolean }[] = [
-    { id: 'pipeline',      label: 'Pipeline'      },
-    { id: 'roles',         label: 'Language Roles', adminOnly: true },
-    { id: 'notifications', label: 'Notifications',  adminOnly: true },
-    { id: 'waves',         label: 'Waves Report',   adminOnly: true },
-    { id: 'sops',          label: 'SOPs'          },
+    { id: 'pipeline',              label: 'Pipeline'      },
+    { id: 'roles',                 label: 'Language Roles', adminOnly: true },
+    { id: 'notifications',         label: 'Notifications',  adminOnly: true },
+    { id: 'bioedge-roles',         label: 'BioEdge Roles',        adminOnly: true },
+    { id: 'bioedge-notifications', label: 'BioEdge Notifications', adminOnly: true },
+    { id: 'waves',                 label: 'Waves Report',   adminOnly: true },
+    { id: 'sops',                  label: 'SOPs'          },
   ]
   const visibleTabs = allTabs.filter(t => !t.adminOnly || isAdmin)
 
@@ -577,6 +702,230 @@ export default function SettingsPage() {
                           className="text-sm"
                         />
                         <Button size="sm" variant="secondary" onClick={() => addNotifEmail(lang)} disabled={!(notifEmailInput[lang] ?? '').trim()}>
+                          <Plus className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </Card>
+            )}
+          </div>
+        )}
+
+        {/* BioEdge Roles */}
+        {tab === 'bioedge-roles' && isAdmin && (
+          <div className="space-y-4">
+            <p className="text-xs text-text-muted">Fully separate logins for the BioEdge system — a bioedge_* login can only see/edit BioEdge data, never Waves data (and vice versa).</p>
+
+            <Card className="divide-y divide-border-subtle">
+              <div className="grid grid-cols-3 px-5 py-2.5 gap-4">
+                <p className="text-xs font-medium text-text-muted uppercase tracking-wider">Role</p>
+                <p className="text-xs font-medium text-text-muted uppercase tracking-wider"></p>
+                <p className="text-xs font-medium text-text-muted uppercase tracking-wider text-right">Users</p>
+              </div>
+              {([
+                { role: 'bioedge_management' as const, label: 'BioEdge Management' },
+                { role: 'bioedge_ads' as const,        label: 'BioEdge Ads' },
+                { role: 'bioedge_website' as const,     label: 'BioEdge Website' },
+              ]).map(({ role: staffRole, label }) => {
+                const staffUsers = bioedgeUsers.filter(u => u.role === staffRole)
+                return (
+                  <div key={staffRole}>
+                    <div className="grid grid-cols-3 px-5 py-3.5 gap-4 items-center">
+                      <p className="text-sm text-foreground font-medium">{label}</p>
+                      <div />
+                      <div className="flex items-center justify-end gap-2">
+                        <span className="text-sm font-mono text-text-muted">{staffUsers.length}</span>
+                        <button
+                          onClick={() => openCreateBioedgeStaffUser(staffRole)}
+                          className="p-1.5 rounded-md text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                          title={`Add ${label} user`}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                    {staffUsers.length > 0 && (
+                      <div className="px-5 pb-3 space-y-1">
+                        {staffUsers.map(u => (
+                          <div key={u.id} className="px-3 py-2 rounded-lg bg-surface text-sm flex items-center justify-between gap-2">
+                            <span className="text-text-secondary truncate">{u.email}</span>
+                            {bioedgeDeleteConfirm === u.id ? (
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="text-xs text-text-muted">Delete?</span>
+                                <button onClick={() => handleDeleteBioedgeUser(u.id)} className="text-xs text-danger hover:text-danger/80 font-medium">Yes</button>
+                                <button onClick={() => setBioedgeDeleteConfirm(null)} className="text-xs text-text-muted hover:text-foreground">No</button>
+                              </div>
+                            ) : (
+                              <button onClick={() => setBioedgeDeleteConfirm(u.id)} className="p-1 rounded text-text-muted hover:text-danger hover:bg-danger/10 transition-colors shrink-0">
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </Card>
+
+            <Card className="divide-y divide-border-subtle">
+              {bioedgeLanguages.length === 0 ? (
+                <p className="px-5 py-6 text-sm text-text-muted text-center">No languages found. Add products to the BioEdge proofreading module first.</p>
+              ) : (
+                <>
+                  <div className="grid grid-cols-3 px-5 py-2.5 gap-4">
+                    <p className="text-xs font-medium text-text-muted uppercase tracking-wider">Role</p>
+                    <p className="text-xs font-medium text-text-muted uppercase tracking-wider">Language</p>
+                    <p className="text-xs font-medium text-text-muted uppercase tracking-wider text-right">Users</p>
+                  </div>
+                  {bioedgeLanguages.map(lang => {
+                    const key = bioedgeRoleKey(lang)
+                    const langUsers = bioedgeUsers.filter(u => u.role === key)
+                    return (
+                      <div key={lang}>
+                        <div className="grid grid-cols-3 px-5 py-3.5 gap-4 items-center">
+                          <p className="text-sm text-foreground font-medium">{bioedgeRoleLabelForLang(lang)}</p>
+                          <Badge variant="accent">{lang}</Badge>
+                          <div className="flex items-center justify-end gap-2">
+                            <span className="text-sm font-mono text-text-muted">{langUsers.length}</span>
+                            <button
+                              onClick={() => openCreateBioedgeUser(lang)}
+                              className="p-1.5 rounded-md text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                              title={`Add ${bioedgeRoleLabelForLang(lang)} user`}
+                            >
+                              <Plus className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                        {langUsers.length > 0 && (
+                          <div className="px-5 pb-3 space-y-1">
+                            {langUsers.map(u => {
+                              const addableLangs = bioedgeLanguages.filter(l => l !== lang && !u.extra_languages.includes(l))
+                              return (
+                                <div key={u.id} className="px-3 py-2 rounded-lg bg-surface text-sm space-y-1.5">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-text-secondary truncate">{u.email}</span>
+                                    {bioedgeDeleteConfirm === u.id ? (
+                                      <div className="flex items-center gap-1.5 shrink-0">
+                                        <span className="text-xs text-text-muted">Delete?</span>
+                                        <button onClick={() => handleDeleteBioedgeUser(u.id)} className="text-xs text-danger hover:text-danger/80 font-medium">Yes</button>
+                                        <button onClick={() => setBioedgeDeleteConfirm(null)} className="text-xs text-text-muted hover:text-foreground">No</button>
+                                      </div>
+                                    ) : (
+                                      <button onClick={() => setBioedgeDeleteConfirm(u.id)} className="p-1 rounded text-text-muted hover:text-danger hover:bg-danger/10 transition-colors shrink-0">
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </button>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    {u.extra_languages.map(extra => (
+                                      <span key={extra} className="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-md bg-surface-hover text-xs text-text-secondary">
+                                        {extra}
+                                        <button onClick={() => removeBioedgeExtraLanguage(u, extra)} className="text-text-muted hover:text-danger transition-colors" title={`Remove ${extra} access`}>
+                                          <X className="h-3 w-3" />
+                                        </button>
+                                      </span>
+                                    ))}
+                                    {addableLangs.length > 0 && (
+                                      <select
+                                        value=""
+                                        onChange={e => { if (e.target.value) addBioedgeExtraLanguage(u, e.target.value) }}
+                                        className="text-xs bg-transparent border border-border-subtle rounded-md px-1.5 py-0.5 text-text-muted hover:text-foreground transition-colors"
+                                        title="Grant access to another language"
+                                      >
+                                        <option value="">+ Add language</option>
+                                        {addableLangs.map(l => <option key={l} value={l}>{l}</option>)}
+                                      </select>
+                                    )}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </>
+              )}
+            </Card>
+          </div>
+        )}
+
+        {/* BioEdge Notifications */}
+        {tab === 'bioedge-notifications' && isAdmin && (
+          <div className="space-y-4">
+            <p className="text-xs text-text-muted">Email alerts when BioEdge products enter the proofreading queue. Fully separate from the Waves notification config. Sent automatically after the delay.</p>
+
+            <Card>
+              <div className="px-5 py-3.5 flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm text-foreground">Send delay</p>
+                  <p className="text-xs text-text-muted font-mono">minutes after product is queued</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number" mono className="w-20 text-right"
+                    value={bioedgeNotifDelay} min={0}
+                    onChange={e => setBioedgeNotifDelay(Number(e.target.value))}
+                    onBlur={e => saveBioedgeNotifDelay(Number(e.target.value))}
+                  />
+                  <span className="text-sm text-text-muted shrink-0">min</span>
+                </div>
+              </div>
+            </Card>
+
+            {!bioedgeNotifConfig ? (
+              <p className="text-sm text-text-muted font-mono">Loading…</p>
+            ) : bioedgeNotifConfig.languages.length === 0 ? (
+              <Card><p className="px-5 py-6 text-sm text-text-muted text-center">No languages in the BioEdge proofreading queue yet.</p></Card>
+            ) : (
+              <Card className="divide-y divide-border-subtle">
+                {bioedgeNotifConfig.languages.map(lang => {
+                  const pending   = bioedgeNotifConfig.pendingCount[lang] ?? 0
+                  const emails    = bioedgeNotifEmails(lang)
+                  const isSending = bioedgeNotifSending === lang
+                  const isSent    = bioedgeNotifSaved === lang
+                  const canSend   = pending > 0 && emails.length > 0 && !isSending
+                  return (
+                    <div key={lang} className="px-5 py-4 space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5">
+                          <Badge variant="accent">{lang}</Badge>
+                          {pending > 0
+                            ? <span className="text-xs font-mono text-amber-500 font-medium">{pending} pending</span>
+                            : <span className="text-xs text-text-muted font-mono">0 pending</span>
+                          }
+                        </div>
+                        <Button size="sm" variant={canSend ? 'primary' : 'secondary'} disabled={!canSend} onClick={() => sendBioedgeNotifEmails(lang)}>
+                          {isSent
+                            ? <><CheckIcon className="h-3.5 w-3.5 mr-1.5" />Sent</>
+                            : <><Send className="h-3.5 w-3.5 mr-1.5" />{isSending ? 'Sending…' : 'Send now'}</>
+                          }
+                        </Button>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {emails.map(email => (
+                          <span key={email} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-surface-elevated border border-border text-text-secondary">
+                            {email}
+                            <button onClick={() => removeBioedgeNotifEmail(lang, email)} className="text-text-muted hover:text-danger transition-colors ml-0.5">
+                              <X className="h-3 w-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="email" placeholder="Add email address…"
+                          value={bioedgeNotifEmailInput[lang] ?? ''}
+                          onChange={e => setBioedgeNotifEmailInput(i => ({ ...i, [lang]: e.target.value }))}
+                          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addBioedgeNotifEmail(lang) } }}
+                          className="text-sm"
+                        />
+                        <Button size="sm" variant="secondary" onClick={() => addBioedgeNotifEmail(lang)} disabled={!(bioedgeNotifEmailInput[lang] ?? '').trim()}>
                           <Plus className="h-3.5 w-3.5" />
                         </Button>
                       </div>
@@ -910,6 +1259,43 @@ export default function SettingsPage() {
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="ghost" size="sm" onClick={() => setUserModalOpen(false)} disabled={userSaving}>Cancel</Button>
             <Button size="sm" onClick={handleCreateUser} disabled={userSaving}>{userSaving ? 'Creating…' : 'Create user'}</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Create BioEdge user modal */}
+      <Modal
+        open={bioedgeUserModalOpen}
+        onClose={() => setBioedgeUserModalOpen(false)}
+        title={`Create BioEdge ${bioedgeUserForm.role ? bioedgeUserForm.role.replace('bioedge_proofreader_', '').replace('bioedge_', '').toUpperCase() + (bioedgeUserForm.role.includes('proofreader') ? ' Proofreader' : '') : 'User'}`}
+      >
+        <div className="space-y-4">
+          <FormField label="Email">
+            <Input type="email" value={bioedgeUserForm.email} onChange={e => setBioedgeUserForm(f => ({ ...f, email: e.target.value }))} />
+          </FormField>
+          <FormField label="Password">
+            <div className="flex items-center gap-1.5">
+              <div className="relative flex-1 min-w-0">
+                <Input type="text" mono value={bioedgeUserForm.password} onChange={e => setBioedgeUserForm(f => ({ ...f, password: e.target.value }))} className="pr-10" />
+              </div>
+              <button type="button" onClick={regenerateBioedgePassword} title="Generate new password" className="shrink-0 p-2 rounded-md border border-border text-text-muted hover:text-foreground hover:bg-surface-hover transition-colors">
+                <RefreshCw className="h-4 w-4" />
+              </button>
+              <button
+                type="button" onClick={copyBioedgePassword} title="Copy password"
+                className={cn('shrink-0 p-2 rounded-md border transition-colors', bioedgePwCopied ? 'border-green-500/40 text-green-400 bg-green-500/10' : 'border-border text-text-muted hover:text-foreground hover:bg-surface-hover')}
+              >
+                {bioedgePwCopied ? <CheckIcon className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              </button>
+            </div>
+          </FormField>
+          <FormField label="Role">
+            <p className="text-sm font-mono text-text-secondary px-3 py-2 rounded-md bg-surface border border-border">{bioedgeUserForm.role}</p>
+          </FormField>
+          {bioedgeUserError && <p className="text-sm text-danger">{bioedgeUserError}</p>}
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="ghost" size="sm" onClick={() => setBioedgeUserModalOpen(false)} disabled={bioedgeUserSaving}>Cancel</Button>
+            <Button size="sm" onClick={handleCreateBioedgeUser} disabled={bioedgeUserSaving}>{bioedgeUserSaving ? 'Creating…' : 'Create user'}</Button>
           </div>
         </div>
       </Modal>

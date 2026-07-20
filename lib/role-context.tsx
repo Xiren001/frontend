@@ -3,28 +3,34 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { api } from './api'
 import type { UserRole } from './types'
 
+export type System = 'waves' | 'bioedge'
+
 interface RoleState {
   role: UserRole | null
   userLangs: string[] | null  // set for language-specific proofreader roles, e.g. ["ES"] or ["ES", "FR"]
+  system: System   // which proofreading system this login belongs to (bioedge_* role prefix); irrelevant for admin
   loading: boolean
 }
 
-const Ctx = createContext<RoleState>({ role: null, userLangs: null, loading: true })
+const Ctx = createContext<RoleState>({ role: null, userLangs: null, system: 'waves', loading: true })
 
-function parseRawRole(raw: string): { role: UserRole; userLangs: string[] | null } {
-  const m = raw.match(/^proofreader_([a-z]+)$/i)
-  if (m) return { role: 'proofreader', userLangs: [m[1].toUpperCase()] }
-  return { role: raw as UserRole, userLangs: null }
+function parseRawRole(raw: string): { role: UserRole; userLangs: string[] | null; system: System } {
+  const isBioedge = raw.startsWith('bioedge_')
+  const stripped = isBioedge ? raw.slice('bioedge_'.length) : raw
+  const system: System = isBioedge ? 'bioedge' : 'waves'
+  const m = stripped.match(/^proofreader_([a-z]+)$/i)
+  if (m) return { role: 'proofreader', userLangs: [m[1].toUpperCase()], system }
+  return { role: stripped as UserRole, userLangs: null, system }
 }
 
 export function RoleProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<RoleState>({ role: null, userLangs: null, loading: true })
+  const [state, setState] = useState<RoleState>({ role: null, userLangs: null, system: 'waves', loading: true })
 
   useEffect(() => {
-    api.get<{ userRole: string; userLangs?: string[] | null }>('/api/me')
+    api.get<{ userRole: string; userLangs?: string[] | null; system?: System }>('/api/me')
       .then(d => {
-        const { role, userLangs } = parseRawRole(d.userRole)
-        setState({ role, userLangs: d.userLangs ?? userLangs, loading: false })
+        const { role, userLangs, system } = parseRawRole(d.userRole)
+        setState({ role, userLangs: d.userLangs ?? userLangs, system: d.system ?? system, loading: false })
       })
       .catch(async () => {
         // /api/me failed — fall back to querying Supabase directly on the client
@@ -32,13 +38,13 @@ export function RoleProvider({ children }: { children: ReactNode }) {
           const { createClient } = await import('./supabase')
           const supabase = createClient()
           const { data: { session } } = await supabase.auth.getSession()
-          if (!session) { setState({ role: null, userLangs: null, loading: false }); return }
+          if (!session) { setState({ role: null, userLangs: null, system: 'waves', loading: false }); return }
           const { data } = await supabase.from('profiles').select('role').eq('id', session.user.id).single()
           const raw = (data?.role ?? 'website') as string
-          const { role, userLangs } = parseRawRole(raw)
-          setState({ role, userLangs, loading: false })
+          const { role, userLangs, system } = parseRawRole(raw)
+          setState({ role, userLangs, system, loading: false })
         } catch {
-          setState({ role: 'website', userLangs: null, loading: false })
+          setState({ role: 'website', userLangs: null, system: 'waves', loading: false })
         }
       })
   }, [])
@@ -48,11 +54,18 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
 export function useRole() { return useContext(Ctx) }
 
-export function canAccessPath(role: UserRole | null, path: string): boolean {
+const BIOEDGE_PATHS = ['/bioedge', '/bioedge-proofread-queue', '/bioedge-copy-review']
+const WAVES_ONLY_PATHS = ['/waves-report', '/waves', '/proofread-queue', '/copy-review', '/proofreader-payments']
+
+export function canAccessPath(role: UserRole | null, path: string, system: System = 'waves'): boolean {
   if (!role) return false
   if (role === 'admin') return true
 
   const base = '/' + path.split('/').filter(Boolean)[0]
+
+  // A bioedge_* login can never reach Waves-only pages, and vice versa — regardless of role.
+  if (system === 'bioedge' && WAVES_ONLY_PATHS.includes(base)) return false
+  if (system !== 'bioedge' && BIOEDGE_PATHS.includes(base)) return false
 
   // Proofreader (incl. lang proofreaders) and Ads: only proofread-queue, copy-review, and their BioEdge equivalents
   if (role === 'proofreader' || role === 'ads') {

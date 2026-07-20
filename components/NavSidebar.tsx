@@ -20,7 +20,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase'
-import { useRole } from '@/lib/role-context'
+import { useRole, canAccessPath } from '@/lib/role-context'
 import { useState, useEffect } from 'react'
 
 const NAV: { href: string; label: string; icon: React.ElementType; deprecated?: boolean; section?: string }[] = [
@@ -39,7 +39,7 @@ const NAV: { href: string; label: string; icon: React.ElementType; deprecated?: 
 export function NavSidebar() {
   const pathname = usePathname()
   const router = useRouter()
-  const { role } = useRole()
+  const { role, system } = useRole()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -62,22 +62,7 @@ export function NavSidebar() {
     })
   }
 
-  const visibleNav = NAV.filter(item => {
-    if (role === 'admin') return true
-    if (role === 'proofreader') {
-      return ['/proofread-queue', '/copy-review', '/bioedge-proofread-queue', '/bioedge-copy-review'].includes(item.href)
-    }
-    if (role === 'ads') {
-      return ['/proofread-queue', '/copy-review', '/bioedge-proofread-queue', '/bioedge-copy-review'].includes(item.href)
-    }
-    if (role === 'management') {
-      return item.href !== '/settings'
-    }
-    if (role === 'website') {
-      return item.href !== '/settings' && item.href !== '/proofreader-payments'
-    }
-    return false
-  })
+  const visibleNav = NAV.filter(item => canAccessPath(role, item.href, system))
 
   async function handleLogout() {
     const supabase = createClient()
