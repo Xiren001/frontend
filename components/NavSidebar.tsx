@@ -21,7 +21,40 @@ import {
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase'
 import { useRole, canAccessPath } from '@/lib/role-context'
-import { useState, useEffect } from 'react'
+import { api } from '@/lib/api'
+import { useRealtimeRefresh } from '@/lib/use-realtime-refresh'
+import { useState, useEffect, useCallback } from 'react'
+
+interface BadgeProduct {
+  done: boolean
+  ready_for_revision: boolean
+  pdp_url: string | null
+  drive_folder: string | null
+  language: string | null
+}
+
+// proofreader/admin/management: products still needing proofread work (no corrections logged yet, or has
+// corrections logged but not yet marked ready). ads/website: products ready for them to action.
+function countPendingProofs(products: BadgeProduct[], role: string | null): number {
+  if (role === 'ads' || role === 'website') {
+    return products.filter(p => !p.done && p.ready_for_revision).length
+  }
+  return products.filter(p => !p.done && p.pdp_url && p.drive_folder && p.language && !p.ready_for_revision).length
+}
+
+// Icon-corner dot — shown only when the sidebar is collapsed on desktop (where the label,
+// and its inline count pill, are hidden). On mobile the label is always visible, so this stays hidden there.
+function NavBadge({ count, collapsed }: { count: number; collapsed: boolean }) {
+  if (count <= 0) return null
+  return (
+    <span className={cn(
+      'absolute -top-1 -right-1 items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-danger text-white text-[10px] font-semibold leading-none',
+      collapsed ? 'hidden lg:flex' : 'hidden',
+    )}>
+      {count > 99 ? '99+' : count}
+    </span>
+  )
+}
 
 const NAV: { href: string; label: string; icon: React.ElementType; deprecated?: boolean; section?: string }[] = [
   { href: '/waves-report',          label: 'Wave Dashboard',      icon: TrendingUp },
@@ -42,6 +75,8 @@ export function NavSidebar() {
   const { role, system, bioedgeShared } = useRole()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [wavesProducts, setWavesProducts] = useState<BadgeProduct[]>([])
+  const [bioedgeProducts, setBioedgeProducts] = useState<BadgeProduct[]>([])
 
   useEffect(() => {
     const saved = localStorage.getItem('sidebar-collapsed')
@@ -54,6 +89,23 @@ export function NavSidebar() {
 
   // Close mobile drawer on route change
   useEffect(() => { setMobileOpen(false) }, [pathname])
+
+  const loadWavesProducts = useCallback(() => {
+    if (!role) return
+    api.get<BadgeProduct[]>('/api/proof-corrections/products').then(setWavesProducts).catch(() => setWavesProducts([]))
+  }, [role])
+  const loadBioedgeProducts = useCallback(() => {
+    if (!role) return
+    api.get<BadgeProduct[]>('/api/bioedge-proof-corrections/products').then(setBioedgeProducts).catch(() => setBioedgeProducts([]))
+  }, [role])
+
+  useEffect(() => { loadWavesProducts() }, [loadWavesProducts])
+  useEffect(() => { loadBioedgeProducts() }, [loadBioedgeProducts])
+  useRealtimeRefresh(['proof_products', 'proof_corrections'], loadWavesProducts)
+  useRealtimeRefresh(['bioedge_proof_products', 'bioedge_proof_corrections'], loadBioedgeProducts)
+
+  const wavesBadgeCount = countPendingProofs(wavesProducts, role)
+  const bioedgeBadgeCount = countPendingProofs(bioedgeProducts, role)
 
   function toggleCollapse() {
     setCollapsed(prev => {
@@ -161,6 +213,9 @@ export function NavSidebar() {
             const prevItem = visibleNav[i - 1]
             const showDeprecatedDivider = item.deprecated && !prevItem?.deprecated
             const showSectionDivider = item.section && item.section !== prevItem?.section
+            const badgeCount =
+              item.href === '/copy-review' ? wavesBadgeCount :
+              item.href === '/bioedge-copy-review' ? bioedgeBadgeCount : 0
             return (
               <React.Fragment key={item.href}>
                 {showSectionDivider && (
@@ -190,9 +245,17 @@ export function NavSidebar() {
                         : 'text-text-secondary hover:bg-surface-hover hover:text-foreground',
                   )}
                 >
-                  <Icon className={cn('h-4 w-4 shrink-0', item.deprecated ? 'text-text-muted/40' : active ? 'text-accent' : 'text-text-muted')} />
+                  <span className="relative shrink-0">
+                    <Icon className={cn('h-4 w-4', item.deprecated ? 'text-text-muted/40' : active ? 'text-accent' : 'text-text-muted')} />
+                    <NavBadge count={badgeCount} collapsed={collapsed} />
+                  </span>
                   <span className={cn('flex items-center gap-1.5 min-w-0', collapsed && 'lg:hidden')}>
                     <span className={cn(item.deprecated && 'line-through')}>{item.label}</span>
+                    {!item.deprecated && badgeCount > 0 && (
+                      <span className="text-[10px] font-semibold text-danger bg-danger-muted border border-red-200 rounded-full px-1.5 py-0 leading-4 shrink-0">
+                        {badgeCount > 99 ? '99+' : badgeCount}
+                      </span>
+                    )}
                     {item.deprecated && !collapsed && (
                       <span className="text-[9px] font-medium uppercase tracking-wider text-text-muted/50 shrink-0">deprecated</span>
                     )}
