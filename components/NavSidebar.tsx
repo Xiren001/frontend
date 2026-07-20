@@ -39,7 +39,7 @@ const NAV: { href: string; label: string; icon: React.ElementType; deprecated?: 
 export function NavSidebar() {
   const pathname = usePathname()
   const router = useRouter()
-  const { role, system } = useRole()
+  const { role, system, bioedgeShared } = useRole()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -62,7 +62,7 @@ export function NavSidebar() {
     })
   }
 
-  const visibleNav = NAV.filter(item => canAccessPath(role, item.href, system))
+  const visibleNav = NAV.filter(item => canAccessPath(role, item.href, system, bioedgeShared))
 
   async function handleLogout() {
     const supabase = createClient()

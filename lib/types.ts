@@ -154,6 +154,7 @@ export interface Settings {
   en_completion_target_days: number
   es_de_translation_target_days: number
   total_translation_target_days: number
+  share_bioedge_with_waves: boolean
 }
 
 export interface KPI {

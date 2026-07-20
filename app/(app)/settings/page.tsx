@@ -187,6 +187,11 @@ export default function SettingsPage() {
     setEditing(false)
   }
 
+  async function toggleBioedgeSharing(checked: boolean) {
+    const updated = await api.put<Settings>('/api/settings', { share_bioedge_with_waves: checked })
+    applySettings(updated)
+  }
+
   async function handleSave() {
     setSaving(true)
     try {
@@ -718,6 +723,30 @@ export default function SettingsPage() {
           <div className="space-y-4">
             <p className="text-xs text-text-muted">Fully separate logins for the BioEdge system — a bioedge_* login can only see/edit BioEdge data, never Waves data (and vice versa).</p>
 
+            <Card>
+              <div className="px-5 py-3.5 flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm text-foreground">Share BioEdge with Waves</p>
+                  <p className="text-xs text-text-muted">Any Waves login can also see/edit BioEdge data (and vice versa), and BioEdge notifications reuse the Waves email list/delay instead of their own.</p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={settings.share_bioedge_with_waves}
+                  onClick={() => toggleBioedgeSharing(!settings.share_bioedge_with_waves)}
+                  className={cn(
+                    'shrink-0 relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
+                    settings.share_bioedge_with_waves ? 'bg-accent' : 'bg-surface-hover border border-border',
+                  )}
+                >
+                  <span className={cn(
+                    'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
+                    settings.share_bioedge_with_waves ? 'translate-x-6' : 'translate-x-1',
+                  )} />
+                </button>
+              </div>
+            </Card>
+
             <Card className="divide-y divide-border-subtle">
               <div className="grid grid-cols-3 px-5 py-2.5 gap-4">
                 <p className="text-xs font-medium text-text-muted uppercase tracking-wider">Role</p>
@@ -858,7 +887,12 @@ export default function SettingsPage() {
         {/* BioEdge Notifications */}
         {tab === 'bioedge-notifications' && isAdmin && (
           <div className="space-y-4">
-            <p className="text-xs text-text-muted">Email alerts when BioEdge products enter the proofreading queue. Fully separate from the Waves notification config. Sent automatically after the delay.</p>
+            <p className="text-xs text-text-muted">
+              Email alerts when BioEdge products enter the proofreading queue. Sent automatically after the delay.
+              {settings.share_bioedge_with_waves
+                ? ' "Share BioEdge with Waves" is on (see BioEdge Roles) — new BioEdge products actually notify via the Waves email list/delay instead of the config below.'
+                : ' Fully separate from the Waves notification config.'}
+            </p>
 
             <Card>
               <div className="px-5 py-3.5 flex items-center justify-between gap-4">
