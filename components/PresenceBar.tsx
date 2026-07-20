@@ -8,12 +8,14 @@ import { Modal, FormField } from './ui/modal'
 import { Input } from './ui/input'
 import { Button } from './ui/button'
 
-// Google-Docs-style "who else is on this page" — only for ads/website, since those are the
-// roles most likely to share one login across several people (proofreader/admin/management
-// logins are already per-person or per-language).
+// Google-Docs-style "who else is on this page" — ads/website join and set a name, since those
+// are the roles most likely to share one login across several people (proofreader/admin/
+// management logins are already per-person or per-language). Admin/management get a read-only
+// view of who's present, without needing a name of their own.
 export function PresenceBar() {
   const { role, loading } = useRole()
-  const eligible = !loading && (role === 'ads' || role === 'website')
+  const canParticipate = !loading && (role === 'ads' || role === 'website')
+  const canView = canParticipate || (!loading && (role === 'admin' || role === 'management'))
 
   const [name, setName] = useState<string | null>(null)
   const [checked, setChecked] = useState(false)
@@ -21,17 +23,17 @@ export function PresenceBar() {
   const [draft, setDraft] = useState('')
 
   useEffect(() => {
-    if (!eligible) return
+    if (!canParticipate) return
     setName(getDisplayName())
     setChecked(true)
-  }, [eligible])
+  }, [canParticipate])
 
   // No saved name yet — require one before letting them continue using a shared login anonymously
   useEffect(() => {
-    if (eligible && checked && !name) setModalOpen(true)
-  }, [eligible, checked, name])
+    if (canParticipate && checked && !name) setModalOpen(true)
+  }, [canParticipate, checked, name])
 
-  const others = usePagePresence(eligible ? name : null)
+  const others = usePagePresence(canView, canParticipate ? name : null)
 
   function openModal() {
     setDraft(name ?? '')
@@ -46,41 +48,47 @@ export function PresenceBar() {
     setModalOpen(false)
   }
 
-  if (!eligible) return null
+  if (!canView) return null
 
-  const required = !name
+  const required = canParticipate && !name
 
   return (
     <>
-      {name && (
-        <button onClick={openModal} title="You are visible to others on this page as this name" className="cursor-pointer shrink-0">
-          <PresenceAvatars users={others} />
-        </button>
+      {canParticipate ? (
+        name && (
+          <button onClick={openModal} title="You are visible to others on this page as this name" className="cursor-pointer shrink-0">
+            <PresenceAvatars users={others} />
+          </button>
+        )
+      ) : (
+        <PresenceAvatars users={others} />
       )}
 
-      <Modal
-        open={modalOpen}
-        onClose={() => { if (!required) setModalOpen(false) }}
-        dismissible={!required}
-        title="Your name"
-        description="This login is shared by your team. Set a name so others sharing it can see who else is on the same page right now — saved on this device only."
-        footer={
-          <>
-            {!required && <Button variant="ghost" size="sm" onClick={() => setModalOpen(false)}>Cancel</Button>}
-            <Button size="sm" onClick={saveName} disabled={!draft.trim()}>{required ? 'Continue' : 'Save'}</Button>
-          </>
-        }
-      >
-        <FormField label="Your name">
-          <Input
-            value={draft}
-            onChange={e => setDraft(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') saveName() }}
-            placeholder="e.g. Jane Doe"
-            autoFocus
-          />
-        </FormField>
-      </Modal>
+      {canParticipate && (
+        <Modal
+          open={modalOpen}
+          onClose={() => { if (!required) setModalOpen(false) }}
+          dismissible={!required}
+          title="Your name"
+          description="This login is shared by your team. Set a name so others sharing it can see who else is on the same page right now — saved on this device only."
+          footer={
+            <>
+              {!required && <Button variant="ghost" size="sm" onClick={() => setModalOpen(false)}>Cancel</Button>}
+              <Button size="sm" onClick={saveName} disabled={!draft.trim()}>{required ? 'Continue' : 'Save'}</Button>
+            </>
+          }
+        >
+          <FormField label="Your name">
+            <Input
+              value={draft}
+              onChange={e => setDraft(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') saveName() }}
+              placeholder="e.g. Jane Doe"
+              autoFocus
+            />
+          </FormField>
+        </Modal>
+      )}
     </>
   )
 }
