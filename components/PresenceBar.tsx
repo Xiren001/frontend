@@ -7,7 +7,6 @@ import { PresenceAvatars } from './PresenceAvatars'
 import { Modal, FormField } from './ui/modal'
 import { Input } from './ui/input'
 import { Button } from './ui/button'
-import { Users } from 'lucide-react'
 
 // Google-Docs-style "who else is on this page" — only for ads/website, since those are the
 // roles most likely to share one login across several people (proofreader/admin/management
@@ -17,13 +16,20 @@ export function PresenceBar() {
   const eligible = !loading && (role === 'ads' || role === 'website')
 
   const [name, setName] = useState<string | null>(null)
+  const [checked, setChecked] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [draft, setDraft] = useState('')
 
   useEffect(() => {
     if (!eligible) return
     setName(getDisplayName())
+    setChecked(true)
   }, [eligible])
+
+  // No saved name yet — require one before letting them continue using a shared login anonymously
+  useEffect(() => {
+    if (eligible && checked && !name) setModalOpen(true)
+  }, [eligible, checked, name])
 
   const others = usePagePresence(eligible ? name : null)
 
@@ -42,33 +48,28 @@ export function PresenceBar() {
 
   if (!eligible) return null
 
+  const required = !name
+
   return (
     <>
-      <div className="fixed right-4 top-16 lg:top-3 z-30">
-        {name ? (
+      {name && (
+        <div className="fixed right-4 top-16 lg:top-3 z-30">
           <button onClick={openModal} title="You are visible to others on this page as this name" className="cursor-pointer">
             <PresenceAvatars users={others} />
           </button>
-        ) : (
-          <button
-            onClick={openModal}
-            className="flex items-center gap-1.5 text-xs font-medium text-text-muted hover:text-foreground border border-dashed border-border-subtle rounded-full px-3 py-1.5 bg-surface-elevated hover:bg-surface-hover transition-colors"
-          >
-            <Users className="h-3.5 w-3.5" />
-            Set your name
-          </button>
-        )}
-      </div>
+        </div>
+      )}
 
       <Modal
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={() => { if (!required) setModalOpen(false) }}
+        dismissible={!required}
         title="Your name"
         description="This login is shared by your team. Set a name so others sharing it can see who else is on the same page right now — saved on this device only."
         footer={
           <>
-            <Button variant="ghost" size="sm" onClick={() => setModalOpen(false)}>Cancel</Button>
-            <Button size="sm" onClick={saveName} disabled={!draft.trim()}>Save</Button>
+            {!required && <Button variant="ghost" size="sm" onClick={() => setModalOpen(false)}>Cancel</Button>}
+            <Button size="sm" onClick={saveName} disabled={!draft.trim()}>{required ? 'Continue' : 'Save'}</Button>
           </>
         }
       >

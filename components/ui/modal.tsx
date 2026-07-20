@@ -12,6 +12,7 @@ interface ModalProps {
   children: ReactNode
   footer?: ReactNode
   size?: 'sm' | 'md' | 'lg' | 'xl'
+  dismissible?: boolean  // set false to require an explicit in-form action (hides X, disables Escape/backdrop-click)
 }
 
 const sizes = {
@@ -21,9 +22,9 @@ const sizes = {
   xl: 'max-w-2xl',
 }
 
-export function Modal({ open, onClose, title, description, children, footer, size = 'md' }: ModalProps) {
+export function Modal({ open, onClose, title, description, children, footer, size = 'md', dismissible = true }: ModalProps) {
   useEffect(() => {
-    if (!open) return
+    if (!open || !dismissible) return
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose()
     }
@@ -33,13 +34,13 @@ export function Modal({ open, onClose, title, description, children, footer, siz
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = ''
     }
-  }, [open, onClose])
+  }, [open, dismissible, onClose])
 
   if (!open) return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
-      <div className="absolute inset-0 bg-gray-900/20 backdrop-blur-[2px]" onClick={onClose} />
+      <div className="absolute inset-0 bg-gray-900/20 backdrop-blur-[2px]" onClick={dismissible ? onClose : undefined} />
       <div
         role="dialog"
         aria-modal="true"
@@ -60,12 +61,14 @@ export function Modal({ open, onClose, title, description, children, footer, siz
             <h2 className="text-base font-semibold text-foreground">{title}</h2>
             {description && <p className="mt-1 text-sm text-text-muted leading-relaxed">{description}</p>}
           </div>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-text-muted hover:bg-surface-hover hover:text-foreground transition-colors"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          {dismissible && (
+            <button
+              onClick={onClose}
+              className="rounded-lg p-1.5 text-text-muted hover:bg-surface-hover hover:text-foreground transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
 
         <div className="px-6 py-5 overflow-y-auto flex-1">{children}</div>
