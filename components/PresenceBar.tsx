@@ -53,11 +53,9 @@ export function PresenceBar() {
   return (
     <>
       {name && (
-        <div className="fixed right-4 top-16 lg:top-3 z-30">
-          <button onClick={openModal} title="You are visible to others on this page as this name" className="cursor-pointer">
-            <PresenceAvatars users={others} />
-          </button>
-        </div>
+        <button onClick={openModal} title="You are visible to others on this page as this name" className="cursor-pointer shrink-0">
+          <PresenceAvatars users={others} />
+        </button>
       )}
 
       <Modal

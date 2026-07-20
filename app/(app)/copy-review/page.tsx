@@ -13,6 +13,7 @@ import { cn, currentMonth, formatDate } from '@/lib/utils'
 import { Pencil, Trash2, Plus, ExternalLink, Languages, ArrowLeft, ChevronRight, HelpCircle, Search, X, Check, RotateCcw, Copy } from 'lucide-react'
 import { Tabs } from '@/components/ui/tabs'
 import { translateSeverity, translateIssueType, translateLocation, UI } from '@/lib/proof-translations'
+import { PresenceBar } from '@/components/PresenceBar'
 
 interface ProofProduct {
   id: string
@@ -400,6 +401,7 @@ export default function CopyReviewPage() {
           description="Proofreading corrections per product — text changes to product pages and ads."
           actions={
             <div className="flex items-center gap-2">
+              <PresenceBar />
               <button
                 onClick={() => { setHelpStep(0); setHowToUseOpen(true) }}
                 className="flex items-center gap-1.5 text-xs font-medium text-text-muted hover:text-foreground hover:bg-surface-hover px-2.5 py-1.5 rounded-md border border-border-subtle transition-colors"
