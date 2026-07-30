@@ -913,8 +913,8 @@ export function WavesPage() {
   // Fetch known product names from tracker + proofreading for cross-reference dots
   useEffect(() => {
     Promise.allSettled([
-      api.get<{ product_name: string }[]>('/api/builds'),
-      api.get<{ product_name: string }[]>('/api/proof-corrections/products'),
+      api.get<{ product_name: string }[]>('/api/builds/product-names'),
+      api.get<{ product_name: string }[]>('/api/proof-corrections/product-names'),
     ]).then(([buildsResult, proofsResult]) => {
       const names = new Set<string>()
       if (buildsResult.status === 'fulfilled') {
@@ -925,7 +925,7 @@ export function WavesPage() {
       if (proofsResult.status === 'fulfilled') {
         for (const p of proofsResult.value) if (p.product_name) names.add(p.product_name.toLowerCase())
       } else {
-        console.error('[cross-ref] proof-corrections/products fetch failed:', proofsResult.reason)
+        console.error('[cross-ref] proof-corrections/product-names fetch failed:', proofsResult.reason)
       }
       setKnownNames(names)
     })
