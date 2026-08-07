@@ -17,6 +17,7 @@ import {
   Wallet,
   Waves,
   Leaf,
+  BarChart3,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase'
@@ -59,6 +60,7 @@ function NavBadge({ count, collapsed }: { count: number; collapsed: boolean }) {
 const NAV: { href: string; label: string; icon: React.ElementType; deprecated?: boolean; section?: string }[] = [
   { href: '/waves-report',          label: 'Wave Dashboard',      icon: TrendingUp },
   { href: '/waves',                 label: 'Waves',               icon: Waves },
+  { href: '/team-performance',      label: 'Team Performance',    icon: BarChart3 },
   { href: '/proofread-queue',       label: 'Proofread Queue',     icon: ListChecks },
   { href: '/copy-review',           label: 'Proofreading',        icon: FileCheck },
   { href: '/proofreader-payments',  label: 'Proofreader Payments',icon: Wallet },

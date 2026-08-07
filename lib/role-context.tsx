@@ -76,14 +76,14 @@ export function canAccessPath(role: UserRole | null, path: string, system: Syste
     return ['/proofread-queue', '/copy-review', '/bioedge-proofread-queue', '/bioedge-copy-review'].includes(base)
   }
 
-  // Management: most pages except settings and non-relevant tools
+  // Management: most pages except settings, non-relevant tools, and admin-only Team Performance
   if (role === 'management') {
-    const blocked = ['/settings', '/winning-products', '/product-ranking']
+    const blocked = ['/settings', '/winning-products', '/product-ranking', '/team-performance']
     return !blocked.includes(base)
   }
-  // Website: all pages except settings and proofreader-payments
+  // Website: all pages except settings, proofreader-payments, and admin-only Team Performance
   if (role === 'website') {
-    return base !== '/settings' && base !== '/proofreader-payments'
+    return base !== '/settings' && base !== '/proofreader-payments' && base !== '/team-performance'
   }
 
   return false
