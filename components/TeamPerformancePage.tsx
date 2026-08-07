@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
+import { RefreshCw } from 'lucide-react'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Table, TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/components/ui/table'
@@ -62,6 +63,8 @@ function Sheet({ data, emptyLabel }: { data: TeamPerformanceData | null; emptyLa
 export function TeamPerformancePage() {
   const [track, setTrack] = useState<Track>('ads')
   const [data, setData] = useState<TeamPerformanceData | null>(null)
+  const [scanning, setScanning] = useState(false)
+  const [scanMsg, setScanMsg] = useState<string | null>(null)
 
   const load = useCallback((t: Track) => {
     setData(null)
@@ -72,12 +75,41 @@ export function TeamPerformancePage() {
 
   useEffect(() => { load(track) }, [track, load])
 
+  async function scanExistingData() {
+    setScanning(true)
+    setScanMsg(null)
+    try {
+      const result = await api.post<{ alreadyRan: boolean; ads?: number; webDev?: number }>('/api/monday/team-performance/backfill', {})
+      setScanMsg(result.alreadyRan
+        ? 'Already scanned once before — this only runs the first time.'
+        : `Seeded ${result.ads ?? 0} ads and ${result.webDev ?? 0} web dev events into this week.`)
+      load(track)
+    } catch (err) {
+      setScanMsg(err instanceof Error ? err.message : 'Scan failed')
+    } finally {
+      setScanning(false)
+    }
+  }
+
   return (
     <div>
       <PageHeader
         title="Team Performance"
         description="Weekly output per person — ads editors by subitems produced under their assigned items, web dev by subitems built. Counts start from when this page went live."
+        actions={
+          <button
+            onClick={scanExistingData}
+            disabled={scanning}
+            className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-foreground border border-border-subtle rounded-md px-3 py-1.5 hover:bg-surface-hover transition-all disabled:opacity-50"
+            title="One-time: seed this week's counts from Monday's current state"
+          >
+            <RefreshCw size={11} className={cn(scanning && 'animate-spin')} />
+            {scanning ? 'Scanning…' : 'Scan Existing Data'}
+          </button>
+        }
       />
+
+      {scanMsg && <p className="text-xs text-text-muted mb-4">{scanMsg}</p>}
 
       <Tabs
         tabs={[
