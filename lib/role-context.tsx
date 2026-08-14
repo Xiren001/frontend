@@ -55,7 +55,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
 export function useRole() { return useContext(Ctx) }
 
-const BIOEDGE_PATHS = ['/bioedge', '/bioedge-proofread-queue', '/bioedge-copy-review']
+const BIOEDGE_PATHS = ['/bioedge', '/bioedge-proofread-queue', '/bioedge-copy-review', '/bioedge-payments']
 const WAVES_ONLY_PATHS = ['/waves-report', '/waves', '/proofread-queue', '/copy-review', '/proofreader-payments']
 
 export function canAccessPath(role: UserRole | null, path: string, system: System = 'waves', bioedgeShared: boolean = false): boolean {
@@ -81,9 +81,9 @@ export function canAccessPath(role: UserRole | null, path: string, system: Syste
     const blocked = ['/settings', '/winning-products', '/product-ranking', '/team-performance']
     return !blocked.includes(base)
   }
-  // Website: all pages except settings, proofreader-payments, and admin-only Team Performance
+  // Website: all pages except settings, payment pages, and admin-only Team Performance
   if (role === 'website') {
-    return base !== '/settings' && base !== '/proofreader-payments' && base !== '/team-performance'
+    return base !== '/settings' && base !== '/proofreader-payments' && base !== '/bioedge-payments' && base !== '/team-performance'
   }
 
   return false

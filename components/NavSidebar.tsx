@@ -67,6 +67,7 @@ const NAV: { href: string; label: string; icon: React.ElementType; deprecated?: 
   { href: '/bioedge',                 label: 'BioEdge',             icon: Leaf, section: 'BioEdge' },
   { href: '/bioedge-proofread-queue', label: 'BioEdge Queue',       icon: Leaf, section: 'BioEdge' },
   { href: '/bioedge-copy-review',     label: 'BioEdge Proofreading',icon: Leaf, section: 'BioEdge' },
+  { href: '/bioedge-payments',        label: 'BioEdge Payments',    icon: Wallet, section: 'BioEdge' },
   { href: '/settings',              label: 'Settings',            icon: Settings },
   { href: '/jewelry-tracker',       label: 'Jewelry Tracker',     icon: Gem, deprecated: true },
 ]
