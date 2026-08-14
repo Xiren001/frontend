@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef, type CSSProperties } from 'react'
 import {
   ChevronDown, ChevronRight, ChevronUp, ExternalLink,
-  RefreshCw, Search, X,
+  RefreshCw, Search, X, Download,
 } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useRole } from '@/lib/role-context'
@@ -56,6 +56,62 @@ function lpDays(a: string | null, b: string | null): number | null {
 function fmtTs(ts: string | null): string {
   if (!ts) return '—'
   return new Date(ts).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
+}
+
+// ── CSV export ────────────────────────────────────────────────────────────────
+
+const CSV_COLUMNS = [
+  'Wave', 'Item', 'Group', 'Creatives Status', 'Landing Page Status', 'Found By', 'Item Drive Link',
+  'Item Building Started', 'Item Ready', 'Item Proofread Started', 'Item Ready To Launch', 'Item Launched', 'Item Created',
+  'Subitem', 'Product Name', 'Ad Status', 'Website Status', 'Concluded', 'Listed For Proofread',
+  'Shopify PDP Link', 'Page Link', 'Subitem Drive Link', 'Monday URL',
+  'Meta', 'TikTok', 'YouTube', 'Pinterest', 'Google Shopping', 'Google Search',
+  'Sub Building Started', 'Sub Ready', 'Sub Proofread Started', 'Sub Ready To Launch', 'Sub Launched', 'Sub Created',
+] as const
+
+function csvCell(value: unknown): string {
+  if (value === null || value === undefined) return ''
+  const s = String(value)
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+}
+
+function exportWavesCSV(waves: MondayWave[]) {
+  const rows: string[][] = []
+
+  for (const wave of waves) {
+    for (const item of wave.monday_items) {
+      const itemCols = [
+        wave.name, item.name, item.group_name ?? '', item.creatives_status ?? '', item.landing_page_status ?? '',
+        item.found_by ?? '', item.drive_link ?? '',
+        item.lp_building_at ?? '', item.lp_ready_at ?? '', item.lp_proofread_at ?? '', item.lp_ready_to_launch_at ?? '',
+        item.lp_launched_at ?? '', item.created_at ?? '',
+      ]
+      if (item.monday_subitems.length === 0) {
+        rows.push([...itemCols, ...Array(CSV_COLUMNS.length - itemCols.length).fill('')])
+        continue
+      }
+      for (const sub of item.monday_subitems) {
+        rows.push([
+          ...itemCols,
+          sub.name, sub.product_name ?? '', sub.ad_status ?? '', sub.website_status ?? '',
+          String(sub.concluded), String(sub.listed_for_proofread),
+          sub.shopify_pdp_link ?? '', sub.page_link ?? '', sub.drive_link ?? '', sub.monday_url ?? '',
+          String(sub.meta), String(sub.tiktok), String(sub.youtube), String(sub.pinterest), String(sub.google_shopping), String(sub.google_search),
+          sub.lp_building_at ?? '', sub.lp_ready_at ?? '', sub.lp_proofread_at ?? '', sub.lp_ready_to_launch_at ?? '',
+          sub.lp_launched_at ?? '', sub.created_at ?? '',
+        ])
+      }
+    }
+  }
+
+  const csv = [CSV_COLUMNS, ...rows].map(r => r.map(csvCell).join(',')).join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href = url
+  a.download = `waves-export-${new Date().toISOString().split('T')[0]}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 function EditableDate({
@@ -1066,17 +1122,24 @@ export function WavesPage() {
 
       <div className="space-y-4">
 
-        {/* ── Mobile: wave select ── */}
-        <div className="md:hidden">
+        {/* ── Mobile: wave select + export ── */}
+        <div className="md:hidden flex items-center gap-2">
           <select
             value={activeWave ?? ''}
             onChange={e => setActiveWave(e.target.value)}
-            className={cn(SELECT_CLS, 'w-full')}
+            className={cn(SELECT_CLS, 'flex-1')}
           >
             {allWaves.map(w => (
               <option key={w.id} value={w.id}>{w.name}</option>
             ))}
           </select>
+          <button
+            onClick={() => exportWavesCSV(waves)}
+            className="flex items-center justify-center shrink-0 text-text-secondary hover:text-foreground border border-border-subtle rounded-md w-10 h-10 hover:bg-surface-hover transition-all"
+            title="Export all waves to CSV"
+          >
+            <Download size={14} />
+          </button>
         </div>
 
         {/* ── Desktop: wave tabs + sync ── */}
@@ -1088,6 +1151,14 @@ export function WavesPage() {
             className="flex-1"
           />
           <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => exportWavesCSV(waves)}
+              className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-foreground border border-border-subtle rounded-md px-3 py-1.5 hover:bg-surface-hover transition-all"
+              title="Export all waves to CSV"
+            >
+              <Download size={11} />
+              Export CSV
+            </button>
             {isAdmin && (
               <button
                 onClick={registerHooks}
