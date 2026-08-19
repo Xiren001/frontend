@@ -611,8 +611,11 @@ function TeamQueueCard({ teamQueue }: {
   }
   return (
     <div className="bg-surface-elevated border border-border-subtle rounded-xl p-5">
-      <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-4 leading-tight">
+      <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-1 leading-tight">
         Team Queue
+      </p>
+      <p className="text-[11px] text-text-muted mb-4 leading-snug">
+        Counts are per market (sub-item) — e.g. a product with 5 languages waiting counts as 5, not 1.
       </p>
       <div className="grid grid-cols-2 gap-4">
         <TeamQueueGroup team="Ad Team"  entries={sorted(queue.ad)}  openKey={openKey} onToggle={k => setOpenKey(prev => prev === k ? null : k)} />
