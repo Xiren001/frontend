@@ -5,6 +5,18 @@ import { api } from '@/lib/api'
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Download, Info } from 'lucide-react'
 import { Modal } from '@/components/ui/modal'
 
+interface TeamQueueEntry {
+  id: string
+  label: string
+  link: string | null
+  count: number
+}
+
+interface TeamQueueBucket {
+  count: number
+  entries: TeamQueueEntry[]
+}
+
 interface WavesWeeklyReport {
   weekStart: string
   weekEnd: string
@@ -29,8 +41,8 @@ interface WavesWeeklyReport {
   activeWinnerCount: number
   productSalesUpdatedAt: string | null
   teamQueue: {
-    wave1:   { ad: Record<string, number>; web: Record<string, number> }
-    waves27: { ad: Record<string, number>; web: Record<string, number> }
+    wave1:   { ad: Record<string, TeamQueueBucket>; web: Record<string, TeamQueueBucket> }
+    waves27: { ad: Record<string, TeamQueueBucket>; web: Record<string, TeamQueueBucket> }
   }
   newLanguagesLaunchedThisWeek: number
   newLanguagesLaunchedList: { product: string; language: string }[]
@@ -548,35 +560,77 @@ function explainStatus(status: string) {
     ?? `"${status}" is a status set directly in Monday.com — ask your team lead what it means if you're not sure.`
 }
 
-function TeamQueueGroup({ team, entries, openKey, onToggle }: {
+function TeamQueueItemsModal({ open, onClose, team, status, entries }: {
+  open: boolean
+  onClose: () => void
   team: string
-  entries: [string, number][]
+  status: string
+  entries: TeamQueueEntry[]
+}) {
+  return (
+    <Modal open={open} onClose={onClose} title={status} description={`${team} — items currently in this status`} size="md">
+      {entries.length === 0 ? (
+        <p className="text-sm text-text-muted">No items found for this status.</p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {entries.map(entry => (
+            <div key={entry.id} className="flex items-center justify-between gap-3 py-1.5 border-b border-border-subtle last:border-b-0">
+              {entry.link ? (
+                <a href={entry.link} target="_blank" rel="noopener noreferrer" className="text-sm text-accent hover:underline truncate min-w-0">
+                  {entry.label}
+                </a>
+              ) : (
+                <span className="text-sm text-foreground truncate min-w-0">{entry.label}</span>
+              )}
+              {entry.count > 1 && <span className="text-xs text-text-muted shrink-0">×{entry.count}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+    </Modal>
+  )
+}
+
+function TeamQueueGroup({ team, entries, openKey, onToggle, onShowItems }: {
+  team: string
+  entries: [string, TeamQueueBucket][]
   openKey: string | null
   onToggle: (key: string) => void
+  onShowItems: (status: string, bucket: TeamQueueBucket) => void
 }) {
   return (
     <div className="bg-surface-page border border-border-subtle rounded-lg p-4">
       <p className="text-xs font-semibold text-text-muted uppercase tracking-widest mb-3">{team}</p>
       <div className="flex flex-col gap-1">
-        {entries.map(([status, count]) => {
+        {entries.map(([status, bucket]) => {
           const key = `${team}-${status}`
           const isOpen = openKey === key
           return (
             <div key={status} className="border-b border-border-subtle last:border-b-0">
-              <button
-                type="button"
-                onClick={() => onToggle(key)}
-                className="w-full flex items-center justify-between gap-2 min-w-0 py-2 text-left"
-              >
-                <span className="flex items-center gap-1.5 min-w-0">
+              <div className="w-full flex items-center justify-between gap-2 min-w-0 py-2">
+                <button
+                  type="button"
+                  onClick={() => onToggle(key)}
+                  className="flex items-center gap-1.5 min-w-0 text-left"
+                >
                   <ChevronDown
                     size={14}
                     className={`shrink-0 text-text-muted transition-transform ${isOpen ? 'rotate-180' : ''}`}
                   />
                   <span className="text-sm text-foreground truncate">{status}</span>
+                </button>
+                <span className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => onShowItems(status, bucket)}
+                    aria-label={`See items in ${status}`}
+                    className="text-text-muted hover:text-accent"
+                  >
+                    <Info size={14} />
+                  </button>
+                  <span className="text-sm font-semibold tabular-nums text-foreground">{bucket.count}</span>
                 </span>
-                <span className="text-sm font-semibold tabular-nums text-foreground shrink-0">{count}</span>
-              </button>
+              </div>
               {isOpen && (
                 <p className="text-sm text-text-muted leading-relaxed pb-3 pl-[22px] pr-2">
                   {explainStatus(status)}
@@ -593,22 +647,28 @@ function TeamQueueGroup({ team, entries, openKey, onToggle }: {
 
 function TeamQueueCard({ teamQueue }: {
   teamQueue: {
-    wave1:   { ad: Record<string, number>; web: Record<string, number> }
-    waves27: { ad: Record<string, number>; web: Record<string, number> }
+    wave1:   { ad: Record<string, TeamQueueBucket>; web: Record<string, TeamQueueBucket> }
+    waves27: { ad: Record<string, TeamQueueBucket>; web: Record<string, TeamQueueBucket> }
   }
 }) {
   const [openKey, setOpenKey] = useState<string | null>(null)
-  const sorted = (map: Record<string, number>) =>
-    Object.entries(map).sort(([, a], [, b]) => b - a)
-  const merge = (a: Record<string, number>, b: Record<string, number>) => {
-    const out: Record<string, number> = { ...a }
-    for (const [status, count] of Object.entries(b)) out[status] = (out[status] ?? 0) + count
+  const [itemsModal, setItemsModal] = useState<{ team: string; status: string; entries: TeamQueueEntry[] } | null>(null)
+  const sorted = (map: Record<string, TeamQueueBucket>) =>
+    Object.entries(map).sort(([, a], [, b]) => b.count - a.count)
+  const merge = (a: Record<string, TeamQueueBucket>, b: Record<string, TeamQueueBucket>) => {
+    const out: Record<string, TeamQueueBucket> = {}
+    for (const key of new Set([...Object.keys(a), ...Object.keys(b)])) {
+      const entries = [...(a[key]?.entries ?? []), ...(b[key]?.entries ?? [])]
+      out[key] = { count: (a[key]?.count ?? 0) + (b[key]?.count ?? 0), entries }
+    }
     return out
   }
   const queue = {
     ad:  merge(teamQueue.wave1.ad,  teamQueue.waves27.ad),
     web: merge(teamQueue.wave1.web, teamQueue.waves27.web),
   }
+  const showItems = (team: string) => (status: string, bucket: TeamQueueBucket) =>
+    setItemsModal({ team, status, entries: bucket.entries })
   return (
     <div className="bg-surface-elevated border border-border-subtle rounded-xl p-5">
       <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-1 leading-tight">
@@ -618,9 +678,18 @@ function TeamQueueCard({ teamQueue }: {
         Counts are per market (sub-item) — e.g. a product with 5 languages waiting counts as 5, not 1.
       </p>
       <div className="grid grid-cols-2 gap-4">
-        <TeamQueueGroup team="Ad Team"  entries={sorted(queue.ad)}  openKey={openKey} onToggle={k => setOpenKey(prev => prev === k ? null : k)} />
-        <TeamQueueGroup team="Web Team" entries={sorted(queue.web)} openKey={openKey} onToggle={k => setOpenKey(prev => prev === k ? null : k)} />
+        <TeamQueueGroup team="Ad Team"  entries={sorted(queue.ad)}  openKey={openKey} onToggle={k => setOpenKey(prev => prev === k ? null : k)} onShowItems={showItems('Ad Team')} />
+        <TeamQueueGroup team="Web Team" entries={sorted(queue.web)} openKey={openKey} onToggle={k => setOpenKey(prev => prev === k ? null : k)} onShowItems={showItems('Web Team')} />
       </div>
+      {itemsModal && (
+        <TeamQueueItemsModal
+          open
+          onClose={() => setItemsModal(null)}
+          team={itemsModal.team}
+          status={itemsModal.status}
+          entries={itemsModal.entries}
+        />
+      )}
     </div>
   )
 }
