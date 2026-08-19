@@ -539,28 +539,25 @@ function TeamQueueCard({ teamQueue }: {
       </p>
       <div className="flex flex-col gap-5">
         {groups.map(({ label, queue }, i) => {
-          const adTotal  = Object.values(queue.ad).reduce((s, n) => s + n, 0)
-          const webTotal = Object.values(queue.web).reduce((s, n) => s + n, 0)
           return (
             <div key={label}>
               {i > 0 && <div className="border-t border-border-subtle mb-4" />}
               <p className="text-[11px] font-semibold text-text-muted uppercase tracking-widest mb-3">{label}</p>
               <div className="grid grid-cols-2 gap-5">
                 {([
-                  { team: 'Ad Team',  total: adTotal,  entries: sorted(queue.ad) },
-                  { team: 'Web Team', total: webTotal, entries: sorted(queue.web) },
-                ] as const).map(({ team, total, entries }) => (
+                  { team: 'Ad Team',  entries: sorted(queue.ad) },
+                  { team: 'Web Team', entries: sorted(queue.web) },
+                ] as const).map(({ team, entries }) => (
                   <div key={team}>
-                    <p className="text-[10px] font-semibold text-text-muted uppercase tracking-widest mb-1">{team}</p>
-                    <p className="text-2xl font-semibold text-foreground mb-2">{total}</p>
-                    <div className="flex flex-col gap-1">
+                    <p className="text-xs font-semibold text-text-muted uppercase tracking-widest mb-2">{team}</p>
+                    <div className="flex flex-col gap-1.5">
                       {entries.map(([status, count]) => (
                         <div key={status} className="flex items-center justify-between gap-2 min-w-0">
-                          <span className="text-[10px] text-text-muted truncate">{status}</span>
-                          <span className="text-[11px] font-semibold tabular-nums text-foreground shrink-0">{count}</span>
+                          <span className="text-sm text-text-muted truncate">{status}</span>
+                          <span className="text-sm font-semibold tabular-nums text-foreground shrink-0">{count}</span>
                         </div>
                       ))}
-                      {entries.length === 0 && <span className="text-[10px] text-text-muted">All clear</span>}
+                      {entries.length === 0 && <span className="text-sm text-text-muted">All clear</span>}
                     </div>
                   </div>
                 ))}
