@@ -157,10 +157,45 @@ function pdfStatusColor(label: string | null | undefined): [number, number, numb
 }
 
 interface WavePdfRow {
-  cells: [string, string, string, string, string]
+  cells: string[]
   isItem: boolean
   adStatus?: string | null
   webStatus?: string | null
+}
+
+// Which phase-timeline columns this wave shows, matching showTimeline/showPhase1/showProofread on screen.
+function timelineHeadersFor(waveNumber: number): string[] {
+  if (waveNumber === 1) return ['Phase 1 (Build)', 'Proofread', 'Launched']
+  if (waveNumber >= 2 && waveNumber <= 7) return ['Phase 1 (Build)', 'Proofread']
+  return []
+}
+
+function phaseRangeText(start: string | null, end: string | null): string {
+  if (!start && !end) return '—'
+  const days = lpDays(start, end)
+  return `${fmtTs(start)} -> ${fmtTs(end)}${days !== null ? ` (${days}d)` : ''}`
+}
+
+function itemTimelineCells(item: MondayItem, waveNumber: number): string[] {
+  if (timelineHeadersFor(waveNumber).length === 0) return []
+  if (item.monday_subitems.length > 0) {
+    const agg = subitemPhaseAgg(item.monday_subitems)
+    const buildCell = agg.avgBuild !== null ? `${agg.avgBuild}d avg (${agg.buildDone}/${agg.total})` : '—'
+    const proofCell = agg.avgProof !== null ? `${agg.avgProof}d avg (${agg.proofDone}/${agg.total})` : '—'
+    return waveNumber === 1
+      ? [buildCell, proofCell, agg.launched > 0 ? `${agg.launched}/${agg.total} launched` : '—']
+      : [buildCell, proofCell]
+  }
+  const buildCell = phaseRangeText(item.lp_building_at, item.lp_ready_at)
+  const proofCell = phaseRangeText(item.lp_proofread_at, item.lp_ready_to_launch_at)
+  return waveNumber === 1 ? [buildCell, proofCell, fmtTs(item.lp_launched_at)] : [buildCell, proofCell]
+}
+
+function subTimelineCells(sub: MondaySubitem, waveNumber: number): string[] {
+  if (timelineHeadersFor(waveNumber).length === 0) return []
+  const buildCell = phaseRangeText(sub.lp_building_at, sub.lp_ready_at)
+  const proofCell = phaseRangeText(sub.lp_proofread_at, sub.lp_ready_to_launch_at)
+  return waveNumber === 1 ? [buildCell, proofCell, fmtTs(sub.lp_launched_at)] : [buildCell, proofCell]
 }
 
 function exportWavesPDF(waves: MondayWave[]) {
@@ -195,17 +230,26 @@ function exportWavesPDF(waves: MondayWave[]) {
     doc.text(wave.name, marginX, y)
     y += 8
 
+    const timelineHeaders = timelineHeadersFor(wave.wave_number)
     const rows: WavePdfRow[] = []
     wave.monday_items.forEach((item, idx) => {
       rows.push({
-        cells: [String(idx + 1), item.name, item.creatives_status ?? '—', item.landing_page_status ?? '—', String(item.monday_subitems.length)],
+        cells: [
+          String(idx + 1), item.name, item.creatives_status ?? '—', item.landing_page_status ?? '—',
+          ...itemTimelineCells(item, wave.wave_number),
+          String(item.monday_subitems.length),
+        ],
         isItem: true,
         adStatus: item.creatives_status,
         webStatus: item.landing_page_status,
       })
       for (const sub of item.monday_subitems) {
         rows.push({
-          cells: ['', `      ${sub.name}${sub.product_name ? ' — ' + sub.product_name : ''}`, sub.ad_status ?? '—', sub.website_status ?? '—', ''],
+          cells: [
+            '', `      ${sub.name}${sub.product_name ? ' — ' + sub.product_name : ''}`, sub.ad_status ?? '—', sub.website_status ?? '—',
+            ...subTimelineCells(sub, wave.wave_number),
+            '',
+          ],
           isItem: false,
           adStatus: sub.ad_status,
           webStatus: sub.website_status,
@@ -216,7 +260,7 @@ function exportWavesPDF(waves: MondayWave[]) {
     autoTable(doc, {
       startY: y,
       margin: { left: marginX, right: marginX },
-      head: [['#', 'Product / Variant', 'Ad / Creatives Status', 'Website / Landing Status', 'Variants']],
+      head: [['#', 'Product / Variant', 'Ad / Creatives Status', 'Website / Landing Status', ...timelineHeaders, 'Variants']],
       body: rows.map(r => r.cells),
       styles: { fontSize: 7.5, cellPadding: 4, valign: 'middle', lineColor: [225, 225, 225], lineWidth: 0.5 },
       headStyles: { fillColor: [30, 30, 30], textColor: 255, fontSize: 8 },
