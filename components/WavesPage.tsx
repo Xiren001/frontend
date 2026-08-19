@@ -4,6 +4,8 @@ import {
   ChevronDown, ChevronRight, ChevronUp, ExternalLink,
   RefreshCw, Search, X, Download,
 } from 'lucide-react'
+import jsPDF from 'jspdf'
+import { autoTable } from 'jspdf-autotable'
 import { api } from '@/lib/api'
 import { useRole } from '@/lib/role-context'
 import { createClient } from '@/lib/supabase'
@@ -75,7 +77,7 @@ function csvCell(value: unknown): string {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
 }
 
-function exportWavesCSV(waves: MondayWave[]) {
+function buildWaveRows(waves: MondayWave[]): string[][] {
   const rows: string[][] = []
 
   for (const wave of waves) {
@@ -104,6 +106,11 @@ function exportWavesCSV(waves: MondayWave[]) {
     }
   }
 
+  return rows
+}
+
+function exportWavesCSV(waves: MondayWave[]) {
+  const rows = buildWaveRows(waves)
   const csv = [CSV_COLUMNS, ...rows].map(r => r.map(csvCell).join(',')).join('\n')
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
   const url  = URL.createObjectURL(blob)
@@ -112,6 +119,78 @@ function exportWavesCSV(waves: MondayWave[]) {
   a.download = `waves-export-${new Date().toISOString().split('T')[0]}.csv`
   a.click()
   URL.revokeObjectURL(url)
+}
+
+function exportWavesPDF(waves: MondayWave[]) {
+  const rows = buildWaveRows(waves)
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' })
+
+  doc.setFontSize(12)
+  doc.text('Waves Export', 24, 24)
+  doc.setFontSize(8)
+  doc.text(new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }), 24, 36)
+
+  autoTable(doc, {
+    head: [[...CSV_COLUMNS]],
+    body: rows,
+    startY: 46,
+    styles: { fontSize: 4.5, cellPadding: 2, overflow: 'linebreak' },
+    headStyles: { fillColor: [40, 40, 40], fontSize: 4.5 },
+    theme: 'grid',
+  })
+
+  doc.save(`waves-export-${new Date().toISOString().split('T')[0]}.pdf`)
+}
+
+function ExportMenu({ waves, iconOnly }: { waves: MondayWave[]; iconOnly?: boolean }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onClickOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [open])
+
+  const runExport = (fn: (waves: MondayWave[]) => void) => {
+    fn(waves)
+    setOpen(false)
+  }
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        title="Export all waves"
+        className={iconOnly
+          ? 'flex items-center justify-center shrink-0 text-text-secondary hover:text-foreground border border-border-subtle rounded-md w-10 h-10 hover:bg-surface-hover transition-all'
+          : 'flex items-center gap-1.5 text-xs text-text-secondary hover:text-foreground border border-border-subtle rounded-md px-3 py-1.5 hover:bg-surface-hover transition-all'}
+      >
+        <Download size={iconOnly ? 14 : 11} />
+        {!iconOnly && 'Export'}
+        <ChevronDown size={iconOnly ? 10 : 11} className={cn('transition-transform', open && 'rotate-180')} />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 w-36 bg-surface-elevated border border-border-subtle rounded-md shadow-lg py-1 z-20">
+          <button
+            onClick={() => runExport(exportWavesCSV)}
+            className="w-full text-left px-3 py-1.5 text-xs text-text-secondary hover:bg-surface-hover hover:text-foreground transition-colors"
+          >
+            Export as CSV
+          </button>
+          <button
+            onClick={() => runExport(exportWavesPDF)}
+            className="w-full text-left px-3 py-1.5 text-xs text-text-secondary hover:bg-surface-hover hover:text-foreground transition-colors"
+          >
+            Export as PDF
+          </button>
+        </div>
+      )}
+    </div>
+  )
 }
 
 function EditableDate({
@@ -1133,13 +1212,7 @@ export function WavesPage() {
               <option key={w.id} value={w.id}>{w.name}</option>
             ))}
           </select>
-          <button
-            onClick={() => exportWavesCSV(waves)}
-            className="flex items-center justify-center shrink-0 text-text-secondary hover:text-foreground border border-border-subtle rounded-md w-10 h-10 hover:bg-surface-hover transition-all"
-            title="Export all waves to CSV"
-          >
-            <Download size={14} />
-          </button>
+          <ExportMenu waves={waves} iconOnly />
         </div>
 
         {/* ── Desktop: wave tabs + sync ── */}
@@ -1151,14 +1224,7 @@ export function WavesPage() {
             className="flex-1"
           />
           <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => exportWavesCSV(waves)}
-              className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-foreground border border-border-subtle rounded-md px-3 py-1.5 hover:bg-surface-hover transition-all"
-              title="Export all waves to CSV"
-            >
-              <Download size={11} />
-              Export CSV
-            </button>
+            <ExportMenu waves={waves} />
             {isAdmin && (
               <button
                 onClick={registerHooks}
