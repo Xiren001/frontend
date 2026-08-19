@@ -528,43 +528,38 @@ function TeamQueueCard({ teamQueue }: {
 }) {
   const sorted = (map: Record<string, number>) =>
     Object.entries(map).sort(([, a], [, b]) => b - a)
-  const groups = [
-    { label: 'Wave 1',    queue: teamQueue.wave1 },
-    { label: 'Waves 2–7', queue: teamQueue.waves27 },
-  ]
+  const merge = (a: Record<string, number>, b: Record<string, number>) => {
+    const out: Record<string, number> = { ...a }
+    for (const [status, count] of Object.entries(b)) out[status] = (out[status] ?? 0) + count
+    return out
+  }
+  const queue = {
+    ad:  merge(teamQueue.wave1.ad,  teamQueue.waves27.ad),
+    web: merge(teamQueue.wave1.web, teamQueue.waves27.web),
+  }
   return (
     <div className="bg-surface-elevated border border-border-subtle rounded-xl p-5">
       <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-4 leading-tight">
         Team Queue
       </p>
-      <div className="flex flex-col gap-5">
-        {groups.map(({ label, queue }, i) => {
-          return (
-            <div key={label}>
-              {i > 0 && <div className="border-t border-border-subtle mb-4" />}
-              <p className="text-[11px] font-semibold text-text-muted uppercase tracking-widest mb-3">{label}</p>
-              <div className="grid grid-cols-2 gap-5">
-                {([
-                  { team: 'Ad Team',  entries: sorted(queue.ad) },
-                  { team: 'Web Team', entries: sorted(queue.web) },
-                ] as const).map(({ team, entries }) => (
-                  <div key={team}>
-                    <p className="text-xs font-semibold text-text-muted uppercase tracking-widest mb-2">{team}</p>
-                    <div className="flex flex-col gap-1.5">
-                      {entries.map(([status, count]) => (
-                        <div key={status} className="flex items-center justify-between gap-2 min-w-0">
-                          <span className="text-sm text-text-muted truncate">{status}</span>
-                          <span className="text-sm font-semibold tabular-nums text-foreground shrink-0">{count}</span>
-                        </div>
-                      ))}
-                      {entries.length === 0 && <span className="text-sm text-text-muted">All clear</span>}
-                    </div>
-                  </div>
-                ))}
-              </div>
+      <div className="grid grid-cols-2 gap-5">
+        {([
+          { team: 'Ad Team',  entries: sorted(queue.ad) },
+          { team: 'Web Team', entries: sorted(queue.web) },
+        ] as const).map(({ team, entries }) => (
+          <div key={team}>
+            <p className="text-xs font-semibold text-text-muted uppercase tracking-widest mb-2">{team}</p>
+            <div className="flex flex-col gap-1.5">
+              {entries.map(([status, count]) => (
+                <div key={status} className="flex items-center justify-between gap-2 min-w-0">
+                  <span className="text-sm text-text-muted truncate">{status}</span>
+                  <span className="text-sm font-semibold tabular-nums text-foreground shrink-0">{count}</span>
+                </div>
+              ))}
+              {entries.length === 0 && <span className="text-sm text-text-muted">All clear</span>}
             </div>
-          )
-        })}
+          </div>
+        ))}
       </div>
     </div>
   )
