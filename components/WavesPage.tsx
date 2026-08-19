@@ -166,22 +166,28 @@ interface WavePdfRow {
 function exportWavesPDF(waves: MondayWave[]) {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' })
   const marginX = 24
+  const pageWidth = doc.internal.pageSize.getWidth()
   const pageHeight = doc.internal.pageSize.getHeight()
-  let y = 32
+  const generatedOn = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 
+  const drawGeneratedDate = () => {
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10)
+    doc.setTextColor(0)
+    doc.text(`Generated: ${generatedOn}`, pageWidth - marginX, 32, { align: 'right' })
+  }
+
+  let y = 32
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(14)
-  doc.text('Waves', marginX, y)
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(9)
-  doc.setTextColor(120)
-  doc.text(new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }), marginX, y + 14)
   doc.setTextColor(0)
+  doc.text('Waves', marginX, y)
+  drawGeneratedDate()
   y += 30
 
   for (const wave of waves) {
     if (wave.monday_items.length === 0) continue
-    if (y > pageHeight - 90) { doc.addPage(); y = 32 }
+    if (y > pageHeight - 90) { doc.addPage(); drawGeneratedDate(); y = 50 }
 
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(11)
@@ -215,6 +221,7 @@ function exportWavesPDF(waves: MondayWave[]) {
       styles: { fontSize: 7.5, cellPadding: 4, valign: 'middle', lineColor: [225, 225, 225], lineWidth: 0.5 },
       headStyles: { fillColor: [30, 30, 30], textColor: 255, fontSize: 8 },
       theme: 'striped',
+      didDrawPage: drawGeneratedDate,
       didParseCell(data) {
         if (data.section !== 'body') return
         const row = rows[data.row.index]
