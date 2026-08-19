@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { api } from '@/lib/api'
-import { CalendarDays, ChevronLeft, ChevronRight, Download, Info } from 'lucide-react'
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Download, Info } from 'lucide-react'
 import { Modal } from '@/components/ui/modal'
 
 interface WavesWeeklyReport {
@@ -520,12 +520,84 @@ function NewLanguagesModal({
   )
 }
 
+const STATUS_EXPLANATIONS: { test: (s: string) => boolean; text: string }[] = [
+  { test: s => s === 'waiting for editor', text: 'The ad is finished and is waiting for a video/creative editor to start working on it.' },
+  { test: s => s === 'waiting for builder', text: 'The website page is waiting for a web builder to start building it.' },
+  { test: s => /^building\s*-\s*.+/.test(s), text: 'A web builder is actively building this website page right now.' },
+  { test: s => s === 'waiting for proofread', text: 'The page has been built and is now waiting for a proofreader to check the wording/translation.' },
+  { test: s => s === 'proofread done', text: 'Proofreading is finished and the page passed the check.' },
+  { test: s => s === 'ready for revision' || s === 'revisions needed' || s === 'need revision', text: 'Someone reviewed this and found issues — it has been sent back for fixes.' },
+  { test: s => s === 'not started yet' || s === 'not set' || s === '', text: 'No work has been started on this item yet.' },
+  { test: s => s === 'in progress' || s === 'working on it', text: 'Someone on the team is actively working on this right now.' },
+  { test: s => s === 'ready', text: 'The work is finished and ready to move to the next step.' },
+  { test: s => s === 'ready to launch', text: 'Everything is done — this is just waiting for the go-ahead to go live.' },
+  { test: s => s === 'launched' || s === 'running', text: 'This is live and currently active.' },
+  { test: s => s === 'expanding', text: 'This is performing well and the team is scaling it up further.' },
+  { test: s => s === 'relaunch' || s === 'relaunching', text: 'This was paused before and is being brought back online.' },
+  { test: s => s === 'stopped', text: 'This was paused or pulled and is not currently running.' },
+  { test: s => s === 'banned', text: 'This was blocked by the platform (e.g. Facebook/Google) and cannot run as-is.' },
+  { test: s => s === 'do not start', text: 'The team has decided not to start work on this.' },
+  { test: s => s.includes('waiting'), text: 'This item is waiting on someone else before work can continue.' },
+  { test: s => s.includes('proof'), text: 'This is somewhere in the proofreading/content-check step.' },
+  { test: s => s.includes('test'), text: 'This is currently being tested.' },
+]
+
+function explainStatus(status: string) {
+  const s = status.trim().toLowerCase()
+  return STATUS_EXPLANATIONS.find(({ test }) => test(s))?.text
+    ?? `"${status}" is a status set directly in Monday.com — ask your team lead what it means if you're not sure.`
+}
+
+function TeamQueueGroup({ team, entries, openKey, onToggle }: {
+  team: string
+  entries: [string, number][]
+  openKey: string | null
+  onToggle: (key: string) => void
+}) {
+  return (
+    <div className="bg-surface-page border border-border-subtle rounded-lg p-4">
+      <p className="text-xs font-semibold text-text-muted uppercase tracking-widest mb-3">{team}</p>
+      <div className="flex flex-col gap-1">
+        {entries.map(([status, count]) => {
+          const key = `${team}-${status}`
+          const isOpen = openKey === key
+          return (
+            <div key={status} className="border-b border-border-subtle last:border-b-0">
+              <button
+                type="button"
+                onClick={() => onToggle(key)}
+                className="w-full flex items-center justify-between gap-2 min-w-0 py-2 text-left"
+              >
+                <span className="flex items-center gap-1.5 min-w-0">
+                  <ChevronDown
+                    size={14}
+                    className={`shrink-0 text-text-muted transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                  />
+                  <span className="text-sm text-foreground truncate">{status}</span>
+                </span>
+                <span className="text-sm font-semibold tabular-nums text-foreground shrink-0">{count}</span>
+              </button>
+              {isOpen && (
+                <p className="text-sm text-text-muted leading-relaxed pb-3 pl-[22px] pr-2">
+                  {explainStatus(status)}
+                </p>
+              )}
+            </div>
+          )
+        })}
+        {entries.length === 0 && <span className="text-sm text-text-muted">All clear</span>}
+      </div>
+    </div>
+  )
+}
+
 function TeamQueueCard({ teamQueue }: {
   teamQueue: {
     wave1:   { ad: Record<string, number>; web: Record<string, number> }
     waves27: { ad: Record<string, number>; web: Record<string, number> }
   }
 }) {
+  const [openKey, setOpenKey] = useState<string | null>(null)
   const sorted = (map: Record<string, number>) =>
     Object.entries(map).sort(([, a], [, b]) => b - a)
   const merge = (a: Record<string, number>, b: Record<string, number>) => {
@@ -542,24 +614,9 @@ function TeamQueueCard({ teamQueue }: {
       <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-4 leading-tight">
         Team Queue
       </p>
-      <div className="grid grid-cols-2 gap-5">
-        {([
-          { team: 'Ad Team',  entries: sorted(queue.ad) },
-          { team: 'Web Team', entries: sorted(queue.web) },
-        ] as const).map(({ team, entries }) => (
-          <div key={team}>
-            <p className="text-xs font-semibold text-text-muted uppercase tracking-widest mb-2">{team}</p>
-            <div className="flex flex-col gap-1.5">
-              {entries.map(([status, count]) => (
-                <div key={status} className="flex items-center justify-between gap-2 min-w-0">
-                  <span className="text-sm text-text-muted truncate">{status}</span>
-                  <span className="text-sm font-semibold tabular-nums text-foreground shrink-0">{count}</span>
-                </div>
-              ))}
-              {entries.length === 0 && <span className="text-sm text-text-muted">All clear</span>}
-            </div>
-          </div>
-        ))}
+      <div className="grid grid-cols-2 gap-4">
+        <TeamQueueGroup team="Ad Team"  entries={sorted(queue.ad)}  openKey={openKey} onToggle={k => setOpenKey(prev => prev === k ? null : k)} />
+        <TeamQueueGroup team="Web Team" entries={sorted(queue.web)} openKey={openKey} onToggle={k => setOpenKey(prev => prev === k ? null : k)} />
       </div>
     </div>
   )
