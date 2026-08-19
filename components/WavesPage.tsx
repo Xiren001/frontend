@@ -121,23 +121,115 @@ function exportWavesCSV(waves: MondayWave[]) {
   URL.revokeObjectURL(url)
 }
 
+// Mirrors STATUS_STYLE/getStatusStyle below, translated to RGB text colors for the PDF badges.
+const PDF_STATUS_COLORS: Record<string, [number, number, number]> = {
+  'not started yet':       [107, 114, 128],
+  'in progress':           [59, 130, 246],
+  'ready':                 [34, 197, 94],
+  'launched':              [139, 92, 246],
+  'running':               [16, 185, 129],
+  'stopped':               [239, 68, 68],
+  'waiting for editor':    [202, 138, 4],
+  'waiting for builder':   [202, 138, 4],
+  'working on it':         [59, 130, 246],
+  'waiting for proofread': [249, 115, 22],
+  'proofread done':        [20, 184, 166],
+  'ready for revision':    [249, 115, 22],
+  'ready to launch':       [16, 185, 129],
+  'building - dan':        [14, 165, 233],
+  'building - dora':       [14, 165, 233],
+  'revisions needed':      [239, 68, 68],
+}
+
+function pdfStatusColor(label: string | null | undefined): [number, number, number] {
+  if (!label) return [156, 163, 175]
+  const l = label.trim().toLowerCase()
+  if (PDF_STATUS_COLORS[l]) return PDF_STATUS_COLORS[l]
+  if (l.includes('waiting'))                           return [202, 138, 4]
+  if (l.includes('building') || l.includes('working')) return [14, 165, 233]
+  if (l.includes('progress'))                          return [59, 130, 246]
+  if (l.includes('proof'))                             return [20, 184, 166]
+  if (l.includes('ready') || l.includes('launch'))     return [16, 185, 129]
+  if (l.includes('running') || l.includes('expand'))   return [16, 185, 129]
+  if (l.includes('stop') || l.includes('revision'))    return [239, 68, 68]
+  if (l.includes('test'))                              return [249, 115, 22]
+  return [107, 114, 128]
+}
+
+interface WavePdfRow {
+  cells: [string, string, string, string, string]
+  isItem: boolean
+  adStatus?: string | null
+  webStatus?: string | null
+}
+
 function exportWavesPDF(waves: MondayWave[]) {
-  const rows = buildWaveRows(waves)
   const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' })
+  const marginX = 24
+  const pageHeight = doc.internal.pageSize.getHeight()
+  let y = 32
 
-  doc.setFontSize(12)
-  doc.text('Waves Export', 24, 24)
-  doc.setFontSize(8)
-  doc.text(new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }), 24, 36)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(14)
+  doc.text('Waves', marginX, y)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9)
+  doc.setTextColor(120)
+  doc.text(new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }), marginX, y + 14)
+  doc.setTextColor(0)
+  y += 30
 
-  autoTable(doc, {
-    head: [[...CSV_COLUMNS]],
-    body: rows,
-    startY: 46,
-    styles: { fontSize: 4.5, cellPadding: 2, overflow: 'linebreak' },
-    headStyles: { fillColor: [40, 40, 40], fontSize: 4.5 },
-    theme: 'grid',
-  })
+  for (const wave of waves) {
+    if (wave.monday_items.length === 0) continue
+    if (y > pageHeight - 90) { doc.addPage(); y = 32 }
+
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(11)
+    doc.setTextColor(0)
+    doc.text(wave.name, marginX, y)
+    y += 8
+
+    const rows: WavePdfRow[] = []
+    wave.monday_items.forEach((item, idx) => {
+      rows.push({
+        cells: [String(idx + 1), item.name, item.creatives_status ?? '—', item.landing_page_status ?? '—', String(item.monday_subitems.length)],
+        isItem: true,
+        adStatus: item.creatives_status,
+        webStatus: item.landing_page_status,
+      })
+      for (const sub of item.monday_subitems) {
+        rows.push({
+          cells: ['', `      ${sub.name}${sub.product_name ? ' — ' + sub.product_name : ''}`, sub.ad_status ?? '—', sub.website_status ?? '—', ''],
+          isItem: false,
+          adStatus: sub.ad_status,
+          webStatus: sub.website_status,
+        })
+      }
+    })
+
+    autoTable(doc, {
+      startY: y,
+      margin: { left: marginX, right: marginX },
+      head: [['#', 'Product / Variant', 'Ad / Creatives Status', 'Website / Landing Status', 'Variants']],
+      body: rows.map(r => r.cells),
+      styles: { fontSize: 7.5, cellPadding: 4, valign: 'middle', lineColor: [225, 225, 225], lineWidth: 0.5 },
+      headStyles: { fillColor: [30, 30, 30], textColor: 255, fontSize: 8 },
+      theme: 'striped',
+      didParseCell(data) {
+        if (data.section !== 'body') return
+        const row = rows[data.row.index]
+        if (!row) return
+        if (row.isItem) {
+          data.cell.styles.fontStyle = 'bold'
+          data.cell.styles.fillColor = [244, 244, 245]
+        }
+        if (data.column.index === 2) data.cell.styles.textColor = pdfStatusColor(row.adStatus)
+        if (data.column.index === 3) data.cell.styles.textColor = pdfStatusColor(row.webStatus)
+      },
+    })
+
+    y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 22
+  }
 
   doc.save(`waves-export-${new Date().toISOString().split('T')[0]}.pdf`)
 }
