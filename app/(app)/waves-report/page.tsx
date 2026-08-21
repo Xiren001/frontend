@@ -677,7 +677,7 @@ function TeamQueueCard({ teamQueue }: {
       <p className="text-[11px] text-text-muted mb-4 leading-snug">
         Counts are per market (sub-item) — e.g. a product with 5 languages waiting counts as 5, not 1.
       </p>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <TeamQueueGroup team="Ad Team"  entries={sorted(queue.ad)}  openKey={openKey} onToggle={k => setOpenKey(prev => prev === k ? null : k)} onShowItems={showItems('Ad Team')} />
         <TeamQueueGroup team="Web Team" entries={sorted(queue.web)} openKey={openKey} onToggle={k => setOpenKey(prev => prev === k ? null : k)} onShowItems={showItems('Web Team')} />
       </div>
@@ -788,7 +788,7 @@ export default function WavesReportPage() {
           </div>
           <p className="text-sm text-text-muted mt-0.5">Performance metrics across all waves</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center h-9 rounded-lg border border-border-subtle bg-surface-elevated p-0.5">
             {(['week', 'month'] as const).map(p => (
               <button
