@@ -16,7 +16,7 @@ export default function DashboardPage() {
     api.get<KPI>(`/api/kpi?month=${month}`).then(setKpi).catch(console.error)
   }
 
-  useRealtimeRefresh('builds', loadKpi)
+  useRealtimeRefresh(['builds', 'settings'], loadKpi)
   useEffect(() => { loadKpi() }, [month])
 
   function kpiStatus(actual: number | null, target: number, lowerIsBetter = true): 'ok' | 'warn' | 'bad' | 'neutral' {

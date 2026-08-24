@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { api } from '@/lib/api'
+import { useRealtimeRefresh } from '@/lib/use-realtime-refresh'
 import { cn } from '@/lib/utils'
 import { Table, TableHead, TableHeader, TableBody, TableRow, TableCell } from '@/components/ui/table'
 import { PageHeader } from '@/components/ui/page-header'
@@ -106,6 +107,8 @@ export function TeamPerformancePage() {
   }, [])
 
   useEffect(() => { load(track) }, [track, load])
+
+  useRealtimeRefresh('team_performance_events', () => load(track))
 
   function openDetail(person: string, week: string) {
     setDetailFor({ person, week })

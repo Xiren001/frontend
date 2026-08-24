@@ -1182,6 +1182,7 @@ export function WavesPage() {
     const supabase = createClient()
     const ch = supabase
       .channel('monday-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'monday_waves' },    load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'monday_items' },    load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'monday_subitems' }, load)
       .subscribe()
