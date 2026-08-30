@@ -10,6 +10,7 @@ interface TeamQueueEntry {
   label: string
   link: string | null
   count: number
+  addedAt: string | null
 }
 
 interface TeamQueueBucket {
@@ -560,6 +561,29 @@ function explainStatus(status: string) {
     ?? `"${status}" is a status set directly in Monday.com — ask your team lead what it means if you're not sure.`
 }
 
+const UNTRACKED_WEEK_KEY = 'untracked'
+
+function groupEntriesByWeek(entries: TeamQueueEntry[]): { key: string; label: string; entries: TeamQueueEntry[] }[] {
+  const groups: Record<string, TeamQueueEntry[]> = {}
+  for (const entry of entries) {
+    const key = entry.addedAt ? toDateStr(getMondayOfWeek(new Date(entry.addedAt))) : UNTRACKED_WEEK_KEY
+    ;(groups[key] ??= []).push(entry)
+  }
+  return Object.entries(groups)
+    .sort(([a], [b]) => {
+      if (a === UNTRACKED_WEEK_KEY) return 1
+      if (b === UNTRACKED_WEEK_KEY) return -1
+      return a.localeCompare(b)
+    })
+    .map(([key, groupEntries]) => ({
+      key,
+      label: key === UNTRACKED_WEEK_KEY
+        ? 'Date not tracked'
+        : `Week of ${formatWeekRange(key, addWeeks(key, 1))}`,
+      entries: groupEntries,
+    }))
+}
+
 function TeamQueueItemsModal({ open, onClose, team, status, entries }: {
   open: boolean
   onClose: () => void
@@ -567,22 +591,32 @@ function TeamQueueItemsModal({ open, onClose, team, status, entries }: {
   status: string
   entries: TeamQueueEntry[]
 }) {
+  const groups = groupEntriesByWeek(entries)
   return (
     <Modal open={open} onClose={onClose} title={status} description={`${team} — items currently in this status`} size="md">
       {entries.length === 0 ? (
         <p className="text-sm text-text-muted">No items found for this status.</p>
       ) : (
-        <div className="flex flex-col gap-2">
-          {entries.map(entry => (
-            <div key={entry.id} className="flex items-center justify-between gap-3 py-1.5 border-b border-border-subtle last:border-b-0">
-              {entry.link ? (
-                <a href={entry.link} target="_blank" rel="noopener noreferrer" className="text-sm text-accent hover:underline truncate min-w-0">
-                  {entry.label}
-                </a>
-              ) : (
-                <span className="text-sm text-foreground truncate min-w-0">{entry.label}</span>
-              )}
-              {entry.count > 1 && <span className="text-xs text-text-muted shrink-0">×{entry.count}</span>}
+        <div className="flex flex-col gap-4">
+          {groups.map(group => (
+            <div key={group.key}>
+              <p className="text-xs font-semibold text-text-muted uppercase tracking-widest mb-1.5">
+                {group.label}
+              </p>
+              <div className="flex flex-col gap-2">
+                {group.entries.map(entry => (
+                  <div key={entry.id} className="flex items-center justify-between gap-3 py-1.5 border-b border-border-subtle last:border-b-0">
+                    {entry.link ? (
+                      <a href={entry.link} target="_blank" rel="noopener noreferrer" className="text-sm text-accent hover:underline truncate min-w-0">
+                        {entry.label}
+                      </a>
+                    ) : (
+                      <span className="text-sm text-foreground truncate min-w-0">{entry.label}</span>
+                    )}
+                    {entry.count > 1 && <span className="text-xs text-text-muted shrink-0">×{entry.count}</span>}
+                  </div>
+                ))}
+              </div>
             </div>
           ))}
         </div>
