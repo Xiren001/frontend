@@ -52,10 +52,10 @@ interface WavesWeeklyReport {
 
 const WAVE_LANG_LABELS: Record<number, { code: string; name: string }[]> = {
   2: [{ code: 'FR', name: 'French' }, { code: 'NL', name: 'Dutch' }, { code: 'IT', name: 'Italian' }],
-  3: [{ code: 'FI', name: 'Finnish' }, { code: 'SE', name: 'Swedish' }, { code: 'NO', name: 'Norwegian' }],
+  3: [{ code: 'ES', name: 'Spanish' }, { code: 'AR-PY', name: 'Spanish (Argentina/Paraguay)' }, { code: 'CL', name: 'Spanish (Chile)' }],
   4: [{ code: 'IL', name: 'Hebrew' }, { code: 'BR', name: 'Portuguese' }, { code: 'JP', name: 'Japanese' }],
   5: [{ code: 'DK', name: 'Danish' }, { code: 'CZ', name: 'Czech' }, { code: 'PL', name: 'Polish' }],
-  6: [{ code: 'TR', name: 'Turkish' }, { code: 'LT', name: 'Lithuanian' }, { code: 'EE', name: 'Estonian' }],
+  6: [{ code: 'IL', name: 'Hebrew' }, { code: 'CZ', name: 'Czech' }, { code: 'KR', name: 'South Korean' }],
   7: [{ code: 'SK', name: 'Slovak' }, { code: 'SI', name: 'Slovenian' }, { code: 'RO', name: 'Romanian' }],
 }
 
