@@ -163,10 +163,17 @@ interface WavePdfRow {
   webStatus?: string | null
 }
 
+// Wave 0 is stored as wave_number -1 (0 = Stopped) and behaves like Waves 2–7.
+const WAVE_0 = -1
+
+function isExpansionWave(waveNumber: number): boolean {
+  return waveNumber === WAVE_0 || (waveNumber >= 2 && waveNumber <= 7)
+}
+
 // Which phase-timeline columns this wave shows, matching showTimeline/showPhase1/showProofread on screen.
 function timelineHeadersFor(waveNumber: number): string[] {
   if (waveNumber === 1) return ['Phase 1 (Build)', 'Proofread', 'Launched']
-  if (waveNumber >= 2 && waveNumber <= 7) return ['Phase 1 (Build)', 'Proofread']
+  if (isExpansionWave(waveNumber)) return ['Phase 1 (Build)', 'Proofread']
   return []
 }
 
@@ -1254,10 +1261,10 @@ export function WavesPage() {
   const mainWaves      = waves.filter(w => w.wave_number !== 0).sort((a, b) => a.wave_number - b.wave_number)
   const rawStoppedWave = waves.find(w => w.wave_number === 0)
 
-  // Auto-surface just the subitem(s) stopped on both ads and web from waves 1-7,
+  // Auto-surface just the subitem(s) stopped on both ads and web from waves 0-7,
   // in addition to items actually moved into the Stopped wave.
   const autoStoppedItems = mainWaves
-    .filter(w => w.wave_number >= 1 && w.wave_number <= 7)
+    .filter(w => w.wave_number === WAVE_0 || (w.wave_number >= 1 && w.wave_number <= 7))
     .flatMap(w => w.monday_items
       .map(i => ({
         ...i,
@@ -1280,8 +1287,8 @@ export function WavesPage() {
   const allWaves    = [...mainWaves, ...(stoppedWave ? [stoppedWave] : [])]
   const current      = activeWave === stoppedWave?.id ? stoppedWave : waves.find(w => w.id === activeWave)
   const showTimeline = current?.wave_number === 1
-  const showProofread = (current?.wave_number ?? 0) >= 2
-  const showPhase1 = (current?.wave_number ?? 0) >= 2 && (current?.wave_number ?? 0) <= 7
+  const showProofread = current ? current.wave_number === WAVE_0 || current.wave_number >= 2 : false
+  const showPhase1 = current ? isExpansionWave(current.wave_number) : false
 
   const isStoppedTab = current?.wave_number === 0
   const groups = current && !isStoppedTab
